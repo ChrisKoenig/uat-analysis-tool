@@ -45,12 +45,70 @@
         </a>
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h2><i class="fas fa-heartbeat me-2"></i>Service Health Dashboard</h2>
-                <p class="text-muted">Real-time monitoring of microservices</p>
+                <h2><i class="fas fa-heartbeat me-2"></i>Helix Service Health</h2>
+                <p class="text-muted">Real-time monitoring of AI agents and infrastructure</p>
             </div>
             <button class="btn btn-primary" onclick="refreshHealth()">
                 <i class="fas fa-sync-alt me-1"></i>Refresh
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Platform Infrastructure -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 border-primary" id="keyvault-status-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">
+                        <i class="fas fa-key me-2 text-primary"></i>Azure Key Vault
+                    </h5>
+                    <div id="keyvault-status-badge" class="badge bg-secondary">
+                        <i class="fas fa-spinner fa-spin me-1"></i>Checking
+                    </div>
+                </div>
+                <p class="text-muted small mb-0" id="keyvault-subtitle">Checking connection...</p>
+                <div id="keyvault-details" class="mt-2 d-none">
+                    <small class="text-muted" id="keyvault-info"></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 service-card" data-service="main">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">
+                        <span class="status-indicator" id="status-main"></span>
+                        Helix
+                    </h5>
+                    <span class="badge bg-secondary">5003</span>
+                </div>
+                <p class="text-muted small mb-1">Main Application</p>
+                <div class="mt-2">
+                    <small class="text-muted">Response: </small>
+                    <small class="text-primary" id="response-main">-</small><br>
+                    <small class="text-muted">24h Uptime: </small>
+                    <small class="text-success" id="uptime-main">-</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">
+                        <i class="fas fa-circle text-success me-2"></i>Helix Admin
+                    </h5>
+                    <span class="badge bg-secondary">8008</span>
+                </div>
+                <p class="text-muted small mb-1">Admin Portal (This Page)</p>
+                <div class="mt-2">
+                    <small class="text-success"><i class="fas fa-check-circle me-1"></i>Active</small>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -62,12 +120,12 @@
             <div class="card-body">
                 <div class="row text-center">
                     <div class="col-md-3">
-                        <h3 class="text-success" id="services-up">-</h3>
-                        <p class="text-muted">Microservices Up</p>
+                        <h3 id="ai-agents-up"><span class="text-success" id="ai-up">-</span> / <span class="text-muted">6</span></h3>
+                        <p class="text-muted">🤖 AI Agents Up</p>
                     </div>
                     <div class="col-md-3">
-                        <h3 class="text-danger" id="services-down">-</h3>
-                        <p class="text-muted">Microservices Down</p>
+                        <h3 id="infra-services-up"><span class="text-success" id="infra-up">-</span> / <span class="text-muted">2</span></h3>
+                        <p class="text-muted">⚙️ Infrastructure Up</p>
                     </div>
                     <div class="col-md-3">
                         <h3 class="text-info" id="avg-response">-</h3>
@@ -83,72 +141,17 @@
     </div>
 </div>
 
-<!-- Key Vault Status -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card border-primary" id="keyvault-status-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title mb-1">
-                            <i class="fas fa-key me-2 text-primary"></i>Azure Key Vault
-                        </h5>
-                        <p class="text-muted mb-0 small" id="keyvault-subtitle">Checking connection...</p>
-                    </div>
-                    <div class="text-end">
-                        <div id="keyvault-status-badge" class="badge bg-secondary fs-6 px-3 py-2">
-                            <i class="fas fa-spinner fa-spin me-1"></i>Checking
-                        </div>
-                    </div>
-                </div>
-                <div id="keyvault-details" class="mt-3 d-none">
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>
-                        <span id="keyvault-info"></span>
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Service Cards -->
+<!-- Microservices Grid -->
+<h4 class="mb-3"><i class="fas fa-server me-2"></i>Microservices</h4>
 <div class="row g-4" id="services-container">
-    <!-- Main Application -->
+    <!-- API Gateway - Infrastructure - Infrastructure -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="main">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">
-                        <span class="status-indicator" id="status-main"></span>
-                        Main App
-                    </h5>
-                    <span class="badge bg-secondary">5003</span>
-                </div>
-                <div class="service-metrics">
-                    <p class="mb-1"><small class="text-muted">Response Time:</small></p>
-                    <p class="metric-value text-primary" id="response-main">-</p>
-                    <p class="mb-0"><small class="text-muted" id="status-text-main">Checking...</small></p>
-                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
-                    <p class="text-success mb-0" id="uptime-main">-</p>
-                </div>
-                <div class="mt-3">
-                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('main-app')" id="restart-main">
-                        <i class="fas fa-redo me-1"></i>Restart
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- API Gateway -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="gateway">
+        <div class="card service-card h-100" data-service="gateway" style="background-color: #E1F5FE;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-gateway"></span>
-                        API Gateway
+                        ⚙️ API Gateway
                     </h5>
                     <span class="badge bg-secondary">8000</span>
                 </div>
@@ -168,14 +171,14 @@
         </div>
     </div>
 
-    <!-- Context Analyzer -->
+    <!-- Context Analyzer - AI Agent -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="context">
+        <div class="card service-card h-100" data-service="context" style="background-color: #E7F4E4;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-context"></span>
-                        Context Analyzer
+                        🤖 Context Analyzer
                     </h5>
                     <span class="badge bg-secondary">8001</span>
                 </div>
@@ -195,14 +198,14 @@
         </div>
     </div>
 
-    <!-- Search Service -->
+    <!-- Search Service - AI Agent -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="search">
+        <div class="card service-card h-100" data-service="search" style="background-color: #E7F4E4;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-search"></span>
-                        Search Service
+                        🤖 Search Service
                     </h5>
                     <span class="badge bg-secondary">8002</span>
                 </div>
@@ -222,14 +225,14 @@
         </div>
     </div>
 
-    <!-- Enhanced Matching -->
+    <!-- Enhanced Matching - AI Agent -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="matching">
+        <div class="card service-card h-100" data-service="matching" style="background-color: #E7F4E4;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-matching"></span>
-                        Enhanced Matching
+                        🤖 Enhanced Matching
                     </h5>
                     <span class="badge bg-secondary">8003</span>
                 </div>
@@ -249,14 +252,14 @@
         </div>
     </div>
 
-    <!-- UAT Management -->
+    <!-- UAT Management - Infrastructure -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="uat">
+        <div class="card service-card h-100" data-service="uat" style="background-color: #E1F5FE;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-uat"></span>
-                        UAT Management
+                        ⚙️ UAT Management
                     </h5>
                     <span class="badge bg-secondary">8004</span>
                 </div>
@@ -276,14 +279,14 @@
         </div>
     </div>
 
-    <!-- LLM Classifier -->
+    <!-- LLM Classifier - AI Agent -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="llm">
+        <div class="card service-card h-100" data-service="llm" style="background-color: #E7F4E4;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-llm"></span>
-                        LLM Classifier
+                        🤖 LLM Classifier
                     </h5>
                     <span class="badge bg-secondary">8005</span>
                 </div>
@@ -303,14 +306,14 @@
         </div>
     </div>
 
-    <!-- Embedding Service -->
+    <!-- Embedding Service - AI Agent -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="embedding">
+        <div class="card service-card h-100" data-service="embedding" style="background-color: #E7F4E4;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-embedding"></span>
-                        Embedding Service
+                        🤖 Embedding Service
                     </h5>
                     <span class="badge bg-secondary">8006</span>
                 </div>
@@ -330,14 +333,14 @@
         </div>
     </div>
 
-    <!-- Vector Search -->
+    <!-- Vector Search - AI Agent -->
     <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="vector">
+        <div class="card service-card h-100" data-service="vector" style="background-color: #E7F4E4;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <span class="status-indicator" id="status-vector"></span>
-                        Vector Search
+                        🤖 Vector Search
                     </h5>
                     <span class="badge bg-secondary">8007</span>
                 </div>
@@ -449,9 +452,20 @@ async function refreshHealth() {
             }
         }
         
-        // Update summary (only microservices count)
-        document.getElementById('services-up').textContent = upCount;
-        document.getElementById('services-down').textContent = downCount;
+        // Define AI agents and infrastructure services
+        const aiAgents = ['context', 'search', 'matching', 'llm', 'embedding', 'vector'];
+        const infraServices = ['gateway', 'uat'];
+        
+        // Count AI agents and infrastructure separately
+        let aiUp = 0, infraUp = 0;
+        for (const [service, status] of Object.entries(serviceStatus)) {
+            if (aiAgents.includes(service) && status === 'up') aiUp++;
+            if (infraServices.includes(service) && status === 'up') infraUp++;
+        }
+        
+        // Update summary with AI vs Infrastructure split
+        document.getElementById('ai-up').textContent = aiUp;
+        document.getElementById('infra-up').textContent = infraUp;
         if (responseCount > 0) {
             const avgResponse = Math.round(totalResponse / responseCount);
             document.getElementById('avg-response').textContent = avgResponse + 'ms';
