@@ -1,6 +1,6 @@
 """
 Admin Service - Dedicated microservice for administrative functions
-Port: 8004
+Port: 8008
 Responsibilities:
 - Evaluation data viewer and search
 - System configuration (future)
@@ -196,7 +196,7 @@ def evaluation_viewer():
     )
     
     if not filtered:
-        return render_template('evaluation_viewer.html', 
+        return render_template('admin/evaluation_viewer.html', 
                              evaluation=None, 
                              error="No evaluations found")
     
@@ -218,48 +218,11 @@ def evaluation_viewer():
         current_idx = 0
     
     # Get prev/next evaluation IDs
-
-
-@app.route('/evaluations/<eval_id>/detail')
-def evaluation_detail(eval_id):
-    """Show detailed evaluation view similar to context_summary page"""
-    evaluations = load_context_evaluations()
-    
-    # Find the evaluation
-    evaluation = None
-    for e in evaluations:
-        if e.get('evaluation_id') == eval_id or e.get('id') == eval_id:
-            evaluation = e
-            break
-    
-    if not evaluation:
-        return render_template('evaluation_viewer.html', 
-                             evaluation=None, 
-                             error="Evaluation not found")
-    
-    # Extract data for display
-    context = evaluation.get('context_analysis', {})
-    user_input = evaluation.get('user_input', {})
-    search_results = evaluation.get('search_results', {})
-    
-    return render_template(
-        'evaluation_detail.html',
-        evaluation_id=eval_id,
-        evaluation=evaluation,
-        context=context,
-        user_input=user_input,
-        search_results=search_results,
-        original_title=user_input.get('issue_title', ''),
-        original_description=user_input.get('issue_description', ''),
-        original_impact=user_input.get('impact', ''),
-        detected_category=evaluation.get('detected_category', context.get('category', 'Unknown')),
-        user_approved=evaluation.get('user_approved', False)
-    )
     prev_id = filtered[current_idx - 1].get('evaluation_id') or filtered[current_idx - 1].get('id') if current_idx > 0 else None
     next_id = filtered[current_idx + 1].get('evaluation_id') or filtered[current_idx + 1].get('id') if current_idx < len(filtered) - 1 else None
     
     return render_template(
-        'evaluation_viewer.html',
+        'admin/evaluation_viewer.html',
         evaluation=current_eval,
         current_index=current_idx + 1,
         total_count=len(filtered),
@@ -787,18 +750,18 @@ if __name__ == '__main__':
     print("=" * 80)
     print("🔧 Admin Service Starting")
     print("=" * 80)
-    print(f"Port: 8004")
+    print(f"Port: 8008")
     config = kv_config.get_config()
     print(f"Environment: {config.get('AZURE_OPENAI_ENDPOINT', 'Not configured')}")
     print(f"Storage: Azure Blob Storage (stgcsdevgg4a6y)")
     print("=" * 80)
     print("\nAdmin Routes:")
-    print("  http://localhost:8004/                    - Admin Dashboard")
-    print("  http://localhost:8004/evaluations         - Evaluations List")
-    print("  http://localhost:8004/evaluations/viewer  - Interactive Viewer")
-    print("  http://localhost:8004/corrections         - Corrections Database")
-    print("  http://localhost:8004/health-dashboard    - Service Health Monitor")
-    print("  http://localhost:8004/logs                - Application Logs Viewer")
+    print("  http://localhost:8008/                    - Admin Dashboard")
+    print("  http://localhost:8008/evaluations         - Evaluations List")
+    print("  http://localhost:8008/evaluations/viewer  - Interactive Viewer")
+    print("  http://localhost:8008/corrections         - Corrections Database")
+    print("  http://localhost:8008/health-dashboard    - Service Health Monitor")
+    print("  http://localhost:8008/logs                - Application Logs Viewer")
     print("=" * 80)
     
     if TELEMETRY_ENABLED:
