@@ -196,7 +196,7 @@ def evaluation_viewer():
     )
     
     if not filtered:
-        return render_template('admin/evaluation_viewer.html', 
+        return render_template('evaluation_viewer.html', 
                              evaluation=None, 
                              error="No evaluations found")
     
@@ -222,7 +222,7 @@ def evaluation_viewer():
     next_id = filtered[current_idx + 1].get('evaluation_id') or filtered[current_idx + 1].get('id') if current_idx < len(filtered) - 1 else None
     
     return render_template(
-        'admin/evaluation_viewer.html',
+        'evaluation_viewer.html',
         evaluation=current_eval,
         current_index=current_idx + 1,
         total_count=len(filtered),

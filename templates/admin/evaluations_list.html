@@ -53,6 +53,7 @@
                 <thead>
                     <tr>
                         <th>Timestamp</th>
+                        <th>Title</th>
                         <th>Category</th>
                         <th>Feature</th>
                         <th>UATs</th>
@@ -65,8 +66,17 @@
                     <tr>
                         <td>
                             <small class="text-muted">
-                                {{ eval.timestamp[:19] if eval.timestamp else 'N/A' }}
+                                {% if eval.timestamp %}
+                                    {{ eval.timestamp[:10] }} {{ eval.timestamp[11:19] }}
+                                    <br><span class="text-muted" style="font-size: 0.75rem;">UTC</span>
+                                {% else %}
+                                    N/A
+                                {% endif %}
                             </small>
+                        </td>
+                        <td>
+                            <strong>{{ (eval.get('user_input', {}).get('issue_title', '') or 'Untitled')[:60] }}</strong>
+                            {% if (eval.get('user_input', {}).get('issue_title', '')|length) > 60 %}...{% endif %}
                         </td>
                         <td>
                             <span class="badge bg-primary">
@@ -74,14 +84,22 @@
                             </span>
                         </td>
                         <td>
-                            <span class="badge bg-secondary">
-                                {{ eval.detected_feature or 'N/A' }}
-                            </span>
+                            {% if eval.detected_feature and eval.detected_feature != 'N/A' %}
+                                <span class="badge bg-secondary">
+                                    {{ eval.detected_feature }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <span class="badge bg-info">
-                                {{ eval.suggested_uats|length }} UATs
-                            </span>
+                            {% if eval.suggested_uats %}
+                                <span class="badge bg-info" title="{{ eval.suggested_uats[:5]|join(', ') }}{% if eval.suggested_uats|length > 5 %}...{% endif %}">
+                                    {{ eval.suggested_uats|length }} UATs
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">0 UATs</span>
+                            {% endif %}
                         </td>
                         <td>
                             {{ "%.0f"|format((eval.get('system_analysis', {}).get('confidence', 0) or eval.get('confidence', 0)) * 100) }}%
