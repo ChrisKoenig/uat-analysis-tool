@@ -63,11 +63,11 @@
                 <div class="row text-center">
                     <div class="col-md-3">
                         <h3 class="text-success" id="services-up">-</h3>
-                        <p class="text-muted">Services Up</p>
+                        <p class="text-muted">Microservices Up</p>
                     </div>
                     <div class="col-md-3">
                         <h3 class="text-danger" id="services-down">-</h3>
-                        <p class="text-muted">Services Down</p>
+                        <p class="text-muted">Microservices Down</p>
                     </div>
                     <div class="col-md-3">
                         <h3 class="text-info" id="avg-response">-</h3>
@@ -77,6 +77,35 @@
                         <h3 class="text-primary" id="last-check">-</h3>
                         <p class="text-muted">Last Check</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Vault Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-primary" id="keyvault-status-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">
+                            <i class="fas fa-key me-2 text-primary"></i>Azure Key Vault
+                        </h5>
+                        <p class="text-muted mb-0 small" id="keyvault-subtitle">Checking connection...</p>
+                    </div>
+                    <div class="text-end">
+                        <div id="keyvault-status-badge" class="badge bg-secondary fs-6 px-3 py-2">
+                            <i class="fas fa-spinner fa-spin me-1"></i>Checking
+                        </div>
+                    </div>
+                </div>
+                <div id="keyvault-details" class="mt-3 d-none">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <span id="keyvault-info"></span>
+                    </small>
                 </div>
             </div>
         </div>
@@ -100,6 +129,13 @@
                     <p class="mb-1"><small class="text-muted">Response Time:</small></p>
                     <p class="metric-value text-primary" id="response-main">-</p>
                     <p class="mb-0"><small class="text-muted" id="status-text-main">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-main">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('main-app')" id="restart-main">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
                 </div>
             </div>
         </div>
@@ -120,6 +156,13 @@
                     <p class="mb-1"><small class="text-muted">Response Time:</small></p>
                     <p class="metric-value text-primary" id="response-gateway">-</p>
                     <p class="mb-0"><small class="text-muted" id="status-text-gateway">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-gateway">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('api-gateway')" id="restart-gateway">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
                 </div>
             </div>
         </div>
@@ -140,6 +183,13 @@
                     <p class="mb-1"><small class="text-muted">Response Time:</small></p>
                     <p class="metric-value text-primary" id="response-context">-</p>
                     <p class="mb-0"><small class="text-muted" id="status-text-context">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-context">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('context-analyzer')" id="restart-context">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
                 </div>
             </div>
         </div>
@@ -160,6 +210,13 @@
                     <p class="mb-1"><small class="text-muted">Response Time:</small></p>
                     <p class="metric-value text-primary" id="response-search">-</p>
                     <p class="mb-0"><small class="text-muted" id="status-text-search">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-search">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('search-service')" id="restart-search">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
                 </div>
             </div>
         </div>
@@ -180,6 +237,121 @@
                     <p class="mb-1"><small class="text-muted">Response Time:</small></p>
                     <p class="metric-value text-primary" id="response-matching">-</p>
                     <p class="mb-0"><small class="text-muted" id="status-text-matching">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-matching">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('enhanced-matching')" id="restart-matching">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UAT Management -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card service-card h-100" data-service="uat">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <span class="status-indicator" id="status-uat"></span>
+                        UAT Management
+                    </h5>
+                    <span class="badge bg-secondary">8004</span>
+                </div>
+                <div class="service-metrics">
+                    <p class="mb-1"><small class="text-muted">Response Time:</small></p>
+                    <p class="metric-value text-primary" id="response-uat">-</p>
+                    <p class="mb-0"><small class="text-muted" id="status-text-uat">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-uat">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('uat-management')" id="restart-uat">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LLM Classifier -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card service-card h-100" data-service="llm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <span class="status-indicator" id="status-llm"></span>
+                        LLM Classifier
+                    </h5>
+                    <span class="badge bg-secondary">8005</span>
+                </div>
+                <div class="service-metrics">
+                    <p class="mb-1"><small class="text-muted">Response Time:</small></p>
+                    <p class="metric-value text-primary" id="response-llm">-</p>
+                    <p class="mb-0"><small class="text-muted" id="status-text-llm">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-llm">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('llm-classifier')" id="restart-llm">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Embedding Service -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card service-card h-100" data-service="embedding">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <span class="status-indicator" id="status-embedding"></span>
+                        Embedding Service
+                    </h5>
+                    <span class="badge bg-secondary">8006</span>
+                </div>
+                <div class="service-metrics">
+                    <p class="mb-1"><small class="text-muted">Response Time:</small></p>
+                    <p class="metric-value text-primary" id="response-embedding">-</p>
+                    <p class="mb-0"><small class="text-muted" id="status-text-embedding">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-embedding">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('embedding-service')" id="restart-embedding">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vector Search -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card service-card h-100" data-service="vector">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <span class="status-indicator" id="status-vector"></span>
+                        Vector Search
+                    </h5>
+                    <span class="badge bg-secondary">8007</span>
+                </div>
+                <div class="service-metrics">
+                    <p class="mb-1"><small class="text-muted">Response Time:</small></p>
+                    <p class="metric-value text-primary" id="response-vector">-</p>
+                    <p class="mb-0"><small class="text-muted" id="status-text-vector">Checking...</small></p>
+                    <p class="mb-0 mt-2"><small class="text-muted">24h Uptime:</small></p>
+                    <p class="text-success mb-0" id="uptime-vector">-</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-warning w-100" onclick="restartService('vector-search')" id="restart-vector">
+                        <i class="fas fa-redo me-1"></i>Restart
+                    </button>
                 </div>
             </div>
         </div>
@@ -194,7 +366,7 @@
                         <span class="status-indicator status-up" id="status-admin"></span>
                         Admin Service
                     </h5>
-                    <span class="badge bg-success">8004</span>
+                    <span class="badge bg-success">8008</span>
                 </div>
                 <div class="service-metrics">
                     <p class="mb-1"><small class="text-muted">Response Time:</small></p>
@@ -207,100 +379,254 @@
 </div>
 
 <script>
-const SERVICES = {
-    main: { url: 'http://localhost:5003/health', name: 'Main App' },
-    gateway: { url: 'http://localhost:8000/health', name: 'API Gateway' },
-    context: { url: 'http://localhost:8001/health', name: 'Context Analyzer' },
-    search: { url: 'http://localhost:8002/health', name: 'Search Service' },
-    matching: { url: 'http://localhost:8003/health', name: 'Enhanced Matching' }
+// Service name mapping
+const SERVICE_MAP = {
+    'api-gateway': 'gateway',
+    'context-analyzer': 'context',
+    'search-service': 'search',
+    'enhanced-matching': 'matching',
+    'uat-management': 'uat',
+    'llm-classifier': 'llm',
+    'embedding-service': 'embedding',
+    'vector-search': 'vector',
+    'main-app': 'main'
 };
-
-async function checkServiceHealth(serviceName, serviceConfig) {
-    const startTime = performance.now();
-    try {
-        const response = await fetch(serviceConfig.url, {
-            method: 'GET',
-            mode: 'cors',
-            timeout: 5000
-        });
-        const endTime = performance.now();
-        const responseTime = Math.round(endTime - startTime);
-        
-        if (response.ok) {
-            updateServiceStatus(serviceName, 'up', responseTime);
-        } else {
-            updateServiceStatus(serviceName, 'down', 0, `HTTP ${response.status}`);
-        }
-    } catch (error) {
-        updateServiceStatus(serviceName, 'down', 0, error.message);
-    }
-}
-
-function updateServiceStatus(service, status, responseTime, errorMsg = '') {
-    const statusIndicator = document.getElementById(`status-${service}`);
-    const responseElement = document.getElementById(`response-${service}`);
-    const statusText = document.getElementById(`status-text-${service}`);
-    
-    // Update status indicator
-    statusIndicator.className = 'status-indicator';
-    if (status === 'up') {
-        statusIndicator.classList.add('status-up');
-        responseElement.textContent = responseTime + 'ms';
-        responseElement.className = 'metric-value text-success';
-        statusText.textContent = 'Online';
-        statusText.className = 'text-success';
-    } else {
-        statusIndicator.classList.add('status-down');
-        responseElement.textContent = 'Down';
-        responseElement.className = 'metric-value text-danger';
-        statusText.textContent = errorMsg || 'Offline';
-        statusText.className = 'text-danger';
-    }
-}
 
 async function refreshHealth() {
     // Update last check time
     document.getElementById('last-check').textContent = new Date().toLocaleTimeString();
     
-    // Check all services
-    let upCount = 1; // Admin service is always up (we're running on it)
-    let downCount = 0;
-    let totalResponse = 0;
-    let responseCount = 0;
-    
-    for (const [name, config] of Object.entries(SERVICES)) {
-        await checkServiceHealth(name, config);
+    try {
+        // Use server-side API to check all services
+        const response = await fetch('/api/services/health');
+        const data = await response.json();
         
-        // Calculate stats
-        const statusIndicator = document.getElementById(`status-${name}`);
-        if (statusIndicator.classList.contains('status-up')) {
-            upCount++;
-            const responseText = document.getElementById(`response-${name}`).textContent;
-            if (responseText.endsWith('ms')) {
-                totalResponse += parseInt(responseText);
-                responseCount++;
+        // Only count the 8 actual microservices (exclude main-app and admin)
+        const microservices = ['api-gateway', 'context-analyzer', 'search-service', 'enhanced-matching', 
+                               'uat-management', 'llm-classifier', 'embedding-service', 'vector-search'];
+        
+        let upCount = 0;
+        let downCount = 0;
+        let totalResponse = 0;
+        let responseCount = 0;
+        
+        // Update each service card
+        for (const [serviceName, serviceInfo] of Object.entries(data.services)) {
+            const displayName = SERVICE_MAP[serviceName] || serviceName;
+            const statusIndicator = document.getElementById(`status-${displayName}`);
+            const responseElement = document.getElementById(`response-${displayName}`);
+            const statusText = document.getElementById(`status-text-${displayName}`);
+            
+            if (!statusIndicator) continue; // Skip if card doesn't exist
+            
+            // Update status indicator
+            statusIndicator.className = 'status-indicator';
+            
+            if (serviceInfo.status === 'healthy') {
+                statusIndicator.classList.add('status-up');
+                responseElement.textContent = serviceInfo.response_time + 'ms';
+                responseElement.className = 'metric-value text-success';
+                statusText.textContent = 'Online';
+                statusText.className = 'text-success';
+                
+                // Only count microservices in summary
+                if (microservices.includes(serviceName)) {
+                    upCount++;
+                    totalResponse += serviceInfo.response_time;
+                    responseCount++;
+                }
+            } else {
+                statusIndicator.classList.add('status-down');
+                responseElement.textContent = 'Down';
+                responseElement.className = 'metric-value text-danger';
+                statusText.textContent = serviceInfo.error || 'Offline';
+                statusText.className = 'text-danger';
+                
+                // Only count microservices in summary
+                if (microservices.includes(serviceName)) {
+                    downCount++;
+                }
             }
-        } else {
-            downCount++;
         }
+        
+        // Update summary (only microservices count)
+        document.getElementById('services-up').textContent = upCount;
+        document.getElementById('services-down').textContent = downCount;
+        if (responseCount > 0) {
+            const avgResponse = Math.round(totalResponse / responseCount);
+            document.getElementById('avg-response').textContent = avgResponse + 'ms';
+        } else {
+            document.getElementById('avg-response').textContent = 'N/A';
+        }
+    } catch (error) {
+        console.error('Failed to check service health:', error);
     }
-    
-    // Update summary
-    document.getElementById('services-up').textContent = upCount;
-    document.getElementById('services-down').textContent = downCount;
-    if (responseCount > 0) {
-        const avgResponse = Math.round(totalResponse / responseCount);
-        document.getElementById('avg-response').textContent = avgResponse + 'ms';
-    } else {
-        document.getElementById('avg-response').textContent = 'N/A';
+}
+
+// Fetch and display uptime statistics
+async function fetchUptimeStats() {
+    try {
+        const response = await fetch('/api/services/uptime');
+        const data = await response.json();
+        
+        if (data.services) {
+            // Map internal service names to display names
+            const serviceNameMap = {
+                'main-app': 'main',
+                'api-gateway': 'gateway',
+                'context-analyzer': 'context',
+                'search-service': 'search',
+                'enhanced-matching': 'matching',
+                'uat-management': 'uat',
+                'llm-classifier': 'llm',
+                'embedding-service': 'embedding',
+                'vector-search': 'vector'
+            };
+            
+            for (const [serviceName, stats] of Object.entries(data.services)) {
+                const displayName = serviceNameMap[serviceName];
+                if (!displayName) continue;
+                
+                const uptimeElement = document.getElementById(`uptime-${displayName}`);
+                if (uptimeElement) {
+                    const uptime = stats.uptime_percentage;
+                    const downtime = stats.downtime_minutes;
+                    
+                    // Display uptime with color coding
+                    if (uptime >= 99) {
+                        uptimeElement.className = 'text-success mb-0 fw-bold';
+                    } else if (uptime >= 95) {
+                        uptimeElement.className = 'text-warning mb-0 fw-bold';
+                    } else {
+                        uptimeElement.className = 'text-danger mb-0 fw-bold';
+                    }
+                    
+                    uptimeElement.textContent = `${uptime}% (${downtime}m down)`;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Failed to fetch uptime stats:', error);
     }
 }
 
 // Initial check
 refreshHealth();
+fetchUptimeStats();
+refreshKeyVaultStatus();
 
 // Auto-refresh every 30 seconds
 setInterval(refreshHealth, 30000);
+setInterval(fetchUptimeStats, 60000); // Update uptime every minute
+setInterval(refreshKeyVaultStatus, 60000); // Check Key Vault every minute
+
+// Restart service function
+async function restartService(serviceName) {
+    const button = document.querySelector(`button[onclick*="${serviceName}"]`);
+    if (!button) return;
+    
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Restarting...';
+    
+    try {
+        const response = await fetch(`/api/services/${serviceName}/restart`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            button.classList.remove('btn-warning');
+            button.classList.add('btn-success');
+            button.innerHTML = '<i class="fas fa-check me-1"></i>Restarted';
+            
+            // Wait 3 seconds then refresh health and reset button
+            setTimeout(async () => {
+                await refreshHealth();
+                button.classList.remove('btn-success');
+                button.classList.add('btn-warning');
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 3000);
+        } else {
+            button.classList.remove('btn-warning');
+            button.classList.add('btn-danger');
+            button.innerHTML = '<i class="fas fa-times me-1"></i>Failed';
+            setTimeout(() => {
+                button.classList.remove('btn-danger');
+                button.classList.add('btn-warning');
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 3000);
+        }
+    } catch (error) {
+        console.error('Restart failed:', error);
+        button.classList.remove('btn-warning');
+        button.classList.add('btn-danger');
+        button.innerHTML = '<i class="fas fa-times me-1"></i>Error';
+        setTimeout(() => {
+            button.classList.remove('btn-danger');
+            button.classList.add('btn-warning');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }, 3000);
+    }
+}
+
+// Key Vault status check
+async function refreshKeyVaultStatus() {
+    const badge = document.getElementById('keyvault-status-badge');
+    const subtitle = document.getElementById('keyvault-subtitle');
+    const details = document.getElementById('keyvault-details');
+    const info = document.getElementById('keyvault-info');
+    const card = document.getElementById('keyvault-status-card');
+    
+    try {
+        const response = await fetch('/api/keyvault/status');
+        const data = await response.json();
+        
+        if (data.connected) {
+            badge.innerHTML = '<i class="fas fa-check-circle me-1"></i>Connected';
+            badge.className = 'badge bg-success fs-6 px-3 py-2';
+            subtitle.textContent = 'Reading secrets from Azure Key Vault';
+            info.textContent = `${data.auth_method} • ${data.cached_secrets} secrets cached`;
+            details.classList.remove('d-none');
+            card.className = 'card border-success';
+        } else if (data.enabled) {
+            badge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Partial';
+            badge.className = 'badge bg-warning fs-6 px-3 py-2';
+            subtitle.textContent = 'Key Vault configured but connection not verified';
+            info.textContent = data.auth_method;
+            details.classList.remove('d-none');
+            card.className = 'card border-warning';
+        } else {
+            badge.innerHTML = '<i class="fas fa-times-circle me-1"></i>Not Connected';
+            badge.className = 'badge bg-danger fs-6 px-3 py-2';
+            subtitle.textContent = 'Using environment variables (.env files)';
+            card.className = 'card border-danger';
+            if (data.error) {
+                info.textContent = `Error: ${data.error}`;
+                details.classList.remove('d-none');
+            } else {
+                details.classList.add('d-none');
+            }
+        }
+    } catch (error) {
+        badge.innerHTML = '<i class="fas fa-times-circle me-1"></i>Error';
+        badge.className = 'badge bg-danger fs-6 px-3 py-2';
+        subtitle.textContent = 'Failed to check Key Vault status';
+        card.className = 'card border-danger';
+        console.error('Key Vault status check failed:', error);
+    }
+}
+
+// Initial checks
+refreshKeyVaultStatus();
+
 </script>
 
 {% endblock %}

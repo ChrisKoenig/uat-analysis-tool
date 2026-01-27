@@ -369,6 +369,54 @@ class IssueTracker:
 
 tracker = IssueTracker()
 
+# =============================================================================
+# HEALTH CHECK ENDPOINT - SERVICE MONITORING
+# =============================================================================
+
+@app.route('/health')
+def health():
+    """
+    MAIN APPLICATION HEALTH CHECK ENDPOINT
+    
+    Purpose:
+        - Provides real-time health status for monitoring systems
+        - Used by Admin Dashboard Service Health monitoring
+        - Enables load balancer health checks
+        - Confirms application responsiveness
+    
+    Monitoring Integration:
+        - Checked by Admin Service every 30 seconds
+        - Displayed on Service Health Dashboard
+        - Used for 24-hour uptime tracking
+        - Triggers restart functionality if unhealthy
+    
+    Response Format:
+        HTTP 200 OK with JSON payload:
+        {
+            "status": "ok",           # Health status indicator
+            "service": "main-app",    # Service identifier
+            "port": 5003,             # Service port number
+            "timestamp": "ISO-8601"   # Check timestamp
+        }
+    
+    Implementation Notes:
+        - Lightweight endpoint for fast response
+        - No dependencies on external services
+        - Returns 200 status code when healthy
+        - Timestamp in ISO 8601 format for consistency
+    
+    Usage:
+        curl http://localhost:5003/health
+    
+    Added: 2026-01-26 - Main App health monitoring support
+    """
+    return jsonify({
+        'status': 'ok',
+        'service': 'main-app',
+        'port': 5003,
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
 @app.route('/')
 def index():
     """
