@@ -5,9 +5,10 @@ Write-Host "====================================================================
 Write-Host "Admin Service - Startup Script" -ForegroundColor Cyan
 Write-Host "================================================================================" -ForegroundColor Cyan
 
-Write-Host "`n[1/3] Setting up Managed Identity authentication..." -ForegroundColor Yellow
-$env:AZURE_CLIENT_ID = "7846e03e-9279-4057-bdcd-4a2f7f8ebe85"
-Write-Host "   Using managed identity: mi-gcs-dev" -ForegroundColor Gray
+Write-Host "`n[1/3] Setting up authentication..." -ForegroundColor Yellow
+# Uncomment next line ONLY when deploying to Azure:
+# $env:AZURE_CLIENT_ID = "7846e03e-9279-4057-bdcd-4a2f7f8ebe85"
+Write-Host "   Using local Azure CLI authentication" -ForegroundColor Gray
 
 Write-Host "`n[2/3] Loading configuration from Key Vault..." -ForegroundColor Yellow
 Write-Host "   Secrets will be loaded from Azure Key Vault" -ForegroundColor Gray
