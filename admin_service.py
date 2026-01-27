@@ -154,6 +154,21 @@ def evaluations_list():
     # Load all evaluations
     evaluations = load_context_evaluations()
     
+    # DEBUG: Log evaluation data structure
+    if evaluations:
+        print(f"\n🔍 DEBUG: Found {len(evaluations)} evaluations")
+        print(f"🔍 DEBUG: First evaluation keys: {list(evaluations[0].keys())}")
+        print(f"🔍 DEBUG: First evaluation data:")
+        for key, value in evaluations[0].items():
+            if isinstance(value, dict):
+                print(f"  {key}: {type(value).__name__} with keys {list(value.keys())}")
+            elif isinstance(value, list):
+                print(f"  {key}: {type(value).__name__} with {len(value)} items")
+            else:
+                print(f"  {key}: {repr(value)[:100]}")
+    else:
+        print("\n⚠️ DEBUG: No evaluations found!")
+    
     # Apply search filter
     filtered = filter_evaluations(
         evaluations, 
