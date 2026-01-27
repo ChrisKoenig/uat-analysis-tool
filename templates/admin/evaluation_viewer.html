@@ -132,10 +132,15 @@
                 </p>
             </div>
             <div class="col-md-4 text-end">
+                {% set eval_id = evaluation.get('evaluation_id', '') or evaluation.get('id', '') or 'unknown' %}
+                <a href="{{ url_for('evaluation_detail_view', eval_id=eval_id) }}" 
+                   class="btn btn-primary me-2">
+                    <i class="fas fa-eye me-1"></i>View Details
+                </a>
                 <button type="button" 
                         class="btn btn-danger" 
                         onclick="confirmDelete('{{ evaluation.get('evaluation_id', evaluation.get('id')) }}')">
-                    <i class="fas fa-trash-alt me-1"></i>Delete Evaluation
+                    <i class="fas fa-trash-alt me-1"></i>Delete
                 </button>
             </div>
         </div>

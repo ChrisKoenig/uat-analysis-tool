@@ -79,10 +79,14 @@
                             {% if title|length > 60 %}...{% endif %}
                         </td>
                         <td>
-                            {% set category = eval.get('system_analysis', {}).get('category', '') or eval.get('corrections', {}).get('correct_category', '') or eval.get('detected_category', '') or 'Unknown' %}
-                            <span class="badge bg-primary">
-                                {{ category }}
-                            </span>
+                            {% set category = eval.get('system_analysis', {}).get('category', '') or eval.get('corrections', {}).get('correct_category', '') or eval.get('detected_category', '') %}
+                            {% if category %}
+                                <span class="badge bg-primary">
+                                    {{ category }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">Unknown</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% set feature = eval.get('detected_feature', '') %}
@@ -109,7 +113,7 @@
                             {{ "%.0f"|format(confidence * 100 if confidence <= 1 else confidence) }}%
                         </td>
                         <td>
-                            {% set eval_id = eval.get('evaluation_id', '') or eval.get('id', '') or loop.index0 %}
+                            {% set eval_id = eval.get('evaluation_id', '') or eval.get('id', '') or loop.index %}
                             <a href="/evaluations/viewer?id={{ eval_id }}{% if search_query %}&search={{ search_query }}{% endif %}" 
                                class="btn btn-sm btn-outline-primary me-1">
                                 <i class="fas fa-eye"></i> View

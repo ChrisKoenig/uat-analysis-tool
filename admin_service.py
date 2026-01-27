@@ -158,14 +158,9 @@ def evaluations_list():
     if evaluations:
         print(f"\n🔍 DEBUG: Found {len(evaluations)} evaluations")
         print(f"🔍 DEBUG: First evaluation keys: {list(evaluations[0].keys())}")
-        print(f"🔍 DEBUG: First evaluation data:")
-        for key, value in evaluations[0].items():
-            if isinstance(value, dict):
-                print(f"  {key}: {type(value).__name__} with keys {list(value.keys())}")
-            elif isinstance(value, list):
-                print(f"  {key}: {type(value).__name__} with {len(value)} items")
-            else:
-                print(f"  {key}: {repr(value)[:100]}")
+        print(f"🔍 DEBUG: First evaluation FULL data:")
+        import json
+        print(json.dumps(evaluations[0], indent=2, default=str))
     else:
         print("\n⚠️ DEBUG: No evaluations found!")
     
@@ -220,9 +215,10 @@ def evaluation_viewer():
     current_eval = None
     
     if eval_id:
+        # Try to match by ID first
         for idx, evaluation in enumerate(filtered):
-            eval_key = evaluation.get('evaluation_id') or evaluation.get('id')
-            if eval_key == eval_id:
+            eval_key = evaluation.get('evaluation_id') or evaluation.get('id') or str(idx)
+            if str(eval_key) == str(eval_id):
                 current_idx = idx
                 current_eval = evaluation
                 break
@@ -232,9 +228,18 @@ def evaluation_viewer():
         current_eval = filtered[0]
         current_idx = 0
     
-    # Get prev/next evaluation IDs
-    prev_id = filtered[current_idx - 1].get('evaluation_id') or filtered[current_idx - 1].get('id') if current_idx > 0 else None
-    next_id = filtered[current_idx + 1].get('evaluation_id') or filtered[current_idx + 1].get('id') if current_idx < len(filtered) - 1 else None
+    # Get prev/next evaluation IDs (use index as fallback if no ID exists)
+    if current_idx > 0:
+        prev_eval = filtered[current_idx - 1]
+        prev_id = prev_eval.get('evaluation_id') or prev_eval.get('id') or str(current_idx - 1)
+    else:
+        prev_id = None
+    
+    if current_idx < len(filtered) - 1:
+        next_eval = filtered[current_idx + 1]
+        next_id = next_eval.get('evaluation_id') or next_eval.get('id') or str(current_idx + 1)
+    else:
+        next_id = None
     
     return render_template(
         'evaluation_viewer.html',
