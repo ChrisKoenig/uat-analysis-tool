@@ -68,29 +68,25 @@
                         <i class="fas fa-spinner fa-spin me-1"></i>Checking
                     </div>
                 </div>
-                <p class="text-muted small mb-0" id="keyvault-subtitle">Checking connection...</p>
-                <div id="keyvault-details" class="mt-2 d-none">
-                    <small class="text-muted" id="keyvault-info"></small>
+                <p class="text-muted small mb-1" id="keyvault-subtitle">Secure Configuration Storage</p>
+                <div class="mt-2">
+                    <small id="keyvault-info" class="text-muted">Checking...</small>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card h-100 service-card" data-service="main">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h5 class="mb-0">
-                        <span class="status-indicator" id="status-main"></span>
-                        Helix
+                        <i class="fas fa-circle me-2" id="helix-status-icon"></i>Helix
                     </h5>
                     <span class="badge bg-secondary">5003</span>
                 </div>
                 <p class="text-muted small mb-1">Main Application</p>
                 <div class="mt-2">
-                    <small class="text-muted">Response: </small>
-                    <small class="text-primary" id="response-main">-</small><br>
-                    <small class="text-muted">24h Uptime: </small>
-                    <small class="text-success" id="uptime-main">-</small>
+                    <small id="helix-status-text"><i class="fas fa-spinner fa-spin me-1"></i>Checking...</small>
                 </div>
             </div>
         </div>
@@ -359,26 +355,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Admin Service -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card service-card h-100" data-service="admin">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">
-                        <span class="status-indicator status-up" id="status-admin"></span>
-                        Admin Service
-                    </h5>
-                    <span class="badge bg-success">8008</span>
-                </div>
-                <div class="service-metrics">
-                    <p class="mb-1"><small class="text-muted">Response Time:</small></p>
-                    <p class="metric-value text-primary" id="response-admin">Active</p>
-                    <p class="mb-0"><small class="text-success">Running (current)</small></p>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
@@ -413,6 +389,13 @@ async function refreshHealth() {
         let totalResponse = 0;
         let responseCount = 0;
         
+        // Define AI agents and infrastructure services (by API service name)
+        const aiAgents = ['context-analyzer', 'search-service', 'enhanced-matching', 'llm-classifier', 'embedding-service', 'vector-search'];
+        const infraServices = ['api-gateway', 'uat-management'];
+        
+        // Count AI agents and infrastructure separately
+        let aiUp = 0, infraUp = 0;
+        
         // Update each service card
         for (const [serviceName, serviceInfo] of Object.entries(data.services)) {
             const displayName = SERVICE_MAP[serviceName] || serviceName;
@@ -420,7 +403,21 @@ async function refreshHealth() {
             const responseElement = document.getElementById(`response-${displayName}`);
             const statusText = document.getElementById(`status-text-${displayName}`);
             
-            if (!statusIndicator) continue; // Skip if card doesn't exist
+            if (!statusIndicator) {
+                // Update Helix status if it's main-app
+                if (serviceName === 'main-app') {
+                    const helixIcon = document.getElementById('helix-status-icon');
+                    const helixText = document.getElementById('helix-status-text');
+                    if (serviceInfo.status === 'healthy') {
+                        helixIcon.className = 'fas fa-circle text-success me-2';
+                        helixText.innerHTML = '<i class="fas fa-check-circle me-1 text-success"></i>Active';
+                    } else {
+                        helixIcon.className = 'fas fa-circle text-danger me-2';
+                        helixText.innerHTML = '<i class="fas fa-times-circle me-1 text-danger"></i>Offline';
+                    }
+                }
+                continue; // Skip if card doesn't exist
+            }
             
             // Update status indicator
             statusIndicator.className = 'status-indicator';
@@ -432,11 +429,15 @@ async function refreshHealth() {
                 statusText.textContent = 'Online';
                 statusText.className = 'text-success';
                 
-                // Only count microservices in summary
+                // Count for summary
                 if (microservices.includes(serviceName)) {
                     upCount++;
                     totalResponse += serviceInfo.response_time;
                     responseCount++;
+                    
+                    // Count AI agents and infrastructure
+                    if (aiAgents.includes(serviceName)) aiUp++;
+                    if (infraServices.includes(serviceName)) infraUp++;
                 }
             } else {
                 statusIndicator.classList.add('status-down');
@@ -450,17 +451,6 @@ async function refreshHealth() {
                     downCount++;
                 }
             }
-        }
-        
-        // Define AI agents and infrastructure services
-        const aiAgents = ['context', 'search', 'matching', 'llm', 'embedding', 'vector'];
-        const infraServices = ['gateway', 'uat'];
-        
-        // Count AI agents and infrastructure separately
-        let aiUp = 0, infraUp = 0;
-        for (const [service, status] of Object.entries(serviceStatus)) {
-            if (aiAgents.includes(service) && status === 'up') aiUp++;
-            if (infraServices.includes(service) && status === 'up') infraUp++;
         }
         
         // Update summary with AI vs Infrastructure split
@@ -595,7 +585,6 @@ async function restartService(serviceName) {
 async function refreshKeyVaultStatus() {
     const badge = document.getElementById('keyvault-status-badge');
     const subtitle = document.getElementById('keyvault-subtitle');
-    const details = document.getElementById('keyvault-details');
     const info = document.getElementById('keyvault-info');
     const card = document.getElementById('keyvault-status-card');
     
@@ -605,35 +594,29 @@ async function refreshKeyVaultStatus() {
         
         if (data.connected) {
             badge.innerHTML = '<i class="fas fa-check-circle me-1"></i>Connected';
-            badge.className = 'badge bg-success fs-6 px-3 py-2';
-            subtitle.textContent = 'Reading secrets from Azure Key Vault';
-            info.textContent = `${data.auth_method} • ${data.cached_secrets} secrets cached`;
-            details.classList.remove('d-none');
-            card.className = 'card border-success';
+            badge.className = 'badge bg-success';
+            subtitle.textContent = 'Secure Configuration Storage';
+            info.innerHTML = `<i class="fas fa-check-circle me-1 text-success"></i>${data.auth_method}`;
+            card.className = 'card h-100 border-success';
         } else if (data.enabled) {
             badge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Partial';
-            badge.className = 'badge bg-warning fs-6 px-3 py-2';
-            subtitle.textContent = 'Key Vault configured but connection not verified';
-            info.textContent = data.auth_method;
-            details.classList.remove('d-none');
-            card.className = 'card border-warning';
+            badge.className = 'badge bg-warning';
+            subtitle.textContent = 'Secure Configuration Storage';
+            info.innerHTML = `<i class="fas fa-exclamation-triangle me-1 text-warning"></i>${data.auth_method}`;
+            card.className = 'card h-100 border-warning';
         } else {
             badge.innerHTML = '<i class="fas fa-times-circle me-1"></i>Not Connected';
-            badge.className = 'badge bg-danger fs-6 px-3 py-2';
-            subtitle.textContent = 'Using environment variables (.env files)';
-            card.className = 'card border-danger';
-            if (data.error) {
-                info.textContent = `Error: ${data.error}`;
-                details.classList.remove('d-none');
-            } else {
-                details.classList.add('d-none');
-            }
+            badge.className = 'badge bg-danger';
+            subtitle.textContent = 'Secure Configuration Storage';
+            info.innerHTML = '<i class="fas fa-times-circle me-1 text-danger"></i>Using .env files';
+            card.className = 'card h-100 border-danger';
         }
     } catch (error) {
         badge.innerHTML = '<i class="fas fa-times-circle me-1"></i>Error';
-        badge.className = 'badge bg-danger fs-6 px-3 py-2';
-        subtitle.textContent = 'Failed to check Key Vault status';
-        card.className = 'card border-danger';
+        badge.className = 'badge bg-danger';
+        subtitle.textContent = 'Secure Configuration Storage';
+        info.innerHTML = '<i class="fas fa-times-circle me-1 text-danger"></i>Status check failed';
+        card.className = 'card h-100 border-danger';
         console.error('Key Vault status check failed:', error);
     }
 }
