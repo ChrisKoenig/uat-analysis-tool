@@ -12,6 +12,10 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential, InteractiveBrowserCredential
 from keyvault_config import get_keyvault_config
 
+# Global credential cache to avoid repeated authentication prompts
+_cached_blob_credential = None
+_cached_blob_service_client = None
+
 class BlobStorageManager:
     """Manages JSON data in Azure Blob Storage"""
     
@@ -21,38 +25,49 @@ class BlobStorageManager:
         
         Authentication priority:
         1. Managed Identity (if AZURE_CLIENT_ID is set AND running in Azure)
-        2. InteractiveBrowserCredential (local development)
+        2. InteractiveBrowserCredential (local development) - CACHED to avoid repeated prompts
         """
+        global _cached_blob_credential, _cached_blob_service_client
+        
         self.container_name = container_name
         self.account_url = f"https://{storage_account_name}.blob.core.windows.net"
+        
+        # Reuse cached client if available
+        if _cached_blob_service_client:
+            print("  Using cached blob storage client")
+            self.blob_service_client = _cached_blob_service_client
+            self.container_client = self.blob_service_client.get_container_client(container_name)
+            return
         
         # Check for managed identity first
         managed_identity_client_id = os.environ.get('AZURE_CLIENT_ID')
         
         if managed_identity_client_id:
-            # Try managed identity, but fall back to interactive if IMDS not available
+            # Try managed identity for Azure deployment
             try:
                 print(f"  Using Managed Identity for storage: {managed_identity_client_id[:8]}...")
                 credential = ManagedIdentityCredential(client_id=managed_identity_client_id)
-                # Test the credential
                 self.blob_service_client = BlobServiceClient(account_url=self.account_url, credential=credential)
-                # Try to list containers to validate auth
-                try:
-                    next(self.blob_service_client.list_containers(), None)
-                except Exception:
-                    # Managed identity not available (local development)
-                    print("  Managed Identity not available, using InteractiveBrowserCredential...")
-                    credential = InteractiveBrowserCredential()
-                    self.blob_service_client = BlobServiceClient(account_url=self.account_url, credential=credential)
+                _cached_blob_credential = credential
+                _cached_blob_service_client = self.blob_service_client
             except Exception as e:
-                print(f"  Managed Identity failed: {e}, using InteractiveBrowserCredential...")
-                credential = InteractiveBrowserCredential()
+                print(f"  Managed Identity failed: {e}, using DefaultAzureCredential...")
+                credential = DefaultAzureCredential()
                 self.blob_service_client = BlobServiceClient(account_url=self.account_url, credential=credential)
+                _cached_blob_credential = credential
+                _cached_blob_service_client = self.blob_service_client
         else:
-            # Local development: Use InteractiveBrowserCredential
-            print("  Using InteractiveBrowserCredential for storage (local development)")
-            credential = InteractiveBrowserCredential()
+            # Local development: Use DefaultAzureCredential (tries Azure CLI first)
+            if _cached_blob_credential:
+                print("  Using cached DefaultAzureCredential for storage")
+                credential = _cached_blob_credential
+            else:
+                print("  Using DefaultAzureCredential for storage (local development)")
+                credential = DefaultAzureCredential()
+                _cached_blob_credential = credential
+            
             self.blob_service_client = BlobServiceClient(account_url=self.account_url, credential=credential)
+            _cached_blob_service_client = self.blob_service_client
         
         self.container_client = self.blob_service_client.get_container_client(container_name)
     

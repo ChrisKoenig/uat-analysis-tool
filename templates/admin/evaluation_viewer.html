@@ -67,7 +67,7 @@
                        placeholder="Search UAT numbers, keywords, phrases..." 
                        value="{{ search_query }}">
                 {% if evaluation %}
-                <input type="hidden" name="id" value="{{ evaluation.get('evaluation_id', evaluation.get('id')) }}">
+                <input type="hidden" name="id" value="{{ evaluation['evaluation_id'] if evaluation.get('evaluation_id') else evaluation.get('id', '') }}">
                 {% endif %}
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-search"></i>
@@ -132,147 +132,255 @@
                 </p>
             </div>
             <div class="col-md-4 text-end">
-                {% set eval_id = evaluation.get('evaluation_id', '') or evaluation.get('id', '') or 'unknown' %}
-                <a href="{{ url_for('evaluation_detail_view', eval_id=eval_id) }}" 
-                   class="btn btn-primary me-2">
-                    <i class="fas fa-eye me-1"></i>View Details
-                </a>
                 <button type="button" 
                         class="btn btn-danger" 
-                        onclick="confirmDelete('{{ evaluation.get('evaluation_id', evaluation.get('id')) }}')">
+                        onclick="confirmDelete('{{ evaluation['evaluation_id'] if evaluation.get('evaluation_id') else evaluation.get('id', '') }}')" title="Delete this evaluation">
                     <i class="fas fa-trash-alt me-1"></i>Delete
                 </button>
             </div>
         </div>
     </div>
     
-    <!-- Timestamp -->
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <strong><i class="fas fa-calendar me-2"></i>Timestamp:</strong>
-            {{ evaluation.timestamp }}
+    <!-- Title below header -->
+    <div class="mb-3">
+        <p class="text-muted mb-0">
+            <i class="fas fa-clock me-2"></i>Timestamp: {{ evaluation.timestamp }}
+        </p>
+    </div>
+
+    <div class="mb-3">
+        <strong><i class="fas fa-robot me-2"></i>AI Source:</strong>
+        <span class="badge bg-info">
+            {% if evaluation['system_analysis'] and evaluation['system_analysis'].get('source') %}
+                {{ evaluation['system_analysis']['source']|title }}
+            {% elif evaluation.get('context') and evaluation.get('context', {}).get('source') %}
+                {{ evaluation['context']['source']|title }}
+            {% else %}
+                Unknown
+            {% endif %}
+        </span>
+    </div>
+</div>
+
+<!-- AI-Powered Analysis Complete (Green Box) -->
+<div class="alert alert-success" style="border-left: 4px solid #198754;">
+    <h5 class="alert-heading">
+        <i class="fas fa-check-circle me-2"></i>AI-Powered Analysis Complete
+    </h5>
+    <p class="mb-2">Your submission has been analyzed using advanced AI classification. The system used Azure OpenAI's GPT-4o model to understand the context, intent, and technical requirements of your issue.</p>
+    <hr>
+    <div class="row mb-0">
+        <div class="col-md-4">
+            <strong>Analysis Method:</strong> Large Language Model (LLM) Classification
         </div>
-        <div class="col-md-6">
-            <strong><i class="fas fa-robot me-2"></i>AI Source:</strong>
-            <span class="badge bg-info">{{ evaluation.get('system_analysis', {}).get('source', evaluation.get('context', {}).get('source', 'Unknown'))|title }}</span>
+        <div class="col-md-4">
+            <strong>Confidence Level:</strong> 
+            {% if evaluation['system_analysis'] and evaluation['system_analysis']['confidence'] %}
+                {{ "%.0f"|format(evaluation['system_analysis']['confidence'] * 100) }}%
+            {% elif evaluation.get('context_analysis') and evaluation['context_analysis'].get('confidence') %}
+                {{ "%.0f"|format(evaluation['context_analysis']['confidence'] * 100) }}%
+            {% else %}
+                N/A
+            {% endif %}
+        </div>
+        <div class="col-md-4">
+            <strong>Source:</strong>
+            {% if evaluation['system_analysis'] and evaluation['system_analysis'].get('source') %}
+                {{ evaluation['system_analysis']['source']|title }}
+            {% else %}
+                Llm
+            {% endif %}
         </div>
     </div>
 </div>
 
-<!-- User Input Section -->
-<div class="evaluation-section">
-    <h4 class="mb-3"><i class="fas fa-user-edit me-2"></i>User Input</h4>
-    
-    <div class="mb-3">
-        <strong>Issue Title:</strong>
-        <p class="ms-3">{{ evaluation.get('original_issue', {}).get('title', evaluation.get('user_input', {}).get('issue_title', 'N/A')) }}</p>
+<!-- Original Issue Section (Blue) -->
+<div class="card mb-4" style="border-left: 4px solid #0d6efd;">
+    <div class="card-header" style="background-color: #0d6efd; color: white;">
+        <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Original Issue</h5>
     </div>
-    
-    <div class="mb-3">
-        <strong>Issue Description:</strong>
-        <div class="ms-3 p-3 bg-light rounded">
-            {{ evaluation.get('original_issue', {}).get('description', evaluation.get('user_input', {}).get('issue_description', 'N/A')) }}
-        </div>
-    </div>
-    
-    {% if evaluation.get('original_issue', {}).get('impact') or evaluation.get('user_input', {}).get('expected_behavior') %}
-    <div class="mb-3">
-        <strong>Expected Behavior:</strong>
-        <div class="ms-3 p-3 bg-light rounded">
-            {{ evaluation.get('original_issue', {}).get('impact', evaluation.get('user_input', {}).get('expected_behavior', '')) }}
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- AI Analysis Section -->
-<div class="evaluation-section">
-    <h4 class="mb-3"><i class="fas fa-brain me-2"></i>AI Analysis Results</h4>
-    
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <strong>Detected Category:</strong>
+    <div class="card-body">
+        <div class="mb-3">
+            <strong>Title:</strong>
             <p class="ms-3">
-                <span class="badge bg-primary fs-6">
-                    {{ evaluation.get('system_analysis', {}).get('category', evaluation.get('detected_category', 'Unknown')) }}
-                </span>
-            </p>
-        </div>
-        <div class="col-md-4">
-            <strong>Detected Feature:</strong>
-            <p class="ms-3">
-                <span class="badge bg-secondary fs-6">
-                    {{ evaluation.get('system_analysis', {}).get('feature', evaluation.get('detected_feature', 'None')) }}
-                </span>
-            </p>
-        </div>
-        <div class="col-md-4">
-            <strong>Confidence Score:</strong>
-            <p class="ms-3">
-                <span class="badge bg-success fs-6">
-                    {{ "%.0f"|format((evaluation.get('system_analysis', {}).get('confidence', evaluation.get('context', {}).get('confidence', 0)) or 0) * 100) }}%
-                </span>
-            </p>
-        </div>
-    </div>
-    
-    {% if evaluation.get('system_analysis', {}).get('reasoning') or evaluation.get('context', {}).get('reasoning') %}
-    <div class="mb-3">
-        <strong>AI Reasoning:</strong>
-        <div class="ms-3 p-3 bg-light rounded">
-            {{ evaluation.get('system_analysis', {}).get('reasoning', evaluation.get('context', {}).get('reasoning', '')) }}
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Suggested UATs Section -->
-<div class="evaluation-section">
-    <h4 class="mb-3">
-        <i class="fas fa-clipboard-check me-2"></i>
-        Suggested UATs ({{ evaluation.get('suggested_uats', [])|length }})
-    </h4>
-    
-    {% if evaluation.get('suggested_uats') %}
-    {% for uat in evaluation.get('suggested_uats', []) %}
-    <div class="uat-item">
-        <div class="row">
-            <div class="col-md-9">
-                <h5 class="mb-2">
-                    {% if uat.ado_link %}
-                    <a href="{{ uat.ado_link }}" target="_blank" class="text-decoration-none">
-                        <span class="badge bg-info">{{ uat.uat_number }}</span>
-                        {{ uat.title }}
-                        <i class="fas fa-external-link-alt ms-1 small"></i>
-                    </a>
-                    {% else %}
-                    <span class="badge bg-info">{{ uat.uat_number }}</span>
-                    {{ uat.title }}
-                    {% endif %}
-                </h5>
-                {% if uat.description %}
-                <p class="text-muted mb-2">{{ uat.description[:200] }}...</p>
+                {% if evaluation['original_issue'] and evaluation['original_issue']['title'] %}
+                    {{ evaluation['original_issue']['title'] }}
+                {% elif evaluation['user_input'] and evaluation['user_input']['issue_title'] %}
+                    {{ evaluation['user_input']['issue_title'] }}
+                {% else %}
+                    N/A
                 {% endif %}
-                <div>
+            </p>
+        </div>
+        
+        <div class="mb-3">
+            <strong>Description:</strong>
+            <div class="ms-3 p-3" style="background-color: #f8f9fa; border-radius: 4px;">
+                {% if evaluation['original_issue'] and evaluation['original_issue']['description'] %}
+                    {{ evaluation['original_issue']['description'] }}
+                {% elif evaluation['user_input'] and evaluation['user_input']['issue_description'] %}
+                    {{ evaluation['user_input']['issue_description'] }}
+                {% else %}
+                    N/A
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if (evaluation['original_issue'] and evaluation['original_issue']['impact']) or (evaluation['user_input'] and evaluation['user_input']['expected_behavior']) %}
+        <div class="mb-0">
+            <strong>Impact:</strong>
+            <div class="ms-3 p-3" style="background-color: #f8f9fa; border-radius: 4px;">
+                {% if evaluation['original_issue'] and evaluation['original_issue']['impact'] %}
+                    {{ evaluation['original_issue']['impact'] }}
+                {% elif evaluation['user_input'] and evaluation['user_input']['expected_behavior'] %}
+                    {{ evaluation['user_input']['expected_behavior'] }}
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- System's Analysis Section (Green) -->
+<div class="card mb-4" style="border-left: 4px solid #198754;">
+    <div class="card-header" style="background-color: #198754; color: white;">
+        <h5 class="mb-0"><i class="fas fa-brain me-2"></i>System's Analysis</h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <strong>Category:</strong>
+                <p class="mt-2">
+                    {% if evaluation['system_analysis'] and evaluation['system_analysis']['category'] %}
+                        <span class="badge bg-primary">{{ evaluation['system_analysis']['category'] }}</span>
+                    {% elif evaluation.get('context_analysis') and evaluation['context_analysis'].get('category') %}
+                        <span class="badge bg-primary">{{ evaluation['context_analysis']['category'] }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Unknown</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-3">
+                <strong>Intent:</strong>
+                <p class="mt-2">
+                    {% if evaluation['system_analysis'] and evaluation['system_analysis']['intent'] %}
+                        <span class="badge bg-info">{{ evaluation['system_analysis']['intent'] }}</span>
+                    {% elif evaluation.get('context_analysis') and evaluation['context_analysis'].get('intent') %}
+                        <span class="badge bg-info">{{ evaluation['context_analysis']['intent'] }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">N/A</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-3">
+                <strong>Business Impact:</strong>
+                <p class="mt-2">
+                    {% if evaluation['system_analysis'] and evaluation['system_analysis']['business_impact'] %}
+                        <span class="badge bg-danger">{{ evaluation['system_analysis']['business_impact']|title }}</span>
+                    {% elif evaluation.get('context_analysis') and evaluation['context_analysis'].get('business_impact') %}
+                        <span class="badge bg-danger">{{ evaluation['context_analysis']['business_impact']|title }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">N/A</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-3">
+                <strong>Confidence:</strong>
+                <p class="mt-2">
+                    {% if evaluation['system_analysis'] and evaluation['system_analysis']['confidence'] %}
+                        <span class="badge bg-success">{{ "%.0f"|format(evaluation['system_analysis']['confidence'] * 100) }}%</span>
+                    {% elif evaluation.get('context_analysis') and evaluation['context_analysis'].get('confidence') %}
+                        <span class="badge bg-success">{{ "%.0f"|format(evaluation['context_analysis']['confidence'] * 100) }}%</span>
+                    {% else %}
+                        <span class="badge bg-secondary">0%</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        
+        {% if evaluation['system_analysis'] and evaluation['system_analysis']['context_summary'] %}
+        <div class="mb-0">
+            <strong>Context Summary:</strong>
+            <div class="p-3 mt-2" style="background-color: #f8f9fa; border-left: 3px solid #198754; border-radius: 4px;">
+                {{ evaluation['system_analysis']['context_summary'] }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Referenced Features and UATs Section -->
+<div class="card mb-4" style="border-left: 4px solid #0dcaf0;">
+    <div class="card-header" style="background-color: #0dcaf0; color: white;">
+        <h5 class="mb-0">
+            <i class="fas fa-clipboard-check me-2"></i>
+            Referenced Features and UATs 
+            {% if evaluation['suggested_uats'] or (evaluation.get('context_analysis') and evaluation['context_analysis'].get('suggested_uats')) %}
+                {% set uats = evaluation['suggested_uats'] or evaluation['context_analysis']['suggested_uats'] %}
+                ({{ uats|length }})
+            {% else %}
+                (0)
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+    
+        {% if evaluation['suggested_uats'] %}
+        {% set uats = evaluation['suggested_uats'] %}
+        {% elif evaluation.get('context_analysis') and evaluation['context_analysis'].get('suggested_uats') %}
+        {% set uats = evaluation['context_analysis']['suggested_uats'] %}
+        {% else %}
+        {% set uats = [] %}
+        {% endif %}
+        {% if uats %}
+        {% for uat in uats %}
+        <div class="p-3 mb-2" style="background-color: #f8f9fa; border-left: 3px solid #0dcaf0; border-radius: 4px;">
+            <div class="row">
+                <div class="col-md-10">
+                    <h6 class="mb-2">
+                        {% if uat is string %}
+                            {# Handle simple string UAT numbers #}
+                            <a href="https://dev.azure.com/YOUR_ORG/YOUR_PROJECT/_workitems/edit/{{ uat }}" 
+                               target="_blank" 
+                               class="text-decoration-none">
+                                <span class="badge bg-info">{{ uat }}</span>
+                                <i class="fas fa-external-link-alt ms-1 small"></i>
+                            </a>
+                        {% elif uat.uat_number or uat.id %}
+                            {# Handle UAT object with ID #}
+                            <a href="https://dev.azure.com/YOUR_ORG/YOUR_PROJECT/_workitems/edit/{{ uat.uat_number or uat.id }}" 
+                               target="_blank" 
+                               class="text-decoration-none">
+                                <span class="badge bg-info">{{ uat.uat_number or uat.id }}</span>
+                                {% if uat.title %}{{ uat.title }}{% endif %}
+                                <i class="fas fa-external-link-alt ms-1 small"></i>
+                            </a>
+                        {% endif %}
+                    </h6>
+                    {% if uat.description %}
+                    <p class="text-muted small mb-1">{{ uat.description[:150] }}{% if uat.description|length > 150 %}...{% endif %}</p>
+                    {% endif %}
+                    {% if uat.match_score %}
                     <small class="text-muted">
                         <i class="fas fa-chart-line me-1"></i>
-                        Match Score: <strong>{{ "%.0f"|format((uat.match_score or 0) * 100) }}%</strong>
+                        Match Score: <strong>{{ "%.0f"|format((uat.match_score) * 100) }}%</strong>
                     </small>
+                    {% endif %}
+                </div>
+                <div class="col-md-2 text-end">
+                    <a href="https://dev.azure.com/YOUR_ORG/YOUR_PROJECT/_workitems/edit/{{ uat if uat is string else (uat.uat_number or uat.id) }}" 
+                       target="_blank" 
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
                 </div>
             </div>
-            <div class="col-md-3 text-end">
-                {% if uat.ado_link %}
-                <a href="{{ uat.ado_link }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-external-link-alt me-1"></i>View in ADO
-                </a>
-                {% endif %}
-            </div>
         </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted mb-0">No UATs or features referenced</p>
+        {% endif %}
     </div>
-    {% endfor %}
-    {% else %}
-    <p class="text-muted">No UATs suggested</p>
-    {% endif %}
 </div>
 
 <!-- Detected Products Section -->

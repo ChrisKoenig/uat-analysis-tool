@@ -4,28 +4,43 @@ Centralized configuration for Azure OpenAI, embeddings, LLM classification, and 
 Designed for modular agent-based architecture
 """
 
-# Load environment variables from .env file FIRST
-from dotenv import load_dotenv
-load_dotenv()
-
 import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 
+# Helper function to get config from Key Vault first, then environment
+def _get_config_value(key: str, default: str = "") -> str:
+    """Get configuration value from Key Vault first, then environment variables"""
+    try:
+        from keyvault_config import get_keyvault_config
+        kv = get_keyvault_config()
+        kv_config = kv.get_config()
+        value = kv_config.get(key)
+        if value:
+            return value
+    except Exception as e:
+        print(f"[ai_config] Warning: Could not load from Key Vault: {e}")
+    
+    # Fall back to environment variables
+    from dotenv import load_dotenv
+    load_dotenv()
+    return os.environ.get(key, default)
+
 @dataclass
 class AzureOpenAIConfig:
-    """Azure OpenAI service configuration"""
-    endpoint: str = field(default_factory=lambda: os.environ.get("AZURE_OPENAI_ENDPOINT", ""))
-    api_key: str = field(default_factory=lambda: os.environ.get("AZURE_OPENAI_API_KEY", ""))
+    """Azure OpenAI service configuration - loads from Key Vault first, then .env"""
+    endpoint: str = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_ENDPOINT", ""))
+    api_key: str = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_API_KEY", ""))
     api_version: str = "2024-08-01-preview"  # Working API version for gpt-4o deployments
+    use_aad: bool = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_USE_AAD", "false").lower() == "true")
     
     # Model deployments
     embedding_model: str = "text-embedding-3-large"  # High-quality embeddings
     classification_model: str = "gpt-4o"  # GPT-4 Omni for reasoning
     
     # Deployment names (Azure-specific)
-    embedding_deployment: str = field(default_factory=lambda: os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-large"))
-    classification_deployment: str = field(default_factory=lambda: os.environ.get("AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT", "gpt-4o-02"))
+    embedding_deployment: str = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-large"))
+    classification_deployment: str = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT", "gpt-4o-standard"))
     
     # Model parameters
     temperature: float = 0.1  # Low temperature for consistency
@@ -35,8 +50,8 @@ class AzureOpenAIConfig:
         """Validate configuration is complete"""
         if not self.endpoint:
             return False, "AZURE_OPENAI_ENDPOINT environment variable not set"
-        if not self.api_key:
-            return False, "AZURE_OPENAI_API_KEY environment variable not set"
+        if not self.use_aad and not self.api_key:
+            return False, "AZURE_OPENAI_API_KEY environment variable not set (or enable Azure AD with AZURE_OPENAI_USE_AAD=true)"
         return True, None
 
 

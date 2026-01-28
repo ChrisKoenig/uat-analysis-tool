@@ -1,16 +1,4 @@
 {
-  "78136d52da0700034873c516af675d2966aa42b744c6b114cc5ae6a98501d0e6": {
-    "data": {
-      "category": "feature_request",
-      "intent": "requesting_feature",
-      "business_impact": "high",
-      "confidence": 0.95,
-      "reasoning": "The customer is explicitly requesting the implementation of 32-bit ASN support in Azure Route Server, which is a missing capability they need for their new network topology and SDWAN integration. This aligns with the feature_request category and requesting_feature intent. The stated impact indicates a high business impact as it affects their migration plans and scalability."
-    },
-    "created_at": "2026-01-19T16:03:46.862186",
-    "ttl_days": 7,
-    "hits": 0
-  },
   "3476ccfc9d8e64950df5d1a09d30fb0124f8838635bba9b9bfae5598219c1a54": {
     "data": {
       "category": "capacity",
@@ -44,6 +32,90 @@
       "reasoning": "The customer is requesting the ability to invoke MCP tools through a private network, which is a specific capability they need to meet their strict security requirements. This aligns with a feature request rather than a roadmap inquiry, as they are not asking about timelines or planned features but rather expressing a gap in functionality they want addressed."
     },
     "created_at": "2026-01-19T18:18:44.422754",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "6d9becfc88f59b179a1b18a9f703107c27fc172062a56e486933e02844978326": {
+    "data": {
+      "category": "technical_support",
+      "intent": "escalation_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is reporting a technical issue related to a container image update that caused memory exhaustion and degraded service functionality. They are escalating the lack of notification about the requirements change and the operational burden caused by this situation. The critical impact on service continuity and trust indicates an escalation request rather than a feature request."
+    },
+    "created_at": "2026-01-20T19:10:08.766687",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "027038730abcaaabba61dd327e5c5ac47ea28b2fd54f0837d1e034ec46aef076": {
+    "data": {
+      "category": "technical_support",
+      "intent": "escalation_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is reporting a critical issue with service continuity due to unannounced changes in RAM requirements for the Azure AI Translator container image. They are escalating the lack of notification and requesting assistance to generate a compatible license key to maintain their existing setup. This is a technical problem requiring immediate support and escalation due to its critical impact on operations and trust."
+    },
+    "created_at": "2026-01-20T20:03:27.079695",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "08ac80c8d7c3cdd0a282e136b7248acd7174840f181413a77895eb9fe0962851": {
+    "data": {
+      "category": "feature_request",
+      "intent": "requesting_feature",
+      "business_impact": "medium",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting a specific feature for Copilot Chat to automatically manage tasks, remember due dates, and provide reminders, which aligns with the feature_request category and requesting_feature intent. The stated impact suggests medium business importance as it focuses on enhancing user experience rather than addressing critical issues."
+    },
+    "created_at": "2026-01-20T20:24:37.294384",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "5bd78af8798d8aca922fb8526ffa3cb4eb19f2963d779d855063284bc46a699f": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The inquiry explicitly mentions a capacity request for App Service Plan with specific SKU and instance requirements. The customer is blocked by capacity preservation and anticipates future similar requests. This aligns with the category 'capacity' and intent 'capacity_request'. The stated impact and the nature of the request suggest a high business impact."
+    },
+    "created_at": "2026-01-20T20:27:22.507580",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "1d716a9bbcfc15698ee6d013af21ff18b007559adb61c0d89d7973cc1abac3b2": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting additional surge capacity in the UK South region to enable zero-downtime security upgrades on critical production infrastructure. The inability to upgrade AKS clusters due to lack of capacity directly impacts their operations, making this a critical issue. The request is focused on capacity needs rather than technical troubleshooting or feature requests."
+    },
+    "created_at": "2026-01-21T06:11:25.965560",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "361bed21dc4cf4b692b47eab6a5e9d23840b157c96c6536f2bba3f88466fbe97": {
+    "data": {
+      "category": "feature_request",
+      "intent": "requesting_feature",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer is explicitly requesting the implementation of 32-bit ASN support in Azure Route Server, which is a missing capability they need for their new network topology and SDWAN integration. This aligns with the feature_request category and requesting_feature intent. The stated impact indicates a high business impact due to the inability to scale their current topology and migrate workloads to Azure."
+    },
+    "created_at": "2026-01-22T15:10:57.651370",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "57e27a3ff88f980dd8d76ecaed3ef7b86dc8e5f2d549a2fa32c3a927e3c62029": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The inquiry is focused on enabling capacity for Postgres v6 SKUs and Ultra Disk IOPS in East US2, with an explicit mention of capacity pool being worked on. The stated impact highlights that without this capacity, critical workloads are on hold, indicating a critical business impact. The mention of ETA aligns with capacity planning rather than roadmap inquiry."
+    },
+    "created_at": "2026-01-28T08:38:59.715930",
     "ttl_days": 7,
     "hits": 0
   }

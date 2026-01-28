@@ -98,16 +98,47 @@ class LLMClassifier:
     ]
     
     def __init__(self):
+        print(f"\n[LLMClassifier] 🚀 Initializing LLM Classifier...")
         self.config = get_config()
         self.azure_config = self.config.azure_openai
         self.caching_config = self.config.caching
         
-        # Initialize Azure OpenAI client
-        self.client = AzureOpenAI(
-            azure_endpoint=self.azure_config.endpoint,
-            api_key=self.azure_config.api_key,
-            api_version=self.azure_config.api_version
-        )
+        print(f"[LLMClassifier] 📋 Configuration loaded:")
+        print(f"[LLMClassifier]   Endpoint: {self.azure_config.endpoint}")
+        print(f"[LLMClassifier]   API Version: {self.azure_config.api_version}")
+        print(f"[LLMClassifier]   Has API Key: {bool(self.azure_config.api_key)}")
+        
+        # Initialize Azure OpenAI client with Azure AD or API key
+        use_aad = self.azure_config.use_aad if hasattr(self.azure_config, 'use_aad') else False
+        print(f"[LLMClassifier]   Use AAD: {use_aad}")
+        
+        if use_aad:
+            # Use Azure AD authentication
+            # Tenant: Microsoft Non-Production (16b3c013-d300-468d-ac64-7eda0820b6d3)
+            print(f"[LLMClassifier] 🔐 Setting up Azure AD authentication...")
+            print(f"[LLMClassifier]   Tenant ID: 16b3c013-d300-468d-ac64-7eda0820b6d3")
+            from azure.identity import InteractiveBrowserCredential, get_bearer_token_provider
+            credential = InteractiveBrowserCredential(
+                tenant_id="16b3c013-d300-468d-ac64-7eda0820b6d3"
+            )
+            token_provider = get_bearer_token_provider(
+                credential,
+                "https://cognitiveservices.azure.com/.default"
+            )
+            self.client = AzureOpenAI(
+                azure_endpoint=self.azure_config.endpoint,
+                azure_ad_token_provider=token_provider,
+                api_version=self.azure_config.api_version
+            )
+            print(f"[LLMClassifier] Client initialized successfully")
+        else:
+            # Use API key authentication
+            self.client = AzureOpenAI(
+                azure_endpoint=self.azure_config.endpoint,
+                api_key=self.azure_config.api_key,
+                api_version=self.azure_config.api_version
+            )
+            print(f"[LLMClassifier] Client initialized successfully")
         
         # Get service-specific configuration
         service_config = self.config.get_service_config("llm_classifier")
@@ -125,10 +156,7 @@ class LLMClassifier:
         self.temperature = service_config["temperature"]
         self.max_tokens = service_config["max_tokens"]
         
-        print(f"[LLMClassifier] Initialized with model: {self.model}")
-        print(f"[LLMClassifier] Deployment: {self.deployment}")
-        print(f"[LLMClassifier] Endpoint: {self.azure_config.endpoint}")
-        print(f"[LLMClassifier] API Version: {self.azure_config.api_version}")
+        print(f"[LLMClassifier] Deployment: {self.deployment}, Model: {self.model}")
     
     def _make_cache_key(self, title: str, description: str, impact: str, pattern_features: Optional[Dict]) -> str:
         """Generate cache key for classification"""
@@ -260,10 +288,21 @@ You MUST respond with valid JSON only (no markdown):
         pattern_features: Optional[Dict]
     ) -> Dict:
         """Call GPT-4 API for classification"""
+        print(f"\n[LLMClassifier] 🔍 Starting LLM API call")
+        print(f"[LLMClassifier]   Endpoint: {self.azure_config.endpoint}")
+        print(f"[LLMClassifier]   Deployment: {self.deployment}")
+        print(f"[LLMClassifier]   Model: {self.model}")
+        print(f"[LLMClassifier]   Temperature: {self.temperature}")
+        print(f"[LLMClassifier]   Max Tokens: {self.max_tokens}")
+        
         system_prompt = self._build_system_prompt()
         user_prompt = self._build_user_prompt(title, description, impact, pattern_features)
         
+        print(f"[LLMClassifier]   System prompt length: {len(system_prompt)} chars")
+        print(f"[LLMClassifier]   User prompt length: {len(user_prompt)} chars")
+        
         try:
+            print(f"[LLMClassifier] 📡 Calling Azure OpenAI API...")
             response = self.client.chat.completions.create(
                 model=self.deployment,
                 messages=[
@@ -275,7 +314,13 @@ You MUST respond with valid JSON only (no markdown):
                 response_format={"type": "json_object"}  # Ensure JSON response
             )
             
+            print(f"[LLMClassifier] ✅ API call successful!")
+            print(f"[LLMClassifier]   Tokens used: {response.usage.total_tokens} (prompt: {response.usage.prompt_tokens}, completion: {response.usage.completion_tokens})")
+            
             result_text = response.choices[0].message.content
+            print(f"[LLMClassifier]   Response length: {len(result_text)} chars")
+            print(f"[LLMClassifier]   Response preview: {result_text[:200]}...")
+            
             result = json.loads(result_text)
             
             # Validate result
@@ -284,24 +329,28 @@ You MUST respond with valid JSON only (no markdown):
             
             # Validate values
             if result["category"] not in self.VALID_CATEGORIES:
-                print(f"[LLMClassifier] Warning: Invalid category '{result['category']}', using pattern fallback")
+                print(f"[LLMClassifier] ⚠️ Warning: Invalid category '{result['category']}', using pattern fallback")
                 raise ValueError(f"Invalid category: {result['category']}")
             
             if result["intent"] not in self.VALID_INTENTS:
-                print(f"[LLMClassifier] Warning: Invalid intent '{result['intent']}', using pattern fallback")
+                print(f"[LLMClassifier] ⚠️ Warning: Invalid intent '{result['intent']}', using pattern fallback")
                 raise ValueError(f"Invalid intent: {result['intent']}")
             
             if result["business_impact"] not in self.VALID_BUSINESS_IMPACTS:
-                print(f"[LLMClassifier] Warning: Invalid business_impact '{result['business_impact']}'")
+                print(f"[LLMClassifier] ⚠️ Warning: Invalid business_impact '{result['business_impact']}'")
                 result["business_impact"] = "medium"  # Default fallback
             
+            print(f"[LLMClassifier] ✅ Classification complete: category={result['category']}, intent={result['intent']}, confidence={result['confidence']}")
             return result
             
         except json.JSONDecodeError as e:
-            print(f"[LLMClassifier] JSON decode error: {e}")
+            print(f"[LLMClassifier] ❌ JSON decode error: {e}")
+            print(f"[LLMClassifier]   Response text: {result_text}")
             raise ValueError(f"LLM returned invalid JSON: {result_text}")
         except Exception as e:
-            print(f"[LLMClassifier] API call failed: {e}")
+            print(f"[LLMClassifier] ❌ API call failed: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
             raise
     
     def classify(

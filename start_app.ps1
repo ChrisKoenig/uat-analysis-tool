@@ -17,7 +17,7 @@ Write-Host "`n[2/7] Loading configuration from Azure Key Vault..." -ForegroundCo
 
 # Load from Key Vault via keyvault_config.py
 Write-Host "   Loading secrets from Azure Key Vault..." -ForegroundColor Gray
-$kvConfig = python -c "from keyvault_config import get_keyvault_config; kv = get_keyvault_config(); cfg = kv.get_config(); print(cfg.get('AZURE_OPENAI_ENDPOINT', '') + '|' + cfg.get('AZURE_OPENAI_API_KEY', '') + '|' + cfg.get('AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT', '') + '|' + cfg.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT', ''))"
+$kvConfig = python -c "from keyvault_config import get_keyvault_config; kv = get_keyvault_config(); cfg = kv.get_config(); print((cfg.get('AZURE_OPENAI_ENDPOINT') or '') + '|' + (cfg.get('AZURE_OPENAI_API_KEY') or '') + '|' + (cfg.get('AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT') or '') + '|' + (cfg.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT') or ''))"
 $parts = $kvConfig -split '\|'
 $env:AZURE_OPENAI_ENDPOINT = $parts[0]
 $env:AZURE_OPENAI_API_KEY = $parts[1]

@@ -27,6 +27,9 @@ from keyvault_config import get_keyvault_config
 
 app = Flask(__name__, template_folder='templates/admin')
 app.config['SECRET_KEY'] = os.urandom(24)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Initialize services
 kv_config = get_keyvault_config()

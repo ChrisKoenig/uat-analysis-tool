@@ -47,7 +47,8 @@ c:\Projects\Hack\
 └── documentation/
     ├── PROJECT_STATUS.md           # Current project status
     ├── QUICKSTART.md              # Quick start guide
-    └── RESTART_GUIDE.md           # System restart procedures
+    ├── RESTART_GUIDE.md           # System restart procedures
+    └── AZURE_OPENAI_AUTH_SETUP.md # Azure OpenAI authentication configuration
 ```
 
 ## 🛠 Installation & Setup
