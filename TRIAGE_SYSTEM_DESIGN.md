@@ -91,12 +91,12 @@ managed and reusable across the system.
 
 ```
 ┌─────────────┐     ┌─────────────────────┐     ┌─────────────┐     ┌─────────────┐
-│   RULES     │────▶│   DECISION TREES    │────▶│   ROUTES    │────▶│   ACTIONS   │
-│  (atomic)   │     │  (chain rules)      │     │ (group      │     │  (atomic)   │
-│             │     │                     │     │  actions)   │     │             │
-│ Single      │     │ AND/OR combos       │     │ Collection  │     │ Single      │
-│ condition   │     │ of rules            │     │ of actions  │     │ field set   │
-│ = T/F       │     │ Priority ordered    │     │ to execute  │     │             │
+│   RULES     │────▶│   DECISION TREES    │────▶│   ACTIONS   │────▶│   ROUTES    │
+│  (atomic)   │     │  (chain rules)      │     │  (atomic)   │     │ (group      │
+│             │     │                     │     │             │     │  actions)   │
+│ Single      │     │ AND/OR combos       │     │ Single      │     │ Collection  │
+│ condition   │     │ of rules            │     │ field set   │     │ of actions  │
+│ = T/F       │     │ Priority ordered    │     │             │     │ to execute  │
 │             │     │ First TRUE wins     │     │             │     │             │
 └─────────────┘     └─────────────────────┘     └─────────────┘     └─────────────┘
    Reusable            Reusable                    Reusable            Reusable
@@ -131,7 +131,9 @@ Priority 40: IF ((Rule 5 OR Rule 6 OR Rule 7) AND NOT Rule 2) OR Rule 9 → Rout
 
 ### Layer 3: Actions (Atomic Field Changes)
 
-Each action defines a single field assignment or operation.
+Each action defines a single field assignment or operation. Actions are the
+atomic building blocks that get composed into routes — just as rules are the
+atomic conditions that get composed into decision trees.
 
 **Example:**
 ```
@@ -143,7 +145,9 @@ Action 4: Set State = "Done"
 
 ### Layer 4: Routes (Action Collections)
 
-Group actions together. When a route executes, all its actions are applied.
+Group actions together into reusable pipelines. When a route executes, all
+its actions are applied in order. The relationship mirrors Rules → Trees:
+Actions are composed into Routes.
 
 **Example:**
 ```
@@ -654,9 +658,13 @@ Left navigation:
 - Routes
 - Users
 
+> **Design note:** The nav order follows the compositional hierarchy —
+> Rules are atomic conditions composed into Trees; Actions are atomic
+> operations composed into Routes.
+
 ### Features
 
-- **CRUD** for all four layers (rules, trees, actions, routes)
+- **CRUD** for all four layers (rules, trees, actions, routes — in compositional order)
 - **Expression builder** for decision trees (nested AND/OR groups)
 - **Visual route designer** for composing actions into routes
 - **Status management**: Active / Disabled / Staged per item
