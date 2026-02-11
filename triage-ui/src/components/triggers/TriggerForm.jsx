@@ -1,8 +1,8 @@
 /**
- * TreeForm — Create / Edit Decision Tree Form
- * ==============================================
+ * TriggerForm — Create / Edit Trigger Form
+ * ============================================
  *
- * Form for creating or editing a decision tree. A tree has:
+ * Form for creating or editing a trigger. A trigger has:
  *   - name, description
  *   - priority (lower = evaluated first)
  *   - expression (nested AND/OR/NOT referencing rules)
@@ -12,7 +12,7 @@
  * The route is selected from a dropdown of available routes.
  *
  * Props:
- *   tree      : object | null — existing tree for edit mode
+ *   trigger   : object | null — existing trigger for edit mode
  *   rules     : Array — available rules (for expression builder)
  *   routes    : Array — available routes (for onTrue dropdown)
  *   onSubmit  : (formData) => void
@@ -24,7 +24,7 @@ import ExpressionBuilder from './ExpressionBuilder';
 import { deepClone } from '../../utils/helpers';
 
 
-export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCancel }) {
+export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit, onCancel }) {
   // ── Form State ───────────────────────────────────────────────
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -37,13 +37,13 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
 
   // ── Populate form for edit mode ──────────────────────────────
   useEffect(() => {
-    if (tree) {
-      setName(tree.name || '');
-      setDescription(tree.description || '');
-      setPriority(tree.priority ?? 100);
-      setExpression(tree.expression ? deepClone(tree.expression) : { and: [] });
-      setOnTrue(tree.onTrue || '');
-      setStatus(tree.status || 'active');
+    if (trigger) {
+      setName(trigger.name || '');
+      setDescription(trigger.description || '');
+      setPriority(trigger.priority ?? 100);
+      setExpression(trigger.expression ? deepClone(trigger.expression) : { and: [] });
+      setOnTrue(trigger.onTrue || '');
+      setStatus(trigger.status || 'active');
     } else {
       setName('');
       setDescription('');
@@ -52,7 +52,7 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
       setOnTrue('');
       setStatus('active');
     }
-  }, [tree]);
+  }, [trigger]);
 
 
   // ── Submit ───────────────────────────────────────────────────
@@ -76,12 +76,12 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
 
   // ── Render ───────────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className="tree-form">
+    <form onSubmit={handleSubmit} className="trigger-form">
       {/* Name */}
       <div className="form-group">
-        <label htmlFor="tree-name">Name *</label>
+        <label htmlFor="trigger-name">Name *</label>
         <input
-          id="tree-name"
+          id="trigger-name"
           className="form-input"
           type="text"
           value={name}
@@ -93,22 +93,22 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
 
       {/* Description */}
       <div className="form-group">
-        <label htmlFor="tree-desc">Description</label>
+        <label htmlFor="trigger-desc">Description</label>
         <textarea
-          id="tree-desc"
+          id="trigger-desc"
           className="form-textarea"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="When does this tree match?"
+          placeholder="When does this trigger match?"
           rows={2}
         />
       </div>
 
       {/* Priority */}
       <div className="form-group">
-        <label htmlFor="tree-priority">Priority *</label>
+        <label htmlFor="trigger-priority">Priority *</label>
         <input
-          id="tree-priority"
+          id="trigger-priority"
           className="form-input"
           type="number"
           value={priority}
@@ -118,7 +118,7 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
           required
         />
         <span className="hint">
-          Lower number = higher priority. Trees are evaluated in priority order;
+          Lower number = higher priority. Triggers are evaluated in priority order;
           the first TRUE match wins.
         </span>
       </div>
@@ -139,9 +139,9 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
 
       {/* Route (onTrue) */}
       <div className="form-group">
-        <label htmlFor="tree-route">Target Route (onTrue) *</label>
+        <label htmlFor="trigger-route">Target Route (onTrue) *</label>
         <select
-          id="tree-route"
+          id="trigger-route"
           className="form-select"
           value={onTrue}
           onChange={(e) => setOnTrue(e.target.value)}
@@ -157,15 +157,15 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
             ))}
         </select>
         <span className="hint">
-          The route to execute when this tree's expression evaluates to TRUE
+          The route to execute when this trigger's expression evaluates to TRUE
         </span>
       </div>
 
       {/* Status */}
       <div className="form-group">
-        <label htmlFor="tree-status">Status</label>
+        <label htmlFor="trigger-status">Status</label>
         <select
-          id="tree-status"
+          id="trigger-status"
           className="form-select"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -182,7 +182,7 @@ export default function TreeForm({ tree, rules = [], routes = [], onSubmit, onCa
           Cancel
         </button>
         <button type="submit" className="btn btn-primary" disabled={submitting}>
-          {submitting ? 'Saving…' : tree ? 'Update Tree' : 'Create Tree'}
+          {submitting ? 'Saving…' : trigger ? 'Update Trigger' : 'Create Trigger'}
         </button>
       </div>
     </form>

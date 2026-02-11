@@ -3,7 +3,7 @@
  * ===================================
  *
  * Generic table component for displaying lists of entities
- * (rules, actions, trees, routes) with consistent styling.
+ * (rules, actions, triggers, routes) with consistent styling.
  *
  * Features:
  *   - Configurable columns via column definitions

@@ -11,7 +11,7 @@
  *   - Edit existing rules (with optimistic locking)
  *   - Copy/clone rules
  *   - Delete rules (with confirmation)
- *   - View cross-references (which trees use this rule)
+ *   - View cross-references (which triggers use this rule)
  *   - View Code toggle for raw JSON
  *
  * Follows the blade pattern: list on the left, detail/form panel
@@ -240,7 +240,7 @@ export default function RulesPage({ addToast }) {
                 <div className="panel-section">
                   <h3>Used In</h3>
                   {Object.keys(references.references || {}).length === 0 ? (
-                    <p className="text-muted">Not referenced by any trees.</p>
+                    <p className="text-muted">Not referenced by any triggers.</p>
                   ) : (
                     <ul className="reference-list">
                       {Object.entries(references.references).map(([type, ids]) =>

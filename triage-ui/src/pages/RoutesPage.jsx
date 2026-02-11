@@ -3,7 +3,7 @@
  * ================================
  *
  * CRUD interface for triage routes. A route is an ordered list
- * of actions that execute when a decision tree matches.
+ * of actions that execute when a trigger matches.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -216,7 +216,7 @@ export default function RoutesPage({ addToast }) {
                 <div className="panel-section">
                   <h3>Used In</h3>
                   {Object.keys(references.references || {}).length === 0 ? (
-                    <p className="text-muted">Not referenced by any trees.</p>
+                    <p className="text-muted">Not referenced by any triggers.</p>
                   ) : (
                     <ul className="reference-list">
                       {Object.entries(references.references).map(([type, ids]) =>

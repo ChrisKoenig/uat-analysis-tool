@@ -1,12 +1,12 @@
 /**
- * TreesPage — Decision Trees Management
- * ========================================
+ * TriggersPage — Triggers Management
+ * =====================================
  *
- * CRUD interface for decision trees. Trees evaluate boolean
+ * CRUD interface for triggers. Triggers evaluate boolean
  * expressions referencing rules, and when TRUE, execute a route.
- * Trees are evaluated in priority order — first TRUE wins.
+ * Triggers are evaluated in priority order — first TRUE wins.
  *
- * This page loads rules and routes in addition to trees, because:
+ * This page loads rules and routes in addition to triggers, because:
  *   - The expression builder needs the rule list
  *   - The route selector needs the route list
  *   - The table shows resolved names instead of IDs
@@ -18,19 +18,19 @@ import EntityTable from '../components/common/EntityTable';
 import StatusFilter from '../components/common/StatusFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
-import TreeForm from '../components/trees/TreeForm';
+import TriggerForm from '../components/triggers/TriggerForm';
 import { expressionToDsl } from '../utils/helpers';
-import './TreesPage.css';
+import './TriggersPage.css';
 
 
-export default function TreesPage({ addToast }) {
+export default function TriggersPage({ addToast }) {
   // ── State ────────────────────────────────────────────────────
-  const [trees, setTrees] = useState([]);
+  const [triggers, setTriggers] = useState([]);
   const [rules, setRules] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
-  const [selectedTree, setSelectedTree] = useState(null);
+  const [selectedTrigger, setSelectedTrigger] = useState(null);
   const [formMode, setFormMode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -40,16 +40,16 @@ export default function TreesPage({ addToast }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [treesData, rulesData, routesData] = await Promise.all([
-        api.listTrees(statusFilter),
+      const [triggersData, rulesData, routesData] = await Promise.all([
+        api.listTriggers(statusFilter),
         api.listRules(),      // All rules for expression builder
         api.listRoutes(),     // All routes for onTrue selector
       ]);
-      // Sort trees by priority
-      const sorted = (treesData.items || []).sort(
+      // Sort triggers by priority
+      const sorted = (triggersData.items || []).sort(
         (a, b) => (a.priority ?? 9999) - (b.priority ?? 9999)
       );
-      setTrees(sorted);
+      setTriggers(sorted);
       setRules(rulesData.items || []);
       setRoutes(routesData.items || []);
     } catch (err) {
@@ -73,41 +73,41 @@ export default function TreesPage({ addToast }) {
   // ── Handlers ─────────────────────────────────────────────────
 
   const handleCreate = () => {
-    setSelectedTree(null);
+    setSelectedTrigger(null);
     setFormMode('create');
   };
 
-  const handleEdit = (tree) => {
-    setSelectedTree(tree);
+  const handleEdit = (trigger) => {
+    setSelectedTrigger(trigger);
     setFormMode('edit');
   };
 
-  const handleCopy = async (tree) => {
+  const handleCopy = async (trigger) => {
     try {
-      await api.copyTree(tree.id);
-      addToast?.(`Copied "${tree.name}"`, 'success');
+      await api.copyTrigger(trigger.id);
+      addToast?.(`Copied "${trigger.name}"`, 'success');
       loadData();
     } catch (err) {
       addToast?.(err.message, 'error');
     }
   };
 
-  const handleDeleteClick = (tree) => setDeleteTarget(tree);
+  const handleDeleteClick = (trigger) => setDeleteTarget(trigger);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await api.deleteTree(deleteTarget.id, { version: deleteTarget.version });
+      await api.deleteTrigger(deleteTarget.id, { version: deleteTarget.version });
       addToast?.(`Deleted "${deleteTarget.name}"`, 'success');
       setDeleteTarget(null);
-      if (selectedTree?.id === deleteTarget.id) {
-        setSelectedTree(null);
+      if (selectedTrigger?.id === deleteTarget.id) {
+        setSelectedTrigger(null);
         setFormMode(null);
       }
       loadData();
     } catch (err) {
       if (err.status === 409) {
-        addToast?.('Conflict: this tree was modified by another user. Please reload and try again.', 'error');
+        addToast?.('Conflict: this trigger was modified by another user. Please reload and try again.', 'error');
       } else {
         addToast?.(err.message, 'error');
       }
@@ -118,18 +118,18 @@ export default function TreesPage({ addToast }) {
   const handleFormSubmit = async (data) => {
     try {
       if (formMode === 'create') {
-        await api.createTree(data);
-        addToast?.('Tree created', 'success');
+        await api.createTrigger(data);
+        addToast?.('Trigger created', 'success');
       } else {
-        await api.updateTree(selectedTree.id, { ...data, version: selectedTree.version });
-        addToast?.('Tree updated', 'success');
+        await api.updateTrigger(selectedTrigger.id, { ...data, version: selectedTrigger.version });
+        addToast?.('Trigger updated', 'success');
       }
       setFormMode(null);
-      setSelectedTree(null);
+      setSelectedTrigger(null);
       loadData();
     } catch (err) {
       if (err.status === 409) {
-        addToast?.('Conflict: this tree was modified by another user. Reload the page and try again.', 'error');
+        addToast?.('Conflict: this trigger was modified by another user. Reload the page and try again.', 'error');
       } else {
         addToast?.(err.message, 'error');
       }
@@ -138,7 +138,7 @@ export default function TreesPage({ addToast }) {
 
   const handleClosePanel = () => {
     setFormMode(null);
-    setSelectedTree(null);
+    setSelectedTrigger(null);
   };
 
 
@@ -181,48 +181,48 @@ export default function TreesPage({ addToast }) {
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="trees-page">
+    <div className="triggers-page">
       <div className="page-header">
-        <h1>🌳 Decision Trees</h1>
+        <h1>⚡ Triggers</h1>
         <div className="page-header-actions">
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
-            + New Tree
+            + New Trigger
           </button>
         </div>
       </div>
 
-      <div className="trees-layout">
+      <div className="triggers-layout">
         {/* List */}
-        <div className={`trees-list ${formMode ? 'trees-list-narrow' : ''}`}>
+        <div className={`triggers-list ${formMode ? 'triggers-list-narrow' : ''}`}>
           <div className="card">
             <EntityTable
               columns={columns}
-              items={trees}
+              items={triggers}
               loading={loading}
-              emptyMessage="No decision trees yet. Create one to start routing triage items."
+              emptyMessage="No triggers yet. Create one to start routing triage items."
               onRowClick={handleEdit}
               onEdit={handleEdit}
               onCopy={handleCopy}
               onDelete={handleDeleteClick}
             />
           </div>
-          <div className="trees-count">
-            {trees.length} tree{trees.length !== 1 ? 's' : ''}
+          <div className="triggers-count">
+            {triggers.length} trigger{triggers.length !== 1 ? 's' : ''}
             {statusFilter && ` (filtered: ${statusFilter})`}
           </div>
         </div>
 
         {/* Detail Panel */}
         {formMode && (
-          <div className="trees-detail-panel card">
+          <div className="triggers-detail-panel card">
             <div className="card-header">
-              <h2>{formMode === 'create' ? 'New Decision Tree' : `Edit: ${selectedTree?.name}`}</h2>
+              <h2>{formMode === 'create' ? 'New Trigger' : `Edit: ${selectedTrigger?.name}`}</h2>
               <button className="btn-icon" onClick={handleClosePanel} title="Close">✕</button>
             </div>
             <div className="card-body">
-              <TreeForm
-                tree={formMode === 'edit' ? selectedTree : null}
+              <TriggerForm
+                trigger={formMode === 'edit' ? selectedTrigger : null}
                 rules={rules}
                 routes={routes}
                 onSubmit={handleFormSubmit}
@@ -230,19 +230,19 @@ export default function TreesPage({ addToast }) {
               />
 
               {/* Execution Preview: show the DSL view */}
-              {formMode === 'edit' && selectedTree?.expression && (
+              {formMode === 'edit' && selectedTrigger?.expression && (
                 <div className="panel-section">
                   <h3>Expression Preview (DSL)</h3>
                   <pre className="view-code-block">
                     <code>
-                      {expressionToDsl(selectedTree.expression, ruleNameMap)}
+                      {expressionToDsl(selectedTrigger.expression, ruleNameMap)}
                     </code>
                   </pre>
                 </div>
               )}
 
-              {formMode === 'edit' && selectedTree && (
-                <ViewCodeToggle data={selectedTree} label="View JSON" />
+              {formMode === 'edit' && selectedTrigger && (
+                <ViewCodeToggle data={selectedTrigger} label="View JSON" />
               )}
             </div>
           </div>
@@ -251,9 +251,9 @@ export default function TreesPage({ addToast }) {
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Delete Decision Tree"
+        title="Delete Trigger"
         message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
-        confirmLabel="Delete Tree"
+        confirmLabel="Delete Trigger"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}
       />

@@ -73,7 +73,7 @@ class Rule(BaseEntity):
     and compares against a value to produce True or False.
     
     The rule is the smallest unit of logic in the triage system.
-    Rules are combined into Decision Trees using AND/OR expressions.
+    Rules are combined into Triggers using AND/OR expressions.
     
     Attributes:
         field:    ADO field reference name (e.g., "Custom.MilestoneID")

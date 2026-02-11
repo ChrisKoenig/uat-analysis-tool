@@ -14,7 +14,7 @@ import './AuditPage.css';
 
 
 /** Entity types available for filtering */
-const ENTITY_TYPES = ['all', 'rule', 'action', 'tree', 'route'];
+const ENTITY_TYPES = ['all', 'rule', 'action', 'trigger', 'route'];
 
 /** Audit actions for filtering */
 const AUDIT_ACTIONS = ['all', 'created', 'updated', 'deleted', 'status_changed', 'copied'];

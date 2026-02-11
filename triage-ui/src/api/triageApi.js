@@ -212,45 +212,45 @@ export function updateActionStatus(id, status, version) {
 
 
 // =============================================================================
-// Decision Trees API
+// Triggers API
 // =============================================================================
 
-export function listTrees(status = null) {
+export function listTriggers(status = null) {
   const query = status ? `?status=${status}` : '';
-  return get(`/trees${query}`);
+  return get(`/triggers${query}`);
 }
 
-export function getTree(id) {
-  return get(`/trees/${id}`);
+export function getTrigger(id) {
+  return get(`/triggers/${id}`);
 }
 
-export function createTree(data) {
-  return post('/trees', data);
+export function createTrigger(data) {
+  return post('/triggers', data);
 }
 
-export function updateTree(id, data) {
-  return put(`/trees/${id}`, data);
+export function updateTrigger(id, data) {
+  return put(`/triggers/${id}`, data);
 }
 
-/** Delete a tree (soft delete by default, version for optimistic locking) */
-export function deleteTree(id, { hard = false, version = null } = {}) {
+/** Delete a trigger (soft delete by default, version for optimistic locking) */
+export function deleteTrigger(id, { hard = false, version = null } = {}) {
   const params = {};
   if (hard) params.hard = 'true';
   if (version != null) params.version = String(version);
-  return del(`/trees/${id}`, params);
+  return del(`/triggers/${id}`, params);
 }
 
-export function copyTree(id, newName = null) {
-  return post(`/trees/${id}/copy`, newName ? { newName } : {});
+export function copyTrigger(id, newName = null) {
+  return post(`/triggers/${id}/copy`, newName ? { newName } : {});
 }
 
-export function getTreeReferences(id) {
-  return get(`/trees/${id}/references`);
+export function getTriggerReferences(id) {
+  return get(`/triggers/${id}/references`);
 }
 
-/** Update tree status (requires version for optimistic locking) */
-export function updateTreeStatus(id, status, version) {
-  return put(`/trees/${id}/status`, { status, version });
+/** Update trigger status (requires version for optimistic locking) */
+export function updateTriggerStatus(id, status, version) {
+  return put(`/triggers/${id}/status`, { status, version });
 }
 
 

@@ -1,28 +1,28 @@
 /**
- * TreesPage Styles
+ * TriggersPage Styles
  */
 
-.trees-page {
+.triggers-page {
   max-width: 1400px;
 }
 
-.trees-layout {
+.triggers-layout {
   display: flex;
   gap: var(--space-lg);
   align-items: flex-start;
 }
 
-.trees-list {
+.triggers-list {
   flex: 1;
   min-width: 0;
   transition: flex 0.2s ease;
 }
 
-.trees-list-narrow {
+.triggers-list-narrow {
   flex: 0.45;
 }
 
-.trees-detail-panel {
+.triggers-detail-panel {
   flex: 0.55;
   min-width: 450px;
   max-height: calc(100vh - 120px);
@@ -31,14 +31,14 @@
   top: var(--space-lg);
 }
 
-.trees-count {
+.triggers-count {
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-size-xs);
   color: var(--text-light);
 }
 
 /* Form-specific spacing */
-.tree-form .form-actions {
+.trigger-form .form-actions {
   display: flex;
   gap: var(--space-sm);
   justify-content: flex-end;

@@ -67,7 +67,7 @@ class Action(BaseEntity):
     An atomic action that sets a single field on an ADO work item.
     
     Actions are the smallest unit of work item modification. They are
-    grouped into Routes and executed together when a decision tree matches.
+    grouped into Routes and executed together when a trigger matches.
     
     Attributes:
         field:      ADO field to modify (e.g., "System.AreaPath")

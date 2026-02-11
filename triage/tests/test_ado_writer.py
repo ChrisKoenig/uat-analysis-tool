@@ -91,7 +91,7 @@ def sample_evaluation():
     )
     eval_obj.generate_id()
     eval_obj.analysisState = AnalysisState.AWAITING_APPROVAL
-    eval_obj.matchedTree = "tree-1"
+    eval_obj.matchedTrigger = "tree-1"
     eval_obj.appliedRoute = "route-1"
     eval_obj.actionsExecuted = ["action-1", "action-2"]
     eval_obj.ruleResults = {"rule-1": True, "rule-2": False}

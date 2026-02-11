@@ -3,7 +3,7 @@ Base Model
 ==========
 
 Provides the base dataclass and shared fields for all triage entities.
-All domain models (Rule, Action, Tree, Route) inherit these common
+All domain models (Rule, Action, Trigger, Route) inherit these common
 audit and lifecycle fields.
 
 Fields:
@@ -52,7 +52,7 @@ class BaseEntity:
     
     All entities stored in Cosmos DB include these fields.
     The `status` field serves as the partition key for rules, actions,
-    trees, and routes containers.
+    triggers, and routes containers.
     """
     
     # -------------------------------------------------------------------------

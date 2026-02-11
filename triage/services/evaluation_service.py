@@ -3,9 +3,9 @@ Evaluation Service
 ==================
 
 Orchestrates the complete triage evaluation pipeline:
-    1. Load all active rules, trees, and routes
+    1. Load all active rules, triggers, and routes
     2. Evaluate ALL rules against the work item → T/F per rule
-    3. Walk decision trees in priority order → find first match
+    3. Walk triggers in priority order → find first match
     4. Compute route actions → planned field changes
     5. Store evaluation results
     6. Return results (or apply to ADO in Phase 2)
@@ -15,7 +15,7 @@ for live processing and test/dry-run mode.
 
 The service coordinates the three engines:
     - RulesEngine: Evaluates atomic rules
-    - TreeEngine: Walks decision trees
+    - TriggerEngine: Walks triggers
     - RoutesEngine: Computes field changes
 """
 
@@ -23,11 +23,11 @@ from typing import Dict, List, Optional, Any, Tuple
 import logging
 
 from ..engines.rules_engine import RulesEngine
-from ..engines.tree_engine import TreeEngine
+from ..engines.trigger_engine import TriggerEngine
 from ..engines.routes_engine import RoutesEngine, FieldChange
 from ..models.rule import Rule
 from ..models.action import Action
-from ..models.tree import DecisionTree
+from ..models.trigger import Trigger
 from ..models.route import Route
 from ..models.evaluation import Evaluation, AnalysisState
 from ..models.analysis_result import AnalysisResult
@@ -64,7 +64,7 @@ class EvaluationService:
     def __init__(self):
         """Initialize with engines and Cosmos DB connection"""
         self._rules_engine = RulesEngine()
-        self._tree_engine = TreeEngine()
+        self._trigger_engine = TriggerEngine()
         self._routes_engine = RoutesEngine()
         self._cosmos = get_cosmos_config()
         self._audit = AuditService()
@@ -81,9 +81,9 @@ class EvaluationService:
         Execute the complete evaluation pipeline for a single work item.
         
         Pipeline Steps:
-            1. Load all active rules, trees, routes, and actions
+            1. Load all active rules, triggers, routes, and actions
             2. Evaluate ALL rules → T/F per rule
-            3. Walk trees by priority → find first TRUE match
+            3. Walk triggers by priority → find first TRUE match
             4. If match: compute route's field changes
             5. Determine the resulting Analysis.State
             6. Store evaluation record in Cosmos DB
@@ -118,13 +118,13 @@ class EvaluationService:
             # Step 1: Load all entities
             # ==============================================================
             rules = self._load_rules()
-            trees = self._load_trees()
+            triggers = self._load_triggers()
             actions_dict = self._load_actions_dict()
             routes_dict = self._load_routes_dict()
             
             logger.debug(
-                "Step 1 - loaded: %d rules, %d trees, %d actions, %d routes",
-                len(rules), len(trees), len(actions_dict), len(routes_dict),
+                "Step 1 - loaded: %d rules, %d triggers, %d actions, %d routes",
+                len(rules), len(triggers), len(actions_dict), len(routes_dict),
             )
             
             # ==============================================================
@@ -141,45 +141,45 @@ class EvaluationService:
             evaluation.ruleResults = rule_results
             evaluation.skippedRules = skipped_rules
             
-            # Track disabled rules that appear in tree expressions,
-            # so the evaluation record warns about short-circuited trees.
-            disabled_in_trees = set()
-            for tree_doc in trees:
-                tree_obj = DecisionTree.from_dict(tree_doc) if isinstance(tree_doc, dict) else tree_doc
-                for rid in tree_obj.get_referenced_rule_ids():
+            # Track disabled rules that appear in trigger expressions,
+            # so the evaluation record warns about short-circuited triggers.
+            disabled_in_triggers = set()
+            for trigger_doc in triggers:
+                trigger_obj = Trigger.from_dict(trigger_doc) if isinstance(trigger_doc, dict) else trigger_doc
+                for rid in trigger_obj.get_referenced_rule_ids():
                     if rid in skipped_rules:
-                        disabled_in_trees.add(rid)
-            if disabled_in_trees:
+                        disabled_in_triggers.add(rid)
+            if disabled_in_triggers:
                 evaluation.errors.append(
-                    f"Disabled/skipped rules referenced by trees: "
-                    f"{', '.join(sorted(disabled_in_trees))}. "
-                    f"These are treated as False and may prevent tree matches."
+                    f"Disabled/skipped rules referenced by triggers: "
+                    f"{', '.join(sorted(disabled_in_triggers))}. "
+                    f"These are treated as False and may prevent trigger matches."
                 )
             
             # ==============================================================
-            # Step 3: Walk decision trees in priority order
+            # Step 3: Walk triggers in priority order
             # ==============================================================
-            logger.debug("Step 3 - walking decision trees...")
-            matched_tree_id, route_id, tree_errors = (
-                self._tree_engine.evaluate(
-                    trees=trees,
+            logger.debug("Step 3 - walking triggers...")
+            matched_trigger_id, route_id, trigger_errors = (
+                self._trigger_engine.evaluate(
+                    trees=triggers,
                     rule_results=rule_results,
                     skipped_rules=skipped_rules,
                     include_staged=dry_run
                 )
             )
             
-            evaluation.matchedTree = matched_tree_id
-            evaluation.errors.extend(tree_errors)
+            evaluation.matchedTrigger = matched_trigger_id
+            evaluation.errors.extend(trigger_errors)
             
             # ==============================================================
-            # Step 4: If a tree matched, compute route field changes
+            # Step 4: If a trigger matched, compute route field changes
             # ==============================================================
             if route_id and route_id in routes_dict:
                 route = routes_dict[route_id]
                 logger.debug(
-                    "Step 4 - computing changes: tree '%s' → route '%s' (%d actions)",
-                    matched_tree_id, route_id, len(route.actions),
+                    "Step 4 - computing changes: trigger '%s' → route '%s' (%d actions)",
+                    matched_trigger_id, route_id, len(route.actions),
                 )
                 
                 changes, route_errors = self._routes_engine.compute_changes(
@@ -201,17 +201,17 @@ class EvaluationService:
                 # Determine state based on match
                 evaluation.analysisState = AnalysisState.AWAITING_APPROVAL
                 
-            elif matched_tree_id and route_id:
-                # Tree matched but route not found
+            elif matched_trigger_id and route_id:
+                # Trigger matched but route not found
                 evaluation.errors.append(
-                    f"Matched tree '{matched_tree_id}' points to "
+                    f"Matched trigger '{matched_trigger_id}' points to "
                     f"route '{route_id}' which was not found"
                 )
                 evaluation.analysisState = AnalysisState.ERROR
                 
             else:
-                # No tree matched
-                logger.debug("Step 4 - no tree matched, state=NO_MATCH")
+                # No trigger matched
+                logger.debug("Step 4 - no trigger matched, state=NO_MATCH")
                 evaluation.analysisState = AnalysisState.NO_MATCH
             
             # ==============================================================
@@ -240,7 +240,7 @@ class EvaluationService:
             self._audit.log_evaluation(
                 work_item_id=work_item_id,
                 actor=actor,
-                matched_tree=evaluation.matchedTree,
+                matched_trigger=evaluation.matchedTrigger,
                 applied_route=evaluation.appliedRoute,
                 analysis_state=evaluation.analysisState,
                 is_dry_run=dry_run
@@ -248,8 +248,8 @@ class EvaluationService:
         
         # Log summary
         match_desc = (
-            f"→ tree '{evaluation.matchedTree}' → route '{evaluation.appliedRoute}'"
-            if evaluation.matchedTree
+            f"→ trigger '{evaluation.matchedTrigger}' → route '{evaluation.appliedRoute}'"
+            if evaluation.matchedTrigger
             else "→ No Match"
         )
         mode = " [DRY RUN]" if dry_run else ""
@@ -317,7 +317,7 @@ class EvaluationService:
         """
         Generate a detailed evaluation trace for debugging/preview.
         
-        Unlike evaluate(), this returns detailed per-tree results
+        Unlike evaluate(), this returns detailed per-trigger results
         and does not store anything.
         
         Args:
@@ -329,23 +329,23 @@ class EvaluationService:
             Dict with detailed trace information
         """
         rules = self._load_rules()
-        trees = self._load_trees()
+        triggers = self._load_triggers()
         
         # Evaluate all rules
         rule_results, skipped = self._rules_engine.evaluate_all(
             rules, work_item_data, analysis
         )
         
-        # Get detailed tree trace
-        tree_trace = self._tree_engine.get_evaluation_trace(
-            trees, rule_results, skipped
+        # Get detailed trigger trace
+        trigger_trace = self._trigger_engine.get_evaluation_trace(
+            triggers, rule_results, skipped
         )
         
         return {
             "workItemId": work_item_id,
             "ruleResults": rule_results,
             "skippedRules": skipped,
-            "treeTrace": tree_trace,
+            "triggerTrace": trigger_trace,
             "rulesEvaluated": len(rule_results),
             "rulesTrue": sum(1 for v in rule_results.values() if v),
         }
@@ -363,14 +363,14 @@ class EvaluationService:
         ))
         return [Rule.from_dict(item) for item in items]
     
-    def _load_trees(self) -> List[DecisionTree]:
-        """Load all trees from Cosmos DB, sorted by priority"""
-        container = self._cosmos.get_container("trees")
+    def _load_triggers(self) -> List[Trigger]:
+        """Load all triggers from Cosmos DB, sorted by priority"""
+        container = self._cosmos.get_container("triggers")
         items = list(container.query_items(
             query="SELECT * FROM c ORDER BY c.priority",
             enable_cross_partition_query=True
         ))
-        return [DecisionTree.from_dict(item) for item in items]
+        return [Trigger.from_dict(item) for item in items]
     
     def _load_actions_dict(self) -> Dict[str, Action]:
         """Load all actions as a dict keyed by ID"""
@@ -486,17 +486,17 @@ class EvaluationService:
         """)
         
         # Routing decision
-        if evaluation.matchedTree:
+        if evaluation.matchedTrigger:
             sections.append(f"""
             <h3>Routing Decision</h3>
-            <p><b>Matched Tree:</b> {evaluation.matchedTree}</p>
+            <p><b>Matched Trigger:</b> {evaluation.matchedTrigger}</p>
             <p><b>Applied Route:</b> {evaluation.appliedRoute}</p>
             <p><b>Actions:</b> {', '.join(evaluation.actionsExecuted)}</p>
             """)
         else:
             sections.append("""
             <h3>Routing Decision</h3>
-            <p><b>No Match</b> - No decision tree matched. Manual triage required.</p>
+            <p><b>No Match</b> - No trigger matched. Manual triage required.</p>
             """)
         
         # Field changes

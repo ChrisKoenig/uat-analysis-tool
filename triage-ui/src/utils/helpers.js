@@ -153,10 +153,10 @@ export function sortBy(arr, key, dir = 'asc') {
 
 
 /**
- * Convert a decision tree expression object into a readable DSL string.
+ * Convert a trigger expression object into a readable DSL string.
  * Used by the "View Code" toggle.
  *
- * @param {Object|string} expr - Expression tree (and/or/not/string)
+ * @param {Object|string} expr - Expression (and/or/not/string)
  * @param {Map<string,string>} [nameMap] - Optional ID→name lookup
  * @param {number} [indent=0] - Current indentation level
  * @returns {string} DSL representation

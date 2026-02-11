@@ -4,7 +4,7 @@
  *
  * Allows users to enter work item IDs and run them through
  * the triage evaluation pipeline. Shows results including
- * matched tree, applied route, rule results, and field changes.
+ * matched trigger, applied route, rule results, and field changes.
  *
  * Features:
  *   - Enter work item IDs (comma-separated)
@@ -175,9 +175,9 @@ export default function EvaluatePage({ addToast }) {
                   <span className={`evaluate-state evaluate-state-${evalResult.analysisState?.replace(/\s/g, '-').toLowerCase()}`}>
                     {evalResult.analysisState}
                   </span>
-                  {evalResult.matchedTree && (
+                  {evalResult.matchedTrigger && (
                     <span className="evaluate-matched">
-                      🌳 {evalResult.matchedTree}
+                      ⚡ {evalResult.matchedTrigger}
                     </span>
                   )}
                   {evalResult.appliedRoute && (

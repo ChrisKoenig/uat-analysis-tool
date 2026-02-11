@@ -1,13 +1,13 @@
 """
-Decision Tree Model
-====================
+Trigger Model
+==============
 
-Represents a decision tree that chains rules together with AND/OR logic
+Represents a trigger that chains rules together with AND/OR logic
 and maps to a route when the expression evaluates to True.
 
-Trees are evaluated in priority order (lowest number = highest priority).
-The first tree whose expression evaluates to True wins, and its route
-is executed. There is no ELSE path - if no tree matches, the state
+Triggers are evaluated in priority order (lowest number = highest priority).
+The first trigger whose expression evaluates to True wins, and its route
+is executed. There is no ELSE path - if no trigger matches, the state
 becomes "No Match" for manual triage.
 
 Expression Format:
@@ -20,17 +20,17 @@ Expression Format:
     NOT:            {"and": [{"not": "rule-2"}, "rule-9"]}
 
 Examples:
-    Tree: "No Milestone Feature Request" (priority 10)
+    Trigger: "No Milestone Feature Request" (priority 10)
         expression: {"and": ["rule-1", "rule-3"]}
         onTrue: "route-1"
         Meaning: IF rule-1 AND rule-3 → execute route-1
 
-    Tree: "Blocked Milestone with Feature/Capacity" (priority 20)
+    Trigger: "Blocked Milestone with Feature/Capacity" (priority 20)
         expression: {"and": ["rule-2", {"or": ["rule-3", "rule-7"]}]}
         onTrue: "route-3"
         Meaning: IF rule-2 AND (rule-3 OR rule-7) → execute route-3
 
-Cosmos DB Container: trees
+Cosmos DB Container: triggers
 Partition Key: /status
 """
 
@@ -41,19 +41,19 @@ from .base import BaseEntity
 
 
 @dataclass
-class DecisionTree(BaseEntity):
+class Trigger(BaseEntity):
     """
-    A decision tree combining rules with AND/OR logic.
+    A trigger combining rules with AND/OR logic.
     
-    Trees are the second layer of the four-layer model. They combine
+    Triggers are the second layer of the four-layer model. They combine
     atomic rules into compound conditions using boolean expressions.
     
     Evaluation Rules:
-        - Trees are processed in priority order (ascending: 10, 20, 30...)
-        - First tree whose expression evaluates to True wins
-        - If a disabled rule appears in an AND expression → tree = False
+        - Triggers are processed in priority order (ascending: 10, 20, 30...)
+        - First trigger whose expression evaluates to True wins
+        - If a disabled rule appears in an AND expression → trigger = False
         - If a missing/deleted rule is referenced → ERROR state
-        - If no tree matches → Analysis.State = "No Match"
+        - If no trigger matches → Analysis.State = "No Match"
     
     Attributes:
         priority:    Evaluation order (ascending, lower = higher priority)
@@ -64,7 +64,7 @@ class DecisionTree(BaseEntity):
     """
     
     # -------------------------------------------------------------------------
-    # Tree Definition
+    # Trigger Definition
     # -------------------------------------------------------------------------
     priority: int = 100           # Evaluation order (lower = higher priority)
     expression: Dict = field(     # Nested AND/OR expression
@@ -74,7 +74,7 @@ class DecisionTree(BaseEntity):
     
     def validate(self) -> List[str]:
         """
-        Validate tree configuration.
+        Validate trigger configuration.
         
         Checks:
             1. Base entity fields (id, name, status)
@@ -184,7 +184,7 @@ class DecisionTree(BaseEntity):
     
     def get_referenced_rule_ids(self) -> Set[str]:
         """
-        Extract all rule IDs referenced in this tree's expression.
+        Extract all rule IDs referenced in this trigger's expression.
         
         Useful for:
             - Validating that all referenced rules exist
@@ -199,7 +199,7 @@ class DecisionTree(BaseEntity):
         return rule_ids
     
     def _collect_rule_ids(self, expr: Any, rule_ids: Set[str]) -> None:
-        """Recursively collect all rule IDs from an expression tree"""
+        """Recursively collect all rule IDs from an expression"""
         if isinstance(expr, str):
             # Leaf node = rule ID
             rule_ids.add(expr)
@@ -212,25 +212,25 @@ class DecisionTree(BaseEntity):
                     self._collect_rule_ids(child, rule_ids)
     
     def get_referenced_route_id(self) -> Optional[str]:
-        """Get the route ID this tree maps to on True"""
+        """Get the route ID this trigger maps to on True"""
         return self.onTrue if self.onTrue else None
     
     def to_display_string(self) -> str:
         """
-        Human-readable representation of the tree expression.
+        Human-readable representation of the trigger expression.
         
         Examples:
             "Priority 10: rule-1 AND rule-3 → route-1"
             "Priority 20: rule-2 AND (rule-3 OR rule-7) → route-3"
         
         Returns:
-            Formatted string describing the tree
+            Formatted string describing the trigger
         """
         expr_str = self._expression_to_string(self.expression)
         return f"Priority {self.priority}: {expr_str} → {self.onTrue}"
     
     def _expression_to_string(self, expr: Any) -> str:
-        """Recursively convert expression tree to readable string"""
+        """Recursively convert expression to readable string"""
         if isinstance(expr, str):
             return expr
         
@@ -255,7 +255,7 @@ class DecisionTree(BaseEntity):
     def __repr__(self) -> str:
         rule_count = len(self.get_referenced_rule_ids())
         return (
-            f"DecisionTree(id='{self.id}', name='{self.name}', "
+            f"Trigger(id='{self.id}', name='{self.name}', "
             f"priority={self.priority}, rules={rule_count}, "
             f"onTrue='{self.onTrue}', status='{self.status}')"
         )

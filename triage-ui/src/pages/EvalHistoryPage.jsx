@@ -299,9 +299,9 @@ export default function EvalHistoryPage({ addToast }) {
                     )}
 
                     <span className="eval-card-meta">
-                      {ev.matchedTree && (
-                        <span title="Matched tree">
-                          🌳 {ev.matchedTree}
+                      {ev.matchedTrigger && (
+                        <span title="Matched trigger">
+                          ⚡ {ev.matchedTrigger}
                         </span>
                       )}
                       {ev.appliedRoute && (
@@ -335,13 +335,13 @@ export default function EvalHistoryPage({ addToast }) {
                         </span>
                       </div>
 
-                      {/* Matched Tree & Route */}
+                      {/* Matched Trigger & Route */}
                       <div className="eval-detail-row">
                         <span className="eval-detail-label">
-                          Matched Tree
+                          Matched Trigger
                         </span>
                         <span className="eval-detail-value">
-                          {ev.matchedTree || '—'}
+                          {ev.matchedTrigger || '—'}
                         </span>
                       </div>
                       <div className="eval-detail-row">

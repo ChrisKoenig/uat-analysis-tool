@@ -6,7 +6,7 @@ Tests for all triage data models:
     - BaseEntity lifecycle (status, version, validation)
     - Rule model (operators, validation, display)
     - Action model (operations, validation, display)
-    - DecisionTree model (expressions, referenced rules, validation)
+    - Trigger model (expressions, referenced rules, validation)
     - Route model (action list management, validation)
 """
 
@@ -16,7 +16,7 @@ from datetime import datetime
 from triage.models.base import BaseEntity, EntityStatus, utc_now
 from triage.models.rule import Rule, VALID_OPERATORS
 from triage.models.action import Action, VALID_OPERATIONS
-from triage.models.tree import DecisionTree
+from triage.models.trigger import Trigger
 from triage.models.route import Route
 from triage.models.evaluation import Evaluation, AnalysisState
 from triage.models.analysis_result import AnalysisResult
@@ -386,122 +386,122 @@ class TestAction:
 
 
 # =============================================================================
-# Decision Tree Model Tests
+# Trigger Model Tests
 # =============================================================================
 
-class TestDecisionTree:
-    """Tests for the DecisionTree model"""
+class TestTrigger:
+    """Tests for the Trigger model"""
     
-    def test_create_simple_tree(self):
-        """Create a tree with AND expression"""
-        tree = DecisionTree(
+    def test_create_simple_trigger(self):
+        """Create a trigger with AND expression"""
+        trigger = Trigger(
             id="dt-10",
             name="No Milestone",
             priority=10,
             expression={"and": ["rule-1", "rule-3"]},
             onTrue="route-1"
         )
-        assert tree.priority == 10
-        assert tree.onTrue == "route-1"
+        assert trigger.priority == 10
+        assert trigger.onTrue == "route-1"
     
-    def test_validate_valid_tree(self):
-        """Valid tree passes validation"""
-        tree = DecisionTree(
+    def test_validate_valid_trigger(self):
+        """Valid trigger passes validation"""
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"and": ["rule-1", "rule-3"]},
             onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert len(errors) == 0
     
     def test_validate_missing_expression(self):
-        """Tree without expression fails"""
-        tree = DecisionTree(
+        """Trigger without expression fails"""
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10, expression={}, onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert any("expression" in e for e in errors)
     
     def test_validate_missing_onTrue(self):
-        """Tree without onTrue fails"""
-        tree = DecisionTree(
+        """Trigger without onTrue fails"""
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"and": ["rule-1", "rule-3"]}
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert any("onTrue" in e for e in errors)
     
     def test_validate_invalid_priority(self):
         """Priority < 1 fails validation"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=0,
             expression={"and": ["rule-1", "rule-3"]},
             onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert any("priority" in e for e in errors)
     
     def test_validate_and_needs_two_children(self):
         """AND expression needs at least 2 children"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"and": ["rule-1"]},
             onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert any("at least 2" in e for e in errors)
     
     def test_validate_nested_expression(self):
         """Nested AND/OR expression validates"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"and": ["rule-2", {"or": ["rule-3", "rule-7"]}]},
             onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert len(errors) == 0
     
     def test_validate_not_expression(self):
         """NOT expression validates"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"and": [{"not": "rule-2"}, "rule-9"]},
             onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert len(errors) == 0
     
     def test_validate_invalid_operator(self):
         """Unknown operator fails validation"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"xor": ["rule-1", "rule-2"]},
             onTrue="route-1"
         )
-        errors = tree.validate()
+        errors = trigger.validate()
         assert any("Unknown expression operator" in e for e in errors)
     
     def test_get_referenced_rule_ids_simple(self):
         """Extract rule IDs from simple AND"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             expression={"and": ["rule-1", "rule-3"]},
             onTrue="route-1"
         )
-        ids = tree.get_referenced_rule_ids()
+        ids = trigger.get_referenced_rule_ids()
         assert ids == {"rule-1", "rule-3"}
     
     def test_get_referenced_rule_ids_nested(self):
         """Extract rule IDs from nested expression"""
-        tree = DecisionTree(
+        trigger = Trigger(
             id="dt-10", name="Test",
             expression={
                 "and": [
@@ -512,22 +512,22 @@ class TestDecisionTree:
             },
             onTrue="route-1"
         )
-        ids = tree.get_referenced_rule_ids()
+        ids = trigger.get_referenced_rule_ids()
         assert ids == {"rule-2", "rule-3", "rule-7", "rule-5"}
     
     def test_round_trip_dict(self):
-        """Tree survives to_dict/from_dict round trip"""
-        tree = DecisionTree(
+        """Trigger survives to_dict/from_dict round trip"""
+        trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
             expression={"and": ["rule-1", "rule-3"]},
             onTrue="route-1"
         )
-        d = tree.to_dict()
-        restored = DecisionTree.from_dict(d)
-        assert restored.id == tree.id
-        assert restored.expression == tree.expression
-        assert restored.onTrue == tree.onTrue
+        d = trigger.to_dict()
+        restored = Trigger.from_dict(d)
+        assert restored.id == trigger.id
+        assert restored.expression == trigger.expression
+        assert restored.onTrue == trigger.onTrue
 
 
 # =============================================================================

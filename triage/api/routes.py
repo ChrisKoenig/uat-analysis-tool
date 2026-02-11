@@ -8,7 +8,7 @@ Runs on port 8009 alongside the existing microservices.
 Endpoints:
     /api/v1/rules      - CRUD for rules
     /api/v1/actions     - CRUD for actions
-    /api/v1/trees       - CRUD for decision trees
+    /api/v1/triggers    - CRUD for triggers
     /api/v1/routes      - CRUD for routes
     /api/v1/evaluate    - Trigger evaluations
     /api/v1/evaluations - View evaluation history
@@ -36,7 +36,7 @@ logger = logging.getLogger("triage.api")
 from .schemas import (
     RuleCreate, RuleUpdate,
     ActionCreate, ActionUpdate,
-    TreeCreate, TreeUpdate,
+    TriggerCreate, TriggerUpdate,
     RouteCreate, RouteUpdate,
     EvaluateRequest, EvaluateResponse,
     StatusUpdate, CopyRequest,
@@ -62,7 +62,7 @@ app = FastAPI(
     title="Triage Management API",
     description=(
         "REST API for the Triage Management System. "
-        "Manages rules, actions, decision trees, and routes for "
+        "Manages rules, actions, triggers, and routes for "
         "automated ADO Action triage."
     ),
     version="1.0.0",
@@ -169,7 +169,7 @@ async def health_check():
 # =============================================================================
 # Generic CRUD Endpoint Factory
 # =============================================================================
-# Since rules, actions, trees, and routes all follow the same CRUD pattern,
+# Since rules, actions, triggers, and routes all follow the same CRUD pattern,
 # we create a helper that builds all endpoints for an entity type.
 
 def _create_crud_endpoints(entity_type: str, create_model, update_model):
@@ -186,7 +186,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
         PUT    /api/v1/{entity_type}s/{id}/status  - Status change
         GET    /api/v1/{entity_type}s/{id}/references - Cross-references
     """
-    plural = f"{entity_type}s" if entity_type != "tree" else "trees"
+    plural = f"{entity_type}s"
     tag = entity_type.capitalize() + "s"
     
     # --- LIST ---
@@ -369,7 +369,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
 
 _create_crud_endpoints("rule", RuleCreate, RuleUpdate)
 _create_crud_endpoints("action", ActionCreate, ActionUpdate)
-_create_crud_endpoints("tree", TreeCreate, TreeUpdate)
+_create_crud_endpoints("trigger", TriggerCreate, TriggerUpdate)
 _create_crud_endpoints("route", RouteCreate, RouteUpdate)
 
 
@@ -385,7 +385,7 @@ async def evaluate(body: EvaluateRequest):
     Pipeline:
         1. Fetch work item data from ADO (via AdoClient)
         2. Run rules engine → T/F per rule
-        3. Walk decision trees → find first matching tree
+        3. Walk triggers → find first matching trigger
         4. Compute route actions → planned field changes
         5. Store evaluation record in Cosmos DB
         6. Return evaluation results (does NOT auto-apply to ADO)
@@ -454,7 +454,7 @@ async def evaluate(body: EvaluateRequest):
             "id": evaluation.id,
             "workItemId": work_item_id,
             "analysisState": evaluation.analysisState,
-            "matchedTree": evaluation.matchedTree,
+            "matchedTrigger": evaluation.matchedTrigger,
             "appliedRoute": evaluation.appliedRoute,
             "actionsExecuted": evaluation.actionsExecuted,
             "ruleResults": evaluation.ruleResults,
@@ -954,10 +954,10 @@ async def get_validation_warnings():
     Get all validation warnings across the system.
     
     Checks for:
-        - Orphaned rules (not referenced by any tree)
+        - Orphaned rules (not referenced by any trigger)
         - Orphaned actions (not referenced by any route)
-        - Missing references (trees pointing to deleted rules/routes)
-        - Duplicate priorities (trees with the same priority)
+        - Missing references (triggers pointing to deleted rules/routes)
+        - Duplicate priorities (triggers with the same priority)
     """
     crud = get_crud()
     warnings = []
@@ -965,14 +965,14 @@ async def get_validation_warnings():
     try:
         # Check for orphaned rules
         all_rules, _ = crud.list("rule")
-        all_trees, _ = crud.list("tree")
+        all_triggers, _ = crud.list("trigger")
         
-        # Collect all rule IDs referenced by trees
+        # Collect all rule IDs referenced by triggers
         referenced_rules = set()
-        for tree_doc in all_trees:
-            from ..models.tree import DecisionTree
-            tree = DecisionTree.from_dict(tree_doc)
-            referenced_rules.update(tree.get_referenced_rule_ids())
+        for trigger_doc in all_triggers:
+            from ..models.trigger import Trigger
+            trigger = Trigger.from_dict(trigger_doc)
+            referenced_rules.update(trigger.get_referenced_rule_ids())
         
         for rule in all_rules:
             if rule["id"] not in referenced_rules:
@@ -980,7 +980,7 @@ async def get_validation_warnings():
                     "type": "orphaned_rule",
                     "entityType": "rule",
                     "entityId": rule["id"],
-                    "message": f"Rule '{rule['name']}' is not used by any tree",
+                    "message": f"Rule '{rule['name']}' is not used by any trigger",
                 })
         
         # Check for orphaned actions
@@ -1001,38 +1001,38 @@ async def get_validation_warnings():
                     "message": f"Action '{action['name']}' is not used by any route",
                 })
         
-        # Check for duplicate tree priorities
+        # Check for duplicate trigger priorities
         priorities = {}
-        for tree in all_trees:
-            p = tree.get("priority")
+        for trigger in all_triggers:
+            p = trigger.get("priority")
             if p in priorities:
                 warnings.append({
                     "type": "duplicate_priority",
-                    "entityType": "tree",
-                    "entityId": tree["id"],
+                    "entityType": "trigger",
+                    "entityId": trigger["id"],
                     "message": (
-                        f"Tree '{tree['name']}' has the same priority ({p}) "
-                        f"as tree '{priorities[p]}'"
+                        f"Trigger '{trigger['name']}' has the same priority ({p}) "
+                        f"as trigger '{priorities[p]}'"
                     ),
                 })
             else:
-                priorities[p] = tree.get("name", tree["id"])
+                priorities[p] = trigger.get("name", trigger["id"])
         
         # ==============================================================
-        # Broken references: trees → rules that don't exist
+        # Broken references: triggers → rules that don't exist
         # ==============================================================
         all_rule_ids = {r["id"] for r in all_rules}
-        for tree_doc in all_trees:
-            from ..models.tree import DecisionTree as DT
-            tree = DT.from_dict(tree_doc)
-            for ref_rule_id in tree.get_referenced_rule_ids():
+        for trigger_doc in all_triggers:
+            from ..models.trigger import Trigger as DT
+            trigger = DT.from_dict(trigger_doc)
+            for ref_rule_id in trigger.get_referenced_rule_ids():
                 if ref_rule_id not in all_rule_ids:
                     warnings.append({
                         "type": "broken_reference",
-                        "entityType": "tree",
-                        "entityId": tree.id,
+                        "entityType": "trigger",
+                        "entityId": trigger.id,
                         "message": (
-                            f"Tree '{tree.name}' references rule "
+                            f"Trigger '{trigger.name}' references rule "
                             f"'{ref_rule_id}' which does not exist"
                         ),
                     })
@@ -1055,18 +1055,18 @@ async def get_validation_warnings():
                     })
         
         # ==============================================================
-        # Broken references: trees → routes that don't exist
+        # Broken references: triggers → routes that don't exist
         # ==============================================================
         all_route_ids = {r["id"] for r in all_routes}
-        for tree_doc in all_trees:
-            on_true = tree_doc.get("onTrue", "")
+        for trigger_doc in all_triggers:
+            on_true = trigger_doc.get("onTrue", "")
             if on_true and on_true not in all_route_ids:
                 warnings.append({
                     "type": "broken_reference",
-                    "entityType": "tree",
-                    "entityId": tree_doc["id"],
+                    "entityType": "trigger",
+                    "entityId": trigger_doc["id"],
                     "message": (
-                        f"Tree '{tree_doc.get('name', tree_doc['id'])}' "
+                        f"Trigger '{trigger_doc.get('name', trigger_doc['id'])}' "
                         f"points to route '{on_true}' which does not exist"
                     ),
                 })

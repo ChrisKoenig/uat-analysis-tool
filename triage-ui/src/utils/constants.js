@@ -81,7 +81,7 @@ export const TEMPLATE_VARIABLES = [
 
 // ---------------------------------------------------------------------------
 // Entity Statuses
-// Shared across rules, actions, trees, routes
+// Shared across rules, actions, triggers, routes
 // ---------------------------------------------------------------------------
 export const STATUSES = [
   { value: 'active',   label: 'Active',   color: 'var(--success)' },
@@ -126,7 +126,7 @@ export const NAV_ITEMS = [
   { path: '/evaluate',   label: 'Evaluate',    icon: '⚡' },
   { divider: true },
   { path: '/rules',      label: 'Rules',       icon: '📋' },
-  { path: '/trees',      label: 'Trees',       icon: '🌳' },
+  { path: '/triggers',   label: 'Triggers',    icon: '⚡' },
   { path: '/actions',    label: 'Actions',     icon: '🎯' },
   { path: '/routes',     label: 'Routes',      icon: '🔀' },
   { divider: true },

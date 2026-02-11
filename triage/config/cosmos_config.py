@@ -12,7 +12,7 @@ Cosmos DB Structure:
     Containers:
         - rules:            Atomic conditions (field + operator + value)
         - actions:          Atomic field assignments
-        - trees:            Decision trees (rule chains → route)
+        - triggers:         Triggers (rule chains → route)
         - routes:           Action collections
         - evaluations:      Per-item rule evaluation results
         - analysis-results: Structured analysis output
@@ -52,9 +52,9 @@ CONTAINER_DEFINITIONS = {
         "partition_key": "/status",
         "description": "Atomic field assignments (field + operation + value)"
     },
-    "trees": {
+    "triggers": {
         "partition_key": "/status",
-        "description": "Decision trees (rule chains with AND/OR logic)"
+        "description": "Triggers (rule chains with AND/OR logic)"
     },
     "routes": {
         "partition_key": "/status",

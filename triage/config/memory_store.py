@@ -495,7 +495,7 @@ SEED_DATA = {
             "modifiedDate": "2026-02-10T00:00:00Z",
         },
     ],
-    "trees": [
+    "triggers": [
         {
             "id": "dt-new-no-milestone",
             "name": "New Items Missing Milestone",

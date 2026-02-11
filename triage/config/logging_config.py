@@ -8,7 +8,7 @@ logger names under the ``triage`` namespace.
 
 Logger Naming Convention:
     triage.engines.rules      → RulesEngine
-    triage.engines.tree       → TreeEngine
+    triage.engines.trigger    → TriggerEngine
     triage.engines.routes     → RoutesEngine
     triage.services.eval      → EvaluationService
     triage.services.crud      → CrudService
@@ -27,7 +27,7 @@ Configuration:
         TRIAGE_LOG_LEVEL    Override the root log level (DEBUG, INFO, WARNING, ERROR)
                             Default: INFO
 
-    For detailed debug tracing (every rule evaluation, tree walk step, etc.)
+    For detailed debug tracing (every rule evaluation, trigger walk step, etc.)
     set TRIAGE_LOG_LEVEL=DEBUG before starting the service.
 
 Usage (inside any module):

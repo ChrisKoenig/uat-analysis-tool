@@ -10,7 +10,7 @@ values were. Stored in the audit-log container with entityType as partition key.
 
 This is critical for:
     - Compliance (who approved a rule change?)
-    - Debugging (when was this tree disabled?)
+    - Debugging (when was this trigger disabled?)
     - Rollback investigation (what was the old value?)
 
 Cosmos DB Container: audit-log
@@ -34,7 +34,7 @@ class AuditAction:
     Standard audit action names.
     
     Format: {entityType}.{operation}
-    Examples: rule.create, tree.update, route.delete
+    Examples: rule.create, trigger.update, route.delete
     """
     # CRUD operations
     CREATE = "create"
@@ -60,7 +60,7 @@ class AuditAction:
         Format a full audit action string.
         
         Args:
-            entity_type: Type of entity (rule, action, tree, route)
+            entity_type: Type of entity (rule, action, trigger, route)
             operation: Operation performed (create, update, delete, etc.)
             
         Returns:
@@ -105,7 +105,7 @@ class AuditEntry:
     # What Changed
     # -------------------------------------------------------------------------
     action: str = ""                          # e.g., "rule.update"
-    entityType: str = ""                      # rule | action | tree | route
+    entityType: str = ""                      # rule | action | trigger | route
     entityId: str = ""                        # ID of the changed entity
     
     # -------------------------------------------------------------------------
@@ -168,7 +168,7 @@ class AuditEntry:
         
         Args:
             action:         Operation performed (e.g., "create", "update")
-            entity_type:    Type of entity (rule, action, tree, route)
+            entity_type:    Type of entity (rule, action, trigger, route)
             entity_id:      ID of the changed entity
             actor:          User who made the change
             changes:        Field changes {field: {from, to}}

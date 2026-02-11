@@ -118,5 +118,17 @@
     "created_at": "2026-01-28T08:38:59.715930",
     "ttl_days": 7,
     "hits": 0
+  },
+  "c8afecdc6370465d3ed606c01ad1b0cc8d45e96cf5a44a7f6ab4ae78a22e6705": {
+    "data": {
+      "category": "migration_modernization",
+      "intent": "need_migration_help",
+      "business_impact": "high",
+      "confidence": 0.85,
+      "reasoning": "The customer is looking to migrate workloads to the Azure VMware Solution, which aligns with migration_modernization. The stated impact indicates a high business priority due to potential evaluation of competitive offerings if services are unavailable. The inquiry does not explicitly mention service availability or regional concerns, so migration_modernization is the most fitting category."
+    },
+    "created_at": "2026-01-29T08:09:20.409903",
+    "ttl_days": 7,
+    "hits": 0
   }
 }

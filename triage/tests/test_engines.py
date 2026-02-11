@@ -4,7 +4,7 @@ Unit Tests - Engines
 
 Tests for the three triage evaluation engines:
     - RulesEngine: All 16 operators, field resolution, edge cases
-    - TreeEngine: Priority ordering, AND/OR/NOT, disabled rules, missing rules
+    - TriggerEngine: Priority ordering, AND/OR/NOT, disabled rules, missing rules
     - RoutesEngine: All 5 operations, template variables, field changes
 """
 
@@ -12,11 +12,11 @@ import pytest
 from typing import Dict, Any
 
 from triage.engines.rules_engine import RulesEngine
-from triage.engines.tree_engine import TreeEngine, MissingRuleError
+from triage.engines.trigger_engine import TriggerEngine, MissingRuleError
 from triage.engines.routes_engine import RoutesEngine, FieldChange
 from triage.models.rule import Rule
 from triage.models.action import Action
-from triage.models.tree import DecisionTree
+from triage.models.trigger import Trigger
 from triage.models.route import Route
 from triage.models.analysis_result import AnalysisResult
 
@@ -49,9 +49,9 @@ def make_action(id: str, field: str, operation: str, value=None, status="active"
     )
 
 
-def make_tree(id: str, priority: int, expression: Dict, onTrue: str, status="active"):
-    """Helper to create a DecisionTree instance for testing"""
-    return DecisionTree(
+def make_trigger(id: str, priority: int, expression: Dict, onTrue: str, status="active"):
+    """Helper to create a Trigger instance for testing"""
+    return Trigger(
         id=id,
         name=f"Test {id}",
         priority=priority,
@@ -373,86 +373,86 @@ class TestRulesEngineEvaluateAll:
 
 
 # =============================================================================
-# TreeEngine Tests
+# TriggerEngine Tests
 # =============================================================================
 
-class TestTreeEngine:
-    """Tests for the DecisionTree evaluation engine"""
+class TestTriggerEngine:
+    """Tests for the Trigger evaluation engine"""
     
     def setup_method(self):
-        self.engine = TreeEngine()
+        self.engine = TriggerEngine()
     
-    def test_single_tree_match(self):
-        """Single tree with matching AND expression"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1")
+    def test_single_trigger_match(self):
+        """Single trigger with matching AND expression"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1")
         ]
         results = {"r1": True, "r2": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-10"
         assert route == "route-1"
         assert len(errors) == 0
     
-    def test_single_tree_no_match(self):
-        """Single tree with non-matching expression"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1")
+    def test_single_trigger_no_match(self):
+        """Single trigger with non-matching expression"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1")
         ]
         results = {"r1": True, "r2": False}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched is None
         assert route is None
     
     def test_priority_ordering(self):
-        """Higher priority (lower number) tree wins"""
-        trees = [
-            make_tree("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1"),
+        """Higher priority (lower number) trigger wins"""
+        triggers = [
+            make_trigger("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1"),
         ]
         results = {"r1": True, "r2": True, "r3": True, "r4": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         # Priority 10 wins over 20 even though dt-20 is first in list
         assert matched == "dt-10"
         assert route == "route-1"
     
     def test_first_match_wins(self):
-        """First matching tree (by priority) wins"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1"),
-            make_tree("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
+        """First matching trigger (by priority) wins"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1"),
+            make_trigger("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
         ]
         results = {"r1": True, "r2": True, "r3": True, "r4": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-10"
     
     def test_or_expression(self):
         """OR expression: any True child wins"""
-        trees = [
-            make_tree("dt-10", 10, {"or": ["r1", "r2"]}, "route-1")
+        triggers = [
+            make_trigger("dt-10", 10, {"or": ["r1", "r2"]}, "route-1")
         ]
         results = {"r1": False, "r2": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-10"
     
     def test_not_expression(self):
         """NOT expression: inverts result"""
-        trees = [
-            make_tree("dt-10", 10, {"and": [{"not": "r1"}, "r2"]}, "route-1")
+        triggers = [
+            make_trigger("dt-10", 10, {"and": [{"not": "r1"}, "r2"]}, "route-1")
         ]
         results = {"r1": False, "r2": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-10"  # NOT False = True, AND True = True
     
     def test_nested_expression(self):
         """Nested AND/OR expression"""
-        trees = [
-            make_tree(
+        triggers = [
+            make_trigger(
                 "dt-10", 10,
                 {"and": ["r1", {"or": ["r2", "r3"]}]},
                 "route-1"
@@ -460,70 +460,70 @@ class TestTreeEngine:
         ]
         results = {"r1": True, "r2": False, "r3": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-10"
     
     def test_disabled_rule_in_and(self):
-        """Disabled rule in AND expression → tree = False"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1")
+        """Disabled rule in AND expression → trigger = False"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1")
         ]
         results = {"r1": True}
         skipped = ["r2"]  # r2 is disabled
         
         matched, route, errors = self.engine.evaluate(
-            trees, results, skipped
+            triggers, results, skipped
         )
         assert matched is None  # r2 treated as False → AND fails
     
     def test_disabled_rule_in_or(self):
         """Disabled rule in OR expression → treated as False, other rules can satisfy"""
-        trees = [
-            make_tree("dt-10", 10, {"or": ["r1", "r2"]}, "route-1")
+        triggers = [
+            make_trigger("dt-10", 10, {"or": ["r1", "r2"]}, "route-1")
         ]
         results = {"r1": True}
         skipped = ["r2"]  # r2 is disabled → False, but r1 is True
         
         matched, route, errors = self.engine.evaluate(
-            trees, results, skipped
+            triggers, results, skipped
         )
         assert matched == "dt-10"  # r1 satisfies the OR
     
     def test_missing_rule_error(self):
         """Missing rule (not in results, not skipped) → error"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r999"]}, "route-1")
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r999"]}, "route-1")
         ]
         results = {"r1": True}  # r999 not here
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched is None
         assert len(errors) > 0
         assert "r999" in errors[0]
     
-    def test_disabled_tree_skipped(self):
-        """Disabled trees are not evaluated"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1",
+    def test_disabled_trigger_skipped(self):
+        """Disabled triggers are not evaluated"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1",
                        status="disabled"),
-            make_tree("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
+            make_trigger("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
         ]
         results = {"r1": True, "r2": True, "r3": True, "r4": True}
         
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-20"  # dt-10 skipped because disabled
     
     def test_evaluation_trace(self):
-        """get_evaluation_trace evaluates ALL trees"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r2"]}, "route-1"),
-            make_tree("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
+        """get_evaluation_trace evaluates ALL triggers"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r2"]}, "route-1"),
+            make_trigger("dt-20", 20, {"and": ["r3", "r4"]}, "route-2"),
         ]
         results = {"r1": True, "r2": True, "r3": True, "r4": True}
         
-        trace = self.engine.get_evaluation_trace(trees, results)
+        trace = self.engine.get_evaluation_trace(triggers, results)
         assert len(trace) == 2
-        assert trace[0]["treeId"] == "dt-10"
+        assert trace[0]["triggerId"] == "dt-10"
         assert trace[0]["isWinner"] is True
         assert trace[1]["isWinner"] is False
 
@@ -678,7 +678,7 @@ class TestEngineIntegration:
     """Tests combining multiple engines in a mini pipeline"""
     
     def test_full_pipeline_match(self):
-        """Rules → Trees → Routes: end-to-end match"""
+        """Rules → Triggers → Routes: end-to-end match"""
         # Step 1: Evaluate rules
         rules_engine = RulesEngine()
         rules = [
@@ -691,17 +691,17 @@ class TestEngineIntegration:
         assert rule_results["r1"] is True
         assert rule_results["r2"] is True
         
-        # Step 2: Walk trees
-        tree_engine = TreeEngine()
-        trees = [
-            make_tree(
+        # Step 2: Walk triggers
+        trigger_engine = TriggerEngine()
+        triggers = [
+            make_trigger(
                 "dt-10", 10,
                 {"and": ["r1", "r2"]},
                 "route-1"
             )
         ]
-        matched, route_id, errors = tree_engine.evaluate(
-            trees, rule_results, skipped
+        matched, route_id, errors = trigger_engine.evaluate(
+            triggers, rule_results, skipped
         )
         assert matched == "dt-10"
         assert route_id == "route-1"
@@ -729,7 +729,7 @@ class TestEngineIntegration:
         assert "user@microsoft.com" in changes[1].new_value
     
     def test_full_pipeline_no_match(self):
-        """Rules → Trees → Routes: no tree matches"""
+        """Rules \u2192 Triggers \u2192 Routes: no trigger matches"""
         rules_engine = RulesEngine()
         rules = [
             make_rule("r1", "Custom.SolutionArea", "equals", "EMEA"),  # Won't match
@@ -739,12 +739,12 @@ class TestEngineIntegration:
         )
         assert rule_results["r1"] is False
         
-        tree_engine = TreeEngine()
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1", "r1"]}, "route-1")
+        trigger_engine = TriggerEngine()
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1", "r1"]}, "route-1")
         ]
-        matched, route_id, errors = tree_engine.evaluate(
-            trees, rule_results, skipped
+        matched, route_id, errors = trigger_engine.evaluate(
+            triggers, rule_results, skipped
         )
         assert matched is None
         assert route_id is None

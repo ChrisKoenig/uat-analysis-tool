@@ -68,7 +68,7 @@ class AuditService:
         
         Args:
             action:         Operation (create, update, delete, etc.)
-            entity_type:    Entity type (rule, action, tree, route)
+            entity_type:    Entity type (rule, action, trigger, route)
             entity_id:      ID of the affected entity
             actor:          User email or "system"
             changes:        Field changes {field: {from, to}}
@@ -102,7 +102,7 @@ class AuditService:
         self,
         work_item_id: int,
         actor: str,
-        matched_tree: Optional[str],
+        matched_trigger: Optional[str],
         applied_route: Optional[str],
         analysis_state: str,
         is_dry_run: bool = False
@@ -111,12 +111,12 @@ class AuditService:
         Log an evaluation event.
         
         Args:
-            work_item_id:  ADO work item ID
-            actor:         Who triggered the evaluation
-            matched_tree:  Tree that matched (or None)
-            applied_route: Route that was applied (or None)
-            analysis_state: Resulting analysis state
-            is_dry_run:    Whether this was a test run
+            work_item_id:    ADO work item ID
+            actor:           Who triggered the evaluation
+            matched_trigger: Trigger that matched (or None)
+            applied_route:   Route that was applied (or None)
+            analysis_state:  Resulting analysis state
+            is_dry_run:      Whether this was a test run
             
         Returns:
             The created AuditEntry
@@ -127,7 +127,7 @@ class AuditService:
             entity_id=str(work_item_id),
             actor=actor,
             changes={
-                "matchedTree": {"from": None, "to": matched_tree},
+                "matchedTrigger": {"from": None, "to": matched_trigger},
                 "appliedRoute": {"from": None, "to": applied_route},
                 "analysisState": {"from": None, "to": analysis_state},
             },
@@ -147,7 +147,7 @@ class AuditService:
         Uses the entityType partition key for efficient queries.
         
         Args:
-            entity_type: Type of entity (rule, action, tree, route)
+            entity_type: Type of entity (rule, action, trigger, route)
             entity_id:   ID of the entity
             limit:       Maximum entries to return
             

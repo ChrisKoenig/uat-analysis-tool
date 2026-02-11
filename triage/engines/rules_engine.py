@@ -7,7 +7,7 @@ Each rule reads one field, applies an operator, and returns True or False.
 
 This is Layer 1 of the four-layer model. The rules engine evaluates
 ALL active rules against a work item, producing a dict of {ruleId: T/F}.
-These results are then consumed by the Tree Engine (Layer 2).
+These results are then consumed by the Trigger Engine (Layer 2).
 
 Evaluation Process:
     1. Load all active rules from Cosmos DB

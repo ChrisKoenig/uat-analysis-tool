@@ -19,8 +19,8 @@ const WARNING_TYPE_CONFIG = {
   orphaned_rule:      { label: 'Orphaned Rule',     icon: '📋', severity: 'warning',  link: '/rules' },
   orphaned_action:    { label: 'Orphaned Action',   icon: '🎯', severity: 'warning',  link: '/actions' },
   missing_reference:  { label: 'Missing Reference', icon: '🔗', severity: 'error',    link: null },
-  duplicate_priority: { label: 'Duplicate Priority', icon: '⚠️', severity: 'error',   link: '/trees' },
-  invalid_expression: { label: 'Invalid Expression', icon: '❌', severity: 'error',   link: '/trees' },
+  duplicate_priority: { label: 'Duplicate Priority', icon: '⚠️', severity: 'error',   link: '/triggers' },
+  invalid_expression: { label: 'Invalid Expression', icon: '❌', severity: 'error',   link: '/triggers' },
   empty_route:        { label: 'Empty Route',        icon: '🔀', severity: 'info',    link: '/routes' },
 };
 

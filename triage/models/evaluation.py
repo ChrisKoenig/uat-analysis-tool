@@ -3,7 +3,7 @@ Evaluation Model
 ================
 
 Represents the result of evaluating a single work item through the
-triage pipeline. Captures all rule results (T/F), the matched tree,
+triage pipeline. Captures all rule results (T/F), the matched trigger,
 applied route, executed actions, and field changes.
 
 This is the core audit record for every evaluation, stored in the
@@ -68,7 +68,7 @@ class Evaluation:
     Captures the complete evaluation lifecycle:
         1. All rule evaluations (T/F per rule)
         2. Skipped rules (disabled or errors)
-        3. The matched decision tree (if any)
+        3. The matched trigger (if any)
         4. The applied route and executed actions
         5. Field changes made to the work item
         6. The resulting Analysis.State
@@ -83,7 +83,7 @@ class Evaluation:
         evaluatedBy:      "system" or user email (for manual trigger)
         ruleResults:      Dict of rule ID → True/False
         skippedRules:     Rules not evaluated (disabled, error)
-        matchedTree:      ID of the first tree that matched (or None)
+        matchedTrigger:   ID of the first trigger that matched (or None)
         appliedRoute:     ID of the route that was executed (or None)
         actionsExecuted:  List of action IDs that were applied
         analysisState:    Resulting Analysis.State value
@@ -114,7 +114,7 @@ class Evaluation:
     # -------------------------------------------------------------------------
     # Routing Results
     # -------------------------------------------------------------------------
-    matchedTree: Optional[str] = None         # Tree ID that matched (or None)
+    matchedTrigger: Optional[str] = None      # Trigger ID that matched (or None)
     appliedRoute: Optional[str] = None        # Route ID executed (or None)
     actionsExecuted: List[str] = field(       # Action IDs applied
         default_factory=list
@@ -163,8 +163,8 @@ class Evaluation:
         return cls(**filtered)
     
     def had_match(self) -> bool:
-        """Check if any decision tree matched"""
-        return self.matchedTree is not None
+        """Check if any trigger matched"""
+        return self.matchedTrigger is not None
     
     def had_errors(self) -> bool:
         """Check if any errors occurred"""
@@ -193,7 +193,7 @@ class Evaluation:
         return self.id
     
     def __repr__(self) -> str:
-        match_info = f"→ {self.matchedTree}" if self.matchedTree else "no match"
+        match_info = f"→ {self.matchedTrigger}" if self.matchedTrigger else "no match"
         return (
             f"Evaluation(workItem={self.workItemId}, "
             f"rules={self.rules_evaluated_count()}/{self.rules_matched_count()} T, "

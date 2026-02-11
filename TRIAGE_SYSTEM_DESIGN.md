@@ -28,7 +28,7 @@
 
 ## System Overview
 
-The Triage Management System automates the triage process for Azure DevOps (ADO) Actions. It analyzes incoming items, validates data quality using decision trees, applies routing rules to determine the destination team, and presents results for human review in the native ADO interface.
+The Triage Management System automates the triage process for Azure DevOps (ADO) Actions. It analyzes incoming items, validates data quality using triggers, applies routing rules to determine the destination team, and presents results for human review in the native ADO interface.
 
 ### Goals
 
@@ -51,7 +51,7 @@ The Triage Management System automates the triage process for Azure DevOps (ADO)
 │                 │     │                 │     │ 8 containers │
 │ - Admin UI      │     │ - CRUD APIs     │     │              │
 │ - Triage UI     │     │ - Rules Engine  │     └──────────────┘
-│ - Visual Design │     │ - Tree Engine   │            │
+│ - Visual Design │     │ - Trigger Engine│            │
 │ - Test mode     │     │ - Routes Engine │     ┌──────────────┐
 └─────────────────┘     │ - ADO Integration│───▶│ Azure DevOps │
                         │ - Audit Logging │     │              │
@@ -92,7 +92,7 @@ managed and reusable across the system.
 
 ```
 ┌─────────────┐     ┌─────────────────────┐     ┌─────────────┐     ┌─────────────┐
-│   RULES     │────▶│   DECISION TREES    │────▶│   ACTIONS   │────▶│   ROUTES    │
+│   RULES     │────▶│      TRIGGERS       │────▶│   ACTIONS   │────▶│   ROUTES    │
 │  (atomic)   │     │  (chain rules)      │     │  (atomic)   │     │ (group      │
 │             │     │                     │     │             │     │  actions)   │
 │ Single      │     │ AND/OR combos       │     │ Single      │     │ Collection  │
@@ -116,11 +116,11 @@ Rule 4: Analysis Product contains "Route Server"
 Rule 9: Solution Area = "AMEA"
 ```
 
-### Layer 2: Decision Trees (Rule Chains)
+### Layer 2: Triggers (Rule Chains)
 
 Combine rules with AND/OR logic. Evaluated in priority order. First TRUE match wins.
-Each tree points to a route to execute on TRUE. No ELSE path - if FALSE, evaluation
-continues to the next tree.
+Each trigger points to a route to execute on TRUE. No ELSE path - if FALSE, evaluation
+continues to the next trigger.
 
 **Example:**
 ```
@@ -134,7 +134,7 @@ Priority 40: IF ((Rule 5 OR Rule 6 OR Rule 7) AND NOT Rule 2) OR Rule 9 → Rout
 
 Each action defines a single field assignment or operation. Actions are the
 atomic building blocks that get composed into routes — just as rules are the
-atomic conditions that get composed into decision trees.
+atomic conditions that get composed into triggers.
 
 **Example:**
 ```
@@ -147,7 +147,7 @@ Action 4: Set State = "Done"
 ### Layer 4: Routes (Action Collections)
 
 Group actions together into reusable pipelines. When a route executes, all
-its actions are applied in order. The relationship mirrors Rules → Trees:
+its actions are applied in order. The relationship mirrors Rules → Triggers:
 Actions are composed into Routes.
 
 **Example:**
@@ -172,7 +172,7 @@ Route 8 (Self-Service):  Action 3 (instructions), Action 4 (close)
                                                       │                    │
                                                       ▼                    ▼
                                                ┌──────────────┐    ┌──────────────┐
-                                               │ 4. Walk trees│    │ 5. Update    │
+                                               │ 4. Walk      │    │ 5. Update    │
                                                │    priority  │    │    ADO item   │
                                                │    order     │    │    + set state│
                                                │    1st TRUE  │    │              │
@@ -183,8 +183,8 @@ Route 8 (Self-Service):  Action 3 (instructions), Action 4 (close)
 ### Evaluation Logic
 
 1. **Evaluate ALL rules** against the work item → store T/F for each rule
-2. **Walk decision trees** in priority order using stored results
-3. **First TRUE match** → execute that tree's route
+2. **Walk triggers** in priority order using stored results
+3. **First TRUE match** → execute that trigger's route
 4. **If no match** → Analysis.State = "No Match" (flag for manual triage)
 5. **Log everything** → evaluations container in Cosmos DB
 
@@ -233,7 +233,7 @@ After processing, the triage person:
 | **Awaiting Approval** | Route matched and applied, ready for human review | No |
 | **Needs Info** | Missing data, submitter pinged via Discussion comments | No |
 | **Redirected** | Out of scope, instructions posted, item being closed | No |
-| **No Match** | No decision tree matched, needs manual triage | No |
+| **No Match** | No trigger matched, needs manual triage | No |
 | **Error** | Pipeline error during evaluation | No |
 | **Approved** | Human confirmed routing, no changes made | Yes |
 | **Override** | Human confirmed routing with modifications | Yes |
@@ -417,7 +417,7 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
 }
 ```
 
-### Container: trees
+### Container: triggers
 
 **Partition Key**: `/status`
 
@@ -476,7 +476,7 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
     "rule-5": true
   },
   "skippedRules": ["rule-4"],
-  "matchedTree": "dt-10",
+  "matchedTrigger": "dt-10",
   "appliedRoute": "route-1",
   "actionsExecuted": ["action-1", "action-2"],
   "analysisState": "Awaiting Approval",
@@ -574,7 +574,7 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
 
 ### Base URL: `http://localhost:8009/api/v1`
 
-### Entity CRUD APIs (Rules, Actions, Trees, Routes)
+### Entity CRUD APIs (Rules, Actions, Triggers, Routes)
 
 All four entity types share the same 8-endpoint pattern:
 
@@ -587,9 +587,9 @@ All four entity types share the same 8-endpoint pattern:
 | `DELETE` | `/{entities}/{id}` | Soft delete (`?hard=true` for permanent) |
 | `POST` | `/{entities}/{id}/copy` | Clone entity |
 | `PUT` | `/{entities}/{id}/status` | Change status (active/disabled/staged) |
-| `GET` | `/{entities}/{id}/references` | Cross-references (which trees use this rule, etc.) |
+| `GET` | `/{entities}/{id}/references` | Cross-references (which triggers use this rule, etc.) |
 
-Where `{entities}` is one of: `rules`, `actions`, `trees`, `routes` (32 endpoints total).
+Where `{entities}` is one of: `rules`, `actions`, `triggers`, `routes` (32 endpoints total).
 
 Delete is blocked if the entity is still referenced by other entities.
 
@@ -656,21 +656,21 @@ Left navigation (sidebar):
 | Section | Items |
 |---------|-------|
 | Operations | Dashboard, Queue, Evaluate |
-| Configuration | Rules, Trees, Actions, Routes |
+| Configuration | Rules, Triggers, Actions, Routes |
 | System | Validation, Audit Log, Eval History |
 
 > **Design note:** The configuration nav order follows the compositional
-> hierarchy — Rules are atomic conditions composed into Trees; Actions are
+> hierarchy — Rules are atomic conditions composed into Triggers; Actions are
 > atomic operations composed into Routes.
 
 ### Features (Implemented)
 
-- **CRUD** for all four layers (rules, trees, actions, routes — in compositional order)
-- **Expression builder** for decision trees (nested AND/OR groups)
+- **CRUD** for all four layers (rules, triggers, actions, routes — in compositional order)
+- **Expression builder** for triggers (nested AND/OR groups)
 - **Visual route designer** for composing actions into routes
 - **Status management**: Active / Disabled / Staged per item
 - **Copy/Clone** any item
-- **"Used in" references**: Rule shows which trees reference it
+- **"Used in" references**: Rule shows which triggers reference it
 - **View Code toggle**: JSON view for power users
 - **Validation warnings**: Inline alerts for conflicts, orphans, duplicates
 - **Confirm dialogs**: Safe delete with reference checking
@@ -702,11 +702,11 @@ Left navigation (sidebar):
 ### Phase 1: Foundation ✅
 Backend infrastructure, data layer, core engine logic.
 - Cosmos DB setup (8 containers) with in-memory fallback for local dev
-- Data models for all entities (BaseEntity + Rule, Action, Tree, Route, Evaluation, AnalysisResult, AuditEntry, FieldSchema)
+- Data models for all entities (BaseEntity + Rule, Action, Trigger, Route, Evaluation, AnalysisResult, AuditEntry, FieldSchema)
 - Rules Engine (15 operators, evaluate atomic rules → T/F)
-- Decision Tree Engine (AND/OR/NOT expressions, priority-ordered, first TRUE wins)
+- Trigger Engine (AND/OR/NOT expressions, priority-ordered, first TRUE wins)
 - Routes Engine (5 operations: set, set_computed, copy, append, template)
-- CRUD APIs for rules, actions, trees, routes (8 endpoints each, 32 total)
+- CRUD APIs for rules, actions, triggers, routes (8 endpoints each, 32 total)
 - Audit logging service
 - ADO field schema integration
 - Analysis results storage
@@ -715,7 +715,7 @@ Backend infrastructure, data layer, core engine logic.
 ### Phase 2: ADO Integration ✅
 Connect the engine to real ADO data.
 - Fetch work items from triage queue (WIQL-based)
-- Full evaluation pipeline (rules → trees → route → state → HTML → store)
+- Full evaluation pipeline (rules → triggers → route → state → HTML → store)
 - ADO write-back with 409 conflict handling (revision-aware)
 - Analysis.State management (Custom.ROBAnalysisState)
 - HTML summary generation (Custom.pChallengeDetails)
@@ -726,10 +726,10 @@ Connect the engine to real ADO data.
 - Dual-org pattern (read from production, write to test)
 
 ### Phase 3: React UI - Admin ✅
-Admin can manage rules, trees, actions, routes.
+Admin can manage rules, triggers, actions, routes.
 - React + Vite project with blade-style layout (76 modules)
-- Rules, Actions, Trees, Routes CRUD pages with EntityTable
-- Expression builder for trees (nested AND/OR/NOT groups)
+- Rules, Actions, Triggers, Routes CRUD pages with EntityTable
+- Expression builder for triggers (nested AND/OR/NOT groups)
 - Visual route designer (action sequencer)
 - Validation page (orphans, broken refs, dup priorities)
 - Status management (Active/Disabled/Staged) with StatusBadge
@@ -749,10 +749,10 @@ Triage person can evaluate queue and review results.
 ### Phase 5: Test Mode & Hardening ✅
 Safe testing, edge cases, production readiness.
 - Dry run test mode (results stored, no ADO writes)
-- Staged rules/actions/trees/routes (test-only visibility via `include_staged`)
+- Staged rules/actions/triggers/routes (test-only visibility via `include_staged`)
 - Optimistic locking for concurrent edits (all entity types)
 - Referential integrity on delete (blocked if still referenced)
-- Broken reference validation (trees→rules, trees→routes, routes→actions)
+- Broken reference validation (triggers→rules, triggers→routes, routes→actions)
 - Error state in evaluation pipeline
 - 313 automated tests across 8 test modules
 
@@ -777,9 +777,9 @@ Deferred — build first, analyze later.
 | Storage | Cosmos DB | Flexible schema, audit, analytics, Azure-native |
 | Frontend | React | Complex interactive UI (expression builders, visual designers) |
 | Backend | FastAPI (single service) | Consistent with existing Python stack, async-capable, auto-docs |
-| Rule evaluation | All rules first, then walk trees | Analytics value from knowing all rule results |
-| Tree matching | First TRUE by priority | Deterministic, predictable routing |
-| Disabled rules in AND trees | Tree evaluates as FALSE | Safe - prevents incorrect routing |
+| Rule evaluation | All rules first, then walk triggers | Analytics value from knowing all rule results |
+| Trigger matching | First TRUE by priority | Deterministic, predictable routing |
+| Disabled rules in AND triggers | Trigger evaluates as FALSE | Safe - prevents incorrect routing |
 | State management | Active/Disabled/Staged per entity | Safe testing and gradual rollout |
 | Conflict handling | Optimistic locking (version field) | Low concurrency, simple and effective |
 | Override tracking | Hybrid (DB flag + ADO history) | Fast analytics + detailed audit when needed |

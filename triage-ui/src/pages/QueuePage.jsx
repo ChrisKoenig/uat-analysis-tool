@@ -321,8 +321,8 @@ export default function QueuePage({ addToast }) {
                               <span className={`queue-analysis-badge analysis-${evalResult.analysisState?.replace(/\s/g, '-').toLowerCase()}`}>
                                 {evalResult.analysisState}
                               </span>
-                              {evalResult.matchedTree && (
-                                <span className="queue-result-tag">🌳 {evalResult.matchedTree}</span>
+                              {evalResult.matchedTrigger && (
+                                <span className="queue-result-tag">⚡ {evalResult.matchedTrigger}</span>
                               )}
                               {evalResult.appliedRoute && (
                                 <span className="queue-result-tag">🔀 {evalResult.appliedRoute}</span>

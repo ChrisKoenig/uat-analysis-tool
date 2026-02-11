@@ -70,21 +70,21 @@ class ActionUpdate(BaseModel):
 
 
 # =============================================================================
-# Tree Schemas
+# Trigger Schemas
 # =============================================================================
 
-class TreeCreate(BaseModel):
-    """Request body for creating a decision tree"""
-    name: str = Field(..., description="Human-readable tree name")
-    description: str = Field("", description="Purpose of this tree")
+class TriggerCreate(BaseModel):
+    """Request body for creating a trigger"""
+    name: str = Field(..., description="Human-readable trigger name")
+    description: str = Field("", description="Purpose of this trigger")
     priority: int = Field(..., description="Evaluation order (lower = higher priority)")
     expression: Dict = Field(..., description="Nested AND/OR expression referencing rule IDs")
     onTrue: str = Field(..., description="Route ID to execute when True")
     status: str = Field("active", description="active | disabled | staged")
 
 
-class TreeUpdate(BaseModel):
-    """Request body for updating a decision tree"""
+class TriggerUpdate(BaseModel):
+    """Request body for updating a trigger"""
     name: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[int] = None
@@ -134,7 +134,7 @@ class EvaluateResponse(BaseModel):
     id: str
     workItemId: int
     analysisState: str
-    matchedTree: Optional[str] = None
+    matchedTrigger: Optional[str] = None
     appliedRoute: Optional[str] = None
     actionsExecuted: List[str] = []
     ruleResults: Dict[str, bool] = {}

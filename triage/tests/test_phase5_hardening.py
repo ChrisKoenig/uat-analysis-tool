@@ -11,10 +11,10 @@ Tests for all Phase 5 features:
    is still referenced by other entities
 4. **Dry-Run Hardening** — dry-run evals stored, apply guard
    blocks committing dry-run results
-5. **Broken Reference Validation** — warnings for trees/routes
+5. **Broken Reference Validation** — warnings for triggers/routes
    that reference non-existent rules/actions/routes
 6. **Disabled Rule Warnings** — evaluation surfaces which
-   disabled rules are referenced by active trees
+   disabled rules are referenced by active triggers
 """
 
 import pytest
@@ -23,9 +23,9 @@ from fastapi.testclient import TestClient
 
 from triage.api.routes import app
 from triage.engines.rules_engine import RulesEngine
-from triage.engines.tree_engine import TreeEngine
+from triage.engines.trigger_engine import TriggerEngine
 from triage.models.rule import Rule
-from triage.models.tree import DecisionTree
+from triage.models.trigger import Trigger
 from triage.services.crud_service import ConflictError
 
 
@@ -49,9 +49,9 @@ def make_rule(id, field="Custom.SolutionArea", operator="equals",
     )
 
 
-def make_tree(id, priority, expression, onTrue, status="active"):
-    """Create a DecisionTree instance for testing"""
-    return DecisionTree(
+def make_trigger(id, priority, expression, onTrue, status="active"):
+    """Create a Trigger instance for testing"""
+    return Trigger(
         id=id, name=f"Test {id}", priority=priority,
         expression=expression, onTrue=onTrue, status=status,
     )
@@ -118,49 +118,49 @@ class TestRulesEngineStagedFiltering:
 
 
 # =============================================================================
-# 2. Staged Entity Filtering – TreeEngine
+# 2. Staged Entity Filtering – TriggerEngine
 # =============================================================================
 
-class TestTreeEngineStagedFiltering:
-    """include_staged parameter on TreeEngine.evaluate()"""
+class TestTriggerEngineStagedFiltering:
+    """include_staged parameter on TriggerEngine.evaluate()"""
 
     def setup_method(self):
-        self.engine = TreeEngine()
+        self.engine = TriggerEngine()
 
-    def test_staged_trees_skipped_by_default(self):
-        """Staged trees are not evaluated when include_staged=False"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1"]}, "route-1", status="staged"),
-            make_tree("dt-20", 20, {"and": ["r1"]}, "route-2", status="active"),
+    def test_staged_triggers_skipped_by_default(self):
+        """Staged triggers are not evaluated when include_staged=False"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1"]}, "route-1", status="staged"),
+            make_trigger("dt-20", 20, {"and": ["r1"]}, "route-2", status="active"),
         ]
         results = {"r1": True}
-        matched, route, errors = self.engine.evaluate(trees, results)
+        matched, route, errors = self.engine.evaluate(triggers, results)
         assert matched == "dt-20"
         assert route == "route-2"
 
-    def test_staged_trees_included_when_flag_set(self):
-        """Staged trees participate when include_staged=True"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1"]}, "route-1", status="staged"),
-            make_tree("dt-20", 20, {"and": ["r1"]}, "route-2", status="active"),
+    def test_staged_triggers_included_when_flag_set(self):
+        """Staged triggers participate when include_staged=True"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1"]}, "route-1", status="staged"),
+            make_trigger("dt-20", 20, {"and": ["r1"]}, "route-2", status="active"),
         ]
         results = {"r1": True}
         matched, route, errors = self.engine.evaluate(
-            trees, results, include_staged=True
+            triggers, results, include_staged=True
         )
         # dt-10 has higher priority (lower number) and should win
         assert matched == "dt-10"
         assert route == "route-1"
 
-    def test_disabled_trees_excluded_even_with_staged_flag(self):
-        """Disabled trees stay excluded even under include_staged=True"""
-        trees = [
-            make_tree("dt-10", 10, {"and": ["r1"]}, "route-1", status="disabled"),
-            make_tree("dt-20", 20, {"and": ["r1"]}, "route-2", status="active"),
+    def test_disabled_triggers_excluded_even_with_staged_flag(self):
+        """Disabled triggers stay excluded even under include_staged=True"""
+        triggers = [
+            make_trigger("dt-10", 10, {"and": ["r1"]}, "route-1", status="disabled"),
+            make_trigger("dt-20", 20, {"and": ["r1"]}, "route-2", status="active"),
         ]
         results = {"r1": True}
         matched, route, errors = self.engine.evaluate(
-            trees, results, include_staged=True
+            triggers, results, include_staged=True
         )
         assert matched == "dt-20"
 
@@ -258,10 +258,10 @@ class TestPreDeleteReferenceCheck:
 
     @patch("triage.api.routes.get_crud")
     def test_delete_referenced_rule_blocked(self, mock_get_crud):
-        """Cannot delete a rule that is still used by a tree"""
+        """Cannot delete a rule that is still used by a trigger"""
         mock_crud = MagicMock()
         mock_crud.delete.side_effect = ValueError(
-            "Cannot delete rule 'rule-1': still referenced by tree(s): dt-10"
+            "Cannot delete rule 'rule-1': still referenced by: triggers: dt-10"
         )
         mock_get_crud.return_value = mock_crud
 
@@ -284,10 +284,10 @@ class TestPreDeleteReferenceCheck:
 
     @patch("triage.api.routes.get_crud")
     def test_delete_referenced_route_blocked(self, mock_get_crud):
-        """Cannot delete a route that is still used by a tree's onTrue"""
+        """Cannot delete a route that is still used by a trigger's onTrue"""
         mock_crud = MagicMock()
         mock_crud.delete.side_effect = ValueError(
-            "Cannot delete route 'route-1': still referenced by tree(s): dt-10"
+            "Cannot delete route 'route-1': still referenced by: triggers: dt-10"
         )
         mock_get_crud.return_value = mock_crud
 
@@ -391,13 +391,13 @@ class TestBrokenReferenceValidation:
     """GET /validation/warnings surfaces broken references"""
 
     @patch("triage.api.routes.get_crud")
-    def test_tree_references_missing_rule(self, mock_get_crud):
-        """Trees referencing non-existent rules produce broken_reference warnings"""
+    def test_trigger_references_missing_rule(self, mock_get_crud):
+        """Triggers referencing non-existent rules produce broken_reference warnings"""
         mock_crud = MagicMock()
 
-        # Tree dt-10 references rule "r999" which doesn't exist
+        # Trigger dt-10 references rule "r999" which doesn't exist
         tree_doc = {
-            "id": "dt-10", "name": "Test Tree", "status": "active",
+            "id": "dt-10", "name": "Test Trigger", "status": "active",
             "priority": 10, "onTrue": "route-1",
             "expression": {"and": ["r1", "r999"]},
         }
@@ -419,7 +419,7 @@ class TestBrokenReferenceValidation:
         def list_entities(entity_type, **kwargs):
             if entity_type == "rule":
                 return ([rule_doc], None)
-            elif entity_type == "tree":
+            elif entity_type == "trigger":
                 return ([tree_doc], None)
             elif entity_type == "route":
                 return ([route_doc], None)
@@ -459,7 +459,7 @@ class TestBrokenReferenceValidation:
         }
 
         tree_doc = {
-            "id": "dt-10", "name": "Tree 1", "status": "active",
+            "id": "dt-10", "name": "Trigger 1", "status": "active",
             "expression": {"and": ["r1"]}, "priority": 10,
             "onTrue": "route-1",
         }
@@ -467,7 +467,7 @@ class TestBrokenReferenceValidation:
         def list_entities(entity_type, **kwargs):
             if entity_type == "rule":
                 return ([rule_doc], None)
-            elif entity_type == "tree":
+            elif entity_type == "trigger":
                 return ([tree_doc], None)
             elif entity_type == "route":
                 return ([route_doc], None)
@@ -486,12 +486,12 @@ class TestBrokenReferenceValidation:
         assert "action-999" in ref_texts
 
     @patch("triage.api.routes.get_crud")
-    def test_tree_references_missing_route(self, mock_get_crud):
-        """Trees referencing non-existent routes produce broken_reference warnings"""
+    def test_trigger_references_missing_route(self, mock_get_crud):
+        """Triggers referencing non-existent routes produce broken_reference warnings"""
         mock_crud = MagicMock()
 
         tree_doc = {
-            "id": "dt-10", "name": "Test Tree", "status": "active",
+            "id": "dt-10", "name": "Test Trigger", "status": "active",
             "expression": {"and": ["r1"]}, "priority": 10,
             "onTrue": "route-999",  # Doesn't exist
         }
@@ -513,7 +513,7 @@ class TestBrokenReferenceValidation:
         def list_entities(entity_type, **kwargs):
             if entity_type == "rule":
                 return ([rule_doc], None)
-            elif entity_type == "tree":
+            elif entity_type == "trigger":
                 return ([tree_doc], None)
             elif entity_type == "route":
                 return ([route_doc], None)
@@ -551,7 +551,7 @@ class TestBrokenReferenceValidation:
         }
 
         tree_doc = {
-            "id": "dt-10", "name": "Tree 1", "status": "active",
+            "id": "dt-10", "name": "Trigger 1", "status": "active",
             "expression": {"and": ["r1"]}, "priority": 10,
             "onTrue": "route-1",
         }
@@ -559,7 +559,7 @@ class TestBrokenReferenceValidation:
         def list_entities(entity_type, **kwargs):
             if entity_type == "rule":
                 return ([rule_doc], None)
-            elif entity_type == "tree":
+            elif entity_type == "trigger":
                 return ([tree_doc], None)
             elif entity_type == "route":
                 return ([route_doc], None)
@@ -578,7 +578,7 @@ class TestBrokenReferenceValidation:
 
 
 # =============================================================================
-# 7. Cross-Entity Optimistic Locking (Actions, Trees, Routes)
+# 7. Cross-Entity Optimistic Locking (Actions, Triggers, Routes)
 # =============================================================================
 
 class TestOptimisticLockingAllEntities:
@@ -597,13 +597,13 @@ class TestOptimisticLockingAllEntities:
         assert response.status_code == 409
 
     @patch("triage.api.routes.get_crud")
-    def test_update_tree_version_conflict(self, mock_get_crud):
-        """PUT /trees/{id} returns 409 on stale version"""
+    def test_update_trigger_version_conflict(self, mock_get_crud):
+        """PUT /triggers/{id} returns 409 on stale version"""
         mock_crud = MagicMock()
         mock_crud.update.side_effect = ConflictError("Version mismatch")
         mock_get_crud.return_value = mock_crud
 
-        response = client.put("/api/v1/trees/dt-10", json={
+        response = client.put("/api/v1/triggers/dt-10", json={
             "name": "Updated", "version": 1
         })
         assert response.status_code == 409
@@ -643,13 +643,13 @@ class TestOptimisticLockingAllEntities:
         assert response.status_code == 409
 
     @patch("triage.api.routes.get_crud")
-    def test_status_tree_conflict(self, mock_get_crud):
-        """PUT /trees/{id}/status returns 409 on version conflict"""
+    def test_status_trigger_conflict(self, mock_get_crud):
+        """PUT /triggers/{id}/status returns 409 on version conflict"""
         mock_crud = MagicMock()
         mock_crud.set_status.side_effect = ConflictError("Version mismatch")
         mock_get_crud.return_value = mock_crud
 
-        response = client.put("/api/v1/trees/dt-10/status", json={
+        response = client.put("/api/v1/triggers/dt-10/status", json={
             "status": "disabled", "version": 1
         })
         assert response.status_code == 409

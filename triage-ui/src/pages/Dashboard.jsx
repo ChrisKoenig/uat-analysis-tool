@@ -17,7 +17,7 @@ export default function Dashboard({ addToast }) {
   // ── State ────────────────────────────────────────────────────
   const [health, setHealth] = useState(null);
   const [adoStatus, setAdoStatus] = useState(null);
-  const [counts, setCounts] = useState({ rules: 0, actions: 0, trees: 0, routes: 0 });
+  const [counts, setCounts] = useState({ rules: 0, actions: 0, triggers: 0, routes: 0 });
   const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,12 +28,12 @@ export default function Dashboard({ addToast }) {
     async function load() {
       setLoading(true);
       try {
-        const [healthData, rulesData, actionsData, treesData, routesData, warningsData, adoData] =
+        const [healthData, rulesData, actionsData, triggersData, routesData, warningsData, adoData] =
           await Promise.allSettled([
             api.getHealth(),
             api.listRules(),
             api.listActions(),
-            api.listTrees(),
+            api.listTriggers(),
             api.listRoutes(),
             api.getValidationWarnings(),
             api.getAdoStatus(),
@@ -43,7 +43,7 @@ export default function Dashboard({ addToast }) {
         setCounts({
           rules: rulesData.status === 'fulfilled' ? (rulesData.value.items?.length || 0) : '?',
           actions: actionsData.status === 'fulfilled' ? (actionsData.value.items?.length || 0) : '?',
-          trees: treesData.status === 'fulfilled' ? (treesData.value.items?.length || 0) : '?',
+          triggers: triggersData.status === 'fulfilled' ? (triggersData.value.items?.length || 0) : '?',
           routes: routesData.status === 'fulfilled' ? (routesData.value.items?.length || 0) : '?',
         });
         setWarnings(
@@ -141,10 +141,10 @@ export default function Dashboard({ addToast }) {
           <span className="dashboard-count-value">{counts.actions}</span>
           <span className="dashboard-count-label">Actions</span>
         </Link>
-        <Link to="/trees" className="dashboard-count-card">
-          <span className="dashboard-count-icon">🌳</span>
-          <span className="dashboard-count-value">{counts.trees}</span>
-          <span className="dashboard-count-label">Trees</span>
+        <Link to="/triggers" className="dashboard-count-card">
+          <span className="dashboard-count-icon">⚡</span>
+          <span className="dashboard-count-value">{counts.triggers}</span>
+          <span className="dashboard-count-label">Triggers</span>
         </Link>
         <Link to="/routes" className="dashboard-count-card">
           <span className="dashboard-count-icon">🔀</span>
@@ -189,7 +189,7 @@ export default function Dashboard({ addToast }) {
         <div className="dashboard-quick-links">
           <Link to="/evaluate" className="btn btn-primary">⚡ Evaluate Work Items</Link>
           <Link to="/rules" className="btn btn-secondary">+ New Rule</Link>
-          <Link to="/trees" className="btn btn-secondary">+ New Tree</Link>
+          <Link to="/triggers" className="btn btn-secondary">+ New Trigger</Link>
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@
  *   /evaluate    → Evaluate triage queue
  *   /rules       → Rules CRUD
  *   /actions     → Actions CRUD
- *   /trees       → Decision Trees CRUD
+ *   /triggers    → Triggers CRUD
  *   /routes      → Routes CRUD
  *   /validation  → Validation warnings
  *   /audit       → Audit log
@@ -28,7 +28,7 @@ const EvaluatePage    = lazy(() => import('./pages/EvaluatePage'));
 const QueuePage       = lazy(() => import('./pages/QueuePage'));
 const RulesPage       = lazy(() => import('./pages/RulesPage'));
 const ActionsPage     = lazy(() => import('./pages/ActionsPage'));
-const TreesPage       = lazy(() => import('./pages/TreesPage'));
+const TriggersPage    = lazy(() => import('./pages/TriggersPage'));
 const RoutesPage      = lazy(() => import('./pages/RoutesPage'));
 const ValidationPage  = lazy(() => import('./pages/ValidationPage'));
 const AuditPage       = lazy(() => import('./pages/AuditPage'));
@@ -107,7 +107,7 @@ export default function App() {
             <Route path="/queue"      element={<QueuePage addToast={addToast} />} />
             <Route path="/evaluate"   element={<EvaluatePage addToast={addToast} />} />
             <Route path="/rules"      element={<RulesPage addToast={addToast} />} />
-            <Route path="/trees"      element={<TreesPage addToast={addToast} />} />
+            <Route path="/triggers"   element={<TriggersPage addToast={addToast} />} />
             <Route path="/routes"     element={<RoutesPage addToast={addToast} />} />
             <Route path="/actions"    element={<ActionsPage addToast={addToast} />} />
             <Route path="/validation" element={<ValidationPage addToast={addToast} />} />

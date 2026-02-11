@@ -1,5306 +1,962 @@
 [
   {
-    "timestamp": "2026-01-27T16:45:57.404377",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.795
-  },
-  {
-    "timestamp": "2026-01-27T16:45:57.438192",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 7.239
-  },
-  {
-    "timestamp": "2026-01-27T16:50:33.689961",
+    "timestamp": "2026-01-29T08:06:07.925930",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 28.596
+    "response_time": 52.534
   },
   {
-    "timestamp": "2026-01-27T16:50:33.723023",
+    "timestamp": "2026-01-29T08:06:07.966521",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 8.063
+    "response_time": 8.511
   },
   {
-    "timestamp": "2026-01-27T16:50:33.767582",
+    "timestamp": "2026-01-29T08:06:08.008786",
     "service": "search-service",
     "status": "up",
-    "response_time": 22.716
+    "response_time": 9.199
   },
   {
-    "timestamp": "2026-01-27T16:50:33.798147",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 7.577
-  },
-  {
-    "timestamp": "2026-01-27T16:50:33.825392",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 6.989000000000001
-  },
-  {
-    "timestamp": "2026-01-27T16:50:33.857434",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 7.705
-  },
-  {
-    "timestamp": "2026-01-27T16:50:33.887048",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 8.206
-  },
-  {
-    "timestamp": "2026-01-27T16:50:33.916876",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.706999999999999
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.570737",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 109.00500000000001
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.654033",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 33.417
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.704334",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 13.186
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.774594",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 34.018
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.837364",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 17.03
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.897053",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 27.372
-  },
-  {
-    "timestamp": "2026-01-27T16:50:57.969698",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 39.949
-  },
-  {
-    "timestamp": "2026-01-27T16:50:58.010406",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.168999999999999
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.055517",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 87.853
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.145149",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 46.92700000000001
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.258541",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 81.858
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.355286",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 62.777
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.441635",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 49.925999999999995
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.530689",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 51.907000000000004
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.607644",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 42.177
-  },
-  {
-    "timestamp": "2026-01-27T16:55:34.688074",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 45.659
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.039680",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.707
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.070353",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.554
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.094336",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 5.373
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.118967",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 5.708
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.158924",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 23.073
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.182295",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.914
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.222022",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 22.329
-  },
-  {
-    "timestamp": "2026-01-27T16:55:58.254501",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 13.428
-  },
-  {
-    "timestamp": "2026-01-27T17:00:34.781068",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 43.559
-  },
-  {
-    "timestamp": "2026-01-27T17:00:34.837638",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 30.977999999999998
-  },
-  {
-    "timestamp": "2026-01-27T17:00:34.886560",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 31.856
-  },
-  {
-    "timestamp": "2026-01-27T17:00:34.932752",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 27.397000000000002
-  },
-  {
-    "timestamp": "2026-01-27T17:00:34.967175",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 20.102999999999998
-  },
-  {
-    "timestamp": "2026-01-27T17:00:35.008664",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 27.144000000000002
-  },
-  {
-    "timestamp": "2026-01-27T17:00:35.058431",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 30.782
-  },
-  {
-    "timestamp": "2026-01-27T17:00:35.099798",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 23.017
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.312278",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 28.277
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.338651",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.992
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.365655",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 5.199
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.409012",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 22.168
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.437172",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 5.861
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.490063",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 28.018
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.517745",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.384
-  },
-  {
-    "timestamp": "2026-01-27T17:00:58.549910",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 7.1209999999999996
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.219678",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 71.67800000000001
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.291877",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 31.599000000000004
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.371440",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 43.515
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.465603",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 52.415000000000006
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.626478",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 124.67
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.755660",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 90.622
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.841232",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 47.926
-  },
-  {
-    "timestamp": "2026-01-27T17:05:35.919935",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 41.375
-  },
-  {
-    "timestamp": "2026-01-27T17:05:58.843324",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 30.24
-  },
-  {
-    "timestamp": "2026-01-27T17:05:58.896457",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 13.897
-  },
-  {
-    "timestamp": "2026-01-27T17:05:58.940975",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 8.203999999999999
-  },
-  {
-    "timestamp": "2026-01-27T17:05:58.986888",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 10.277
-  },
-  {
-    "timestamp": "2026-01-27T17:05:59.033556",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 8.985999999999999
-  },
-  {
-    "timestamp": "2026-01-27T17:05:59.082487",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 10.766
-  },
-  {
-    "timestamp": "2026-01-27T17:05:59.126577",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 9.394
-  },
-  {
-    "timestamp": "2026-01-27T17:05:59.177623",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 12.996
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.007624",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 31.34
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.069859",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 40.558
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.106414",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 17.434
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.136621",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 12.283000000000001
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.175013",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 20.78
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.218220",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 22.973
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.263880",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 26.793
-  },
-  {
-    "timestamp": "2026-01-27T17:10:36.297403",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 15.011999999999999
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.242802",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 16.649
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.281691",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 7.792999999999999
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.324145",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 7.635000000000001
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.362842",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 8.466
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.400744",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 5.684
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.445716",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 9.165
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.487199",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 9.164
-  },
-  {
-    "timestamp": "2026-01-27T17:10:59.523610",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.585
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.345991",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 14.975
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.389769",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 20.972
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.436549",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 25.108999999999998
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.481293",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 25.518
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.528340",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 28.284
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.562159",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 13.020999999999999
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.605291",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 22.62
-  },
-  {
-    "timestamp": "2026-01-27T17:15:36.633505",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 10.83
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.564176",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 9.698
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.606023",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 15.809
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.646590",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 17.468999999999998
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.696688",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 23.937
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.740983",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 20.477
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.779153",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 8.902000000000001
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.803184",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.258
-  },
-  {
-    "timestamp": "2026-01-27T17:15:59.845952",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 22.104
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.682007",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 15.233
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.729103",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 23.421999999999997
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.771285",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 15.351999999999999
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.821668",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 27.168000000000003
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.866986",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 16.413
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.916797",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 19.382
-  },
-  {
-    "timestamp": "2026-01-27T17:20:36.969577",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 15.42
-  },
-  {
-    "timestamp": "2026-01-27T17:20:37.013610",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 17.12
-  },
-  {
-    "timestamp": "2026-01-27T17:20:59.893845",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.312
-  },
-  {
-    "timestamp": "2026-01-27T17:20:59.937093",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 16.362000000000002
-  },
-  {
-    "timestamp": "2026-01-27T17:20:59.984401",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 23.490000000000002
-  },
-  {
-    "timestamp": "2026-01-27T17:21:00.036717",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 21.843
-  },
-  {
-    "timestamp": "2026-01-27T17:21:00.074370",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 6.108
-  },
-  {
-    "timestamp": "2026-01-27T17:21:00.115337",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 6.4159999999999995
-  },
-  {
-    "timestamp": "2026-01-27T17:21:00.227639",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 79.707
-  },
-  {
-    "timestamp": "2026-01-27T17:21:00.267629",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 5.875
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.083461",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 42.129
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.124529",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 14.715
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.182012",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 37.578
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.210218",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 9.011
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.257372",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 25.51
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.303794",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 26.576999999999998
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.346880",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 24.85
-  },
-  {
-    "timestamp": "2026-01-27T17:25:37.398671",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 31.07
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.326651",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 23.845000000000002
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.361286",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.68
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.393722",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 5.1770000000000005
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.423918",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 5.023
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.454456",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.601
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.487350",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 6.226
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.546120",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 29.729
-  },
-  {
-    "timestamp": "2026-01-27T17:26:00.590033",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 18.253999999999998
-  },
-  {
-    "timestamp": "2026-01-27T20:04:42.268266",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:04:42.321740",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 16.01
-  },
-  {
-    "timestamp": "2026-01-27T20:04:42.379841",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 26.793
-  },
-  {
-    "timestamp": "2026-01-27T20:04:46.443988",
+    "timestamp": "2026-01-29T08:06:12.063749",
     "service": "enhanced-matching",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:04:46.508885",
+    "timestamp": "2026-01-29T08:06:12.136076",
     "service": "uat-management",
     "status": "up",
-    "response_time": 23.621
+    "response_time": 38.422
   },
   {
-    "timestamp": "2026-01-27T20:04:46.552208",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 7.4590000000000005
-  },
-  {
-    "timestamp": "2026-01-27T20:04:46.598178",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 11.306000000000001
-  },
-  {
-    "timestamp": "2026-01-27T20:04:50.639484",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.301855",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 24.596
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.326449",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.641
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.376578",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 26.118
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.414614",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 8.625
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.452351",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.863
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.478110",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.062
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.507066",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.329000000000001
-  },
-  {
-    "timestamp": "2026-01-27T20:04:56.532741",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.842
-  },
-  {
-    "timestamp": "2026-01-27T20:09:50.709256",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 18.493
-  },
-  {
-    "timestamp": "2026-01-27T20:09:50.761867",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 20.271
-  },
-  {
-    "timestamp": "2026-01-27T20:09:50.827178",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 30.096999999999998
-  },
-  {
-    "timestamp": "2026-01-27T20:09:50.869396",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 9.431999999999999
-  },
-  {
-    "timestamp": "2026-01-27T20:09:50.943856",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 43.069
-  },
-  {
-    "timestamp": "2026-01-27T20:09:50.977470",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.289000000000001
-  },
-  {
-    "timestamp": "2026-01-27T20:09:51.018754",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.42
-  },
-  {
-    "timestamp": "2026-01-27T20:09:51.068384",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.424
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.597054",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 27.185000000000002
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.620052",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 2.757
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.640759",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.962
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.661878",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 2.987
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.688360",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.7520000000000002
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.712564",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.6180000000000003
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.735060",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.3440000000000003
-  },
-  {
-    "timestamp": "2026-01-27T20:09:56.777087",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 25.058
-  },
-  {
-    "timestamp": "2026-01-27T20:14:53.129420",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:14:55.164760",
-    "service": "context-analyzer",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:14:57.189351",
-    "service": "search-service",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:14:58.821026",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:14:59.214580",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:00.866604",
-    "service": "context-analyzer",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:01.256717",
-    "service": "uat-management",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:02.896347",
-    "service": "search-service",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:03.287582",
+    "timestamp": "2026-01-29T08:06:16.182884",
     "service": "llm-classifier",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:15:04.946924",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:05.310647",
+    "timestamp": "2026-01-29T08:06:20.239937",
     "service": "embedding-service",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:15:06.978828",
-    "service": "uat-management",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:07.364197",
+    "timestamp": "2026-01-29T08:06:24.296887",
     "service": "vector-search",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:15:09.014000",
-    "service": "llm-classifier",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:11.044562",
-    "service": "embedding-service",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:15:13.078755",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:20:09.388820",
+    "timestamp": "2026-01-29T08:06:26.232031",
     "service": "api-gateway",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 16.814
   },
   {
-    "timestamp": "2026-01-27T20:20:11.437883",
+    "timestamp": "2026-01-29T08:06:26.265759",
     "service": "context-analyzer",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 6.92
   },
   {
-    "timestamp": "2026-01-27T20:20:13.465568",
+    "timestamp": "2026-01-29T08:06:26.295109",
     "service": "search-service",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 4.158
   },
   {
-    "timestamp": "2026-01-27T20:20:15.133011",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:20:15.495958",
+    "timestamp": "2026-01-29T08:06:30.332163",
     "service": "enhanced-matching",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:20:17.181694",
-    "service": "context-analyzer",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:20:17.546474",
+    "timestamp": "2026-01-29T08:06:30.365289",
     "service": "uat-management",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 4.3839999999999995
   },
   {
-    "timestamp": "2026-01-27T20:20:19.224445",
-    "service": "search-service",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:20:19.598767",
+    "timestamp": "2026-01-29T08:06:30.401463",
     "service": "llm-classifier",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 7.356
   },
   {
-    "timestamp": "2026-01-27T20:20:21.263976",
+    "timestamp": "2026-01-29T08:06:30.439838",
+    "service": "embedding-service",
+    "status": "up",
+    "response_time": 7.367
+  },
+  {
+    "timestamp": "2026-01-29T08:06:31.492934",
+    "service": "vector-search",
+    "status": "up",
+    "response_time": 1023.131
+  },
+  {
+    "timestamp": "2026-01-29T08:07:47.221317",
+    "service": "api-gateway",
+    "status": "up",
+    "response_time": 28.262
+  },
+  {
+    "timestamp": "2026-01-29T08:07:47.259418",
+    "service": "context-analyzer",
+    "status": "up",
+    "response_time": 8.224
+  },
+  {
+    "timestamp": "2026-01-29T08:07:47.294319",
+    "service": "search-service",
+    "status": "up",
+    "response_time": 7.889
+  },
+  {
+    "timestamp": "2026-01-29T08:07:51.342795",
     "service": "enhanced-matching",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:20:21.618335",
-    "service": "embedding-service",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:20:23.309772",
+    "timestamp": "2026-01-29T08:07:51.382256",
     "service": "uat-management",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 7.931000000000001
   },
   {
-    "timestamp": "2026-01-27T20:20:23.655550",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-27T20:20:25.356569",
+    "timestamp": "2026-01-29T08:07:55.425479",
     "service": "llm-classifier",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:20:27.396916",
+    "timestamp": "2026-01-29T08:07:59.466696",
     "service": "embedding-service",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:20:29.432449",
+    "timestamp": "2026-01-29T08:08:01.535723",
+    "service": "api-gateway",
+    "status": "up",
+    "response_time": 11.634
+  },
+  {
+    "timestamp": "2026-01-29T08:08:01.564678",
+    "service": "context-analyzer",
+    "status": "up",
+    "response_time": 4.988
+  },
+  {
+    "timestamp": "2026-01-29T08:08:01.593180",
+    "service": "search-service",
+    "status": "up",
+    "response_time": 3.9899999999999998
+  },
+  {
+    "timestamp": "2026-01-29T08:08:03.528045",
     "service": "vector-search",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:25:14.120904",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 54.519
-  },
-  {
-    "timestamp": "2026-01-27T20:25:14.181473",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 12.156
-  },
-  {
-    "timestamp": "2026-01-27T20:25:14.246029",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 14.629
-  },
-  {
-    "timestamp": "2026-01-27T20:25:18.294516",
+    "timestamp": "2026-01-29T08:08:05.651867",
     "service": "enhanced-matching",
     "status": "down",
     "response_time": null
   },
   {
-    "timestamp": "2026-01-27T20:25:18.337678",
+    "timestamp": "2026-01-29T08:08:05.720724",
     "service": "uat-management",
     "status": "up",
-    "response_time": 5.352
+    "response_time": 29.174
   },
   {
-    "timestamp": "2026-01-27T20:25:18.380092",
+    "timestamp": "2026-01-29T08:08:05.775399",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 6.149
+    "response_time": 20.86
   },
   {
-    "timestamp": "2026-01-27T20:25:18.428988",
+    "timestamp": "2026-01-29T08:08:05.823261",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 7.3020000000000005
+    "response_time": 12.09
   },
   {
-    "timestamp": "2026-01-27T20:25:20.003246",
+    "timestamp": "2026-01-29T08:08:05.894375",
     "service": "vector-search",
     "status": "up",
-    "response_time": 1540.688
+    "response_time": 33.995
   },
   {
-    "timestamp": "2026-01-27T20:25:26.231750",
+    "timestamp": "2026-01-29T08:13:03.563535",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 16.112000000000002
+    "response_time": 8.494
   },
   {
-    "timestamp": "2026-01-27T20:25:26.264341",
+    "timestamp": "2026-01-29T08:13:03.596300",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 4.714
+    "response_time": 14.183
   },
   {
-    "timestamp": "2026-01-27T20:25:26.295843",
+    "timestamp": "2026-01-29T08:13:03.640535",
     "service": "search-service",
     "status": "up",
-    "response_time": 3.898
+    "response_time": 27.437
   },
   {
-    "timestamp": "2026-01-27T20:25:30.361614",
+    "timestamp": "2026-01-29T08:13:03.664347",
     "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 5.899
   },
   {
-    "timestamp": "2026-01-27T20:25:30.418755",
+    "timestamp": "2026-01-29T08:13:03.705884",
     "service": "uat-management",
     "status": "up",
-    "response_time": 9.12
+    "response_time": 22.799
   },
   {
-    "timestamp": "2026-01-27T20:25:30.483448",
+    "timestamp": "2026-01-29T08:13:03.751555",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 12.045
+    "response_time": 29.421
   },
   {
-    "timestamp": "2026-01-27T20:25:30.535691",
+    "timestamp": "2026-01-29T08:13:03.775217",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 6.468
+    "response_time": 7.641
   },
   {
-    "timestamp": "2026-01-27T20:25:30.589288",
+    "timestamp": "2026-01-29T08:13:03.814216",
     "service": "vector-search",
     "status": "up",
-    "response_time": 5.862
+    "response_time": 24.105999999999998
   },
   {
-    "timestamp": "2026-01-27T20:30:20.301913",
+    "timestamp": "2026-01-29T08:13:05.954549",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 153.43599999999998
+    "response_time": 28.943
   },
   {
-    "timestamp": "2026-01-27T20:30:20.466814",
+    "timestamp": "2026-01-29T08:13:05.993875",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 109.993
+    "response_time": 19.724999999999998
   },
   {
-    "timestamp": "2026-01-27T20:30:20.622924",
+    "timestamp": "2026-01-29T08:13:06.038210",
     "service": "search-service",
     "status": "up",
-    "response_time": 101.055
+    "response_time": 27.587
   },
   {
-    "timestamp": "2026-01-27T20:30:20.915381",
+    "timestamp": "2026-01-29T08:13:06.057610",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 248.947
+    "response_time": 2.594
   },
   {
-    "timestamp": "2026-01-27T20:30:21.053901",
+    "timestamp": "2026-01-29T08:13:06.102541",
     "service": "uat-management",
     "status": "up",
-    "response_time": 101.262
+    "response_time": 26.311
   },
   {
-    "timestamp": "2026-01-27T20:30:21.208236",
+    "timestamp": "2026-01-29T08:13:06.150097",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 94.658
+    "response_time": 28.374
   },
   {
-    "timestamp": "2026-01-27T20:30:21.383772",
+    "timestamp": "2026-01-29T08:13:06.195949",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 124.685
+    "response_time": 27.296
   },
   {
-    "timestamp": "2026-01-27T20:30:21.537913",
+    "timestamp": "2026-01-29T08:13:06.227364",
     "service": "vector-search",
     "status": "up",
-    "response_time": 113.0
+    "response_time": 12.897
   },
   {
-    "timestamp": "2026-01-27T20:30:30.658485",
+    "timestamp": "2026-01-29T08:18:03.865333",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 11.605
+    "response_time": 27.459999999999997
   },
   {
-    "timestamp": "2026-01-27T20:30:30.687106",
+    "timestamp": "2026-01-29T08:18:03.905997",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 3.732
+    "response_time": 21.358999999999998
   },
   {
-    "timestamp": "2026-01-27T20:30:30.718411",
+    "timestamp": "2026-01-29T08:18:03.946117",
     "service": "search-service",
     "status": "up",
-    "response_time": 3.0820000000000003
+    "response_time": 20.084999999999997
   },
   {
-    "timestamp": "2026-01-27T20:30:30.746527",
+    "timestamp": "2026-01-29T08:18:03.974926",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 5.122
+    "response_time": 12.248
   },
   {
-    "timestamp": "2026-01-27T20:30:30.790460",
+    "timestamp": "2026-01-29T08:18:04.011401",
     "service": "uat-management",
     "status": "up",
-    "response_time": 14.456
+    "response_time": 16.467
   },
   {
-    "timestamp": "2026-01-27T20:30:30.834708",
+    "timestamp": "2026-01-29T08:18:04.030590",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 21.823
+    "response_time": 3.2880000000000003
   },
   {
-    "timestamp": "2026-01-27T20:30:30.858004",
+    "timestamp": "2026-01-29T08:18:04.070612",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 4.460999999999999
+    "response_time": 21.916999999999998
   },
   {
-    "timestamp": "2026-01-27T20:30:30.896584",
+    "timestamp": "2026-01-29T08:18:04.101125",
     "service": "vector-search",
     "status": "up",
-    "response_time": 17.287
+    "response_time": 14.813
   },
   {
-    "timestamp": "2026-01-27T20:35:21.644506",
+    "timestamp": "2026-01-29T08:18:06.280883",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 60.931
+    "response_time": 23.07
   },
   {
-    "timestamp": "2026-01-27T20:35:21.714296",
+    "timestamp": "2026-01-29T08:18:06.328407",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 30.283
+    "response_time": 14.030000000000001
   },
   {
-    "timestamp": "2026-01-27T20:35:21.767079",
+    "timestamp": "2026-01-29T08:18:06.373616",
     "service": "search-service",
     "status": "up",
-    "response_time": 28.837000000000003
+    "response_time": 15.166
   },
   {
-    "timestamp": "2026-01-27T20:35:21.834774",
+    "timestamp": "2026-01-29T08:18:06.414583",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 38.084
+    "response_time": 19.305
   },
   {
-    "timestamp": "2026-01-27T20:35:21.886929",
+    "timestamp": "2026-01-29T08:18:06.443601",
     "service": "uat-management",
     "status": "up",
-    "response_time": 25.612
+    "response_time": 10.82
   },
   {
-    "timestamp": "2026-01-27T20:35:21.942634",
+    "timestamp": "2026-01-29T08:18:06.460083",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 28.662
+    "response_time": 2.5309999999999997
   },
   {
-    "timestamp": "2026-01-27T20:35:21.992345",
+    "timestamp": "2026-01-29T08:18:06.477198",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 24.375999999999998
+    "response_time": 3.065
   },
   {
-    "timestamp": "2026-01-27T20:35:22.048333",
+    "timestamp": "2026-01-29T08:18:06.504634",
     "service": "vector-search",
     "status": "up",
-    "response_time": 25.221
+    "response_time": 11.863999999999999
   },
   {
-    "timestamp": "2026-01-27T20:35:30.959767",
+    "timestamp": "2026-01-29T08:23:04.139546",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 13.942
+    "response_time": 13.067
   },
   {
-    "timestamp": "2026-01-27T20:35:31.007059",
+    "timestamp": "2026-01-29T08:23:04.158130",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 6.34
+    "response_time": 3.075
   },
   {
-    "timestamp": "2026-01-27T20:35:31.044864",
+    "timestamp": "2026-01-29T08:23:04.174452",
     "service": "search-service",
     "status": "up",
-    "response_time": 5.18
+    "response_time": 2.62
   },
   {
-    "timestamp": "2026-01-27T20:35:31.081165",
+    "timestamp": "2026-01-29T08:23:04.210203",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 4.575
+    "response_time": 19.158
   },
   {
-    "timestamp": "2026-01-27T20:35:31.115496",
+    "timestamp": "2026-01-29T08:23:04.240537",
     "service": "uat-management",
     "status": "up",
-    "response_time": 5.0280000000000005
+    "response_time": 15.286
   },
   {
-    "timestamp": "2026-01-27T20:35:31.151206",
+    "timestamp": "2026-01-29T08:23:04.275548",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 6.37
+    "response_time": 17.156000000000002
   },
   {
-    "timestamp": "2026-01-27T20:35:31.185352",
+    "timestamp": "2026-01-29T08:23:04.295229",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 5.082
+    "response_time": 3.954
   },
   {
-    "timestamp": "2026-01-27T20:35:31.220584",
+    "timestamp": "2026-01-29T08:23:04.314031",
     "service": "vector-search",
     "status": "up",
-    "response_time": 6.031
+    "response_time": 3.442
   },
   {
-    "timestamp": "2026-01-27T20:38:55.085059",
+    "timestamp": "2026-01-29T08:23:06.524229",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 36.518
+    "response_time": 4.986
   },
   {
-    "timestamp": "2026-01-27T20:38:55.145733",
+    "timestamp": "2026-01-29T08:23:06.557923",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 10.222999999999999
+    "response_time": 17.198
   },
   {
-    "timestamp": "2026-01-27T20:38:55.197695",
+    "timestamp": "2026-01-29T08:23:06.588779",
     "service": "search-service",
     "status": "up",
-    "response_time": 10.027
+    "response_time": 13.934999999999999
   },
   {
-    "timestamp": "2026-01-27T20:38:59.250803",
+    "timestamp": "2026-01-29T08:23:06.607811",
     "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 2.817
   },
   {
-    "timestamp": "2026-01-27T20:38:59.314939",
+    "timestamp": "2026-01-29T08:23:06.626063",
     "service": "uat-management",
     "status": "up",
-    "response_time": 19.248
+    "response_time": 2.454
   },
   {
-    "timestamp": "2026-01-27T20:38:59.365360",
+    "timestamp": "2026-01-29T08:23:06.645675",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 7.297
+    "response_time": 3.3310000000000004
   },
   {
-    "timestamp": "2026-01-27T20:38:59.416835",
+    "timestamp": "2026-01-29T08:23:06.688879",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 8.317
+    "response_time": 23.05
   },
   {
-    "timestamp": "2026-01-27T20:39:03.486687",
+    "timestamp": "2026-01-29T08:23:06.712301",
     "service": "vector-search",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 3.245
   },
   {
-    "timestamp": "2026-01-27T20:39:13.378222",
+    "timestamp": "2026-01-29T08:28:04.343415",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 37.611
+    "response_time": 8.328999999999999
   },
   {
-    "timestamp": "2026-01-27T20:39:13.428925",
+    "timestamp": "2026-01-29T08:28:04.384615",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 7.357
+    "response_time": 23.438
   },
   {
-    "timestamp": "2026-01-27T20:39:13.483066",
+    "timestamp": "2026-01-29T08:28:04.406265",
     "service": "search-service",
     "status": "up",
-    "response_time": 7.96
+    "response_time": 4.423
   },
   {
-    "timestamp": "2026-01-27T20:39:13.548308",
+    "timestamp": "2026-01-29T08:28:04.426007",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 21.378999999999998
+    "response_time": 3.828
   },
   {
-    "timestamp": "2026-01-27T20:39:13.595905",
+    "timestamp": "2026-01-29T08:28:04.475796",
     "service": "uat-management",
     "status": "up",
-    "response_time": 5.397
+    "response_time": 26.773000000000003
   },
   {
-    "timestamp": "2026-01-27T20:39:13.645251",
+    "timestamp": "2026-01-29T08:28:04.522683",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 6.3309999999999995
+    "response_time": 26.23
   },
   {
-    "timestamp": "2026-01-27T20:39:13.697429",
+    "timestamp": "2026-01-29T08:28:04.540098",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 8.259
+    "response_time": 3.094
   },
   {
-    "timestamp": "2026-01-27T20:39:13.746226",
+    "timestamp": "2026-01-29T08:28:04.581715",
     "service": "vector-search",
     "status": "up",
-    "response_time": 7.003
+    "response_time": 23.448
   },
   {
-    "timestamp": "2026-01-27T20:45:35.220952",
+    "timestamp": "2026-01-29T08:28:06.758085",
     "service": "api-gateway",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 28.306
   },
   {
-    "timestamp": "2026-01-27T20:45:35.278346",
+    "timestamp": "2026-01-29T08:28:06.791411",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 9.679
+    "response_time": 14.779
   },
   {
-    "timestamp": "2026-01-27T20:45:35.332660",
+    "timestamp": "2026-01-29T08:28:06.819822",
     "service": "search-service",
     "status": "up",
-    "response_time": 10.086
+    "response_time": 14.359
   },
   {
-    "timestamp": "2026-01-27T20:45:39.391376",
+    "timestamp": "2026-01-29T08:28:06.837004",
     "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 3.041
   },
   {
-    "timestamp": "2026-01-27T20:45:39.447122",
+    "timestamp": "2026-01-29T08:28:06.891248",
     "service": "uat-management",
     "status": "up",
-    "response_time": 6.535
+    "response_time": 39.303
   },
   {
-    "timestamp": "2026-01-27T20:45:39.501978",
+    "timestamp": "2026-01-29T08:28:06.915969",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 6.691
+    "response_time": 7.816
   },
   {
-    "timestamp": "2026-01-27T20:45:39.563163",
+    "timestamp": "2026-01-29T08:28:06.934143",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 8.836
+    "response_time": 2.656
   },
   {
-    "timestamp": "2026-01-27T20:45:43.633407",
+    "timestamp": "2026-01-29T08:28:06.964714",
     "service": "vector-search",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 14.523
   },
   {
-    "timestamp": "2026-01-27T20:46:59.299041",
+    "timestamp": "2026-01-29T08:33:04.644202",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 195.83900000000003
+    "response_time": 28.575
   },
   {
-    "timestamp": "2026-01-27T20:46:59.446214",
+    "timestamp": "2026-01-29T08:33:04.668053",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 98.012
+    "response_time": 4.471
   },
   {
-    "timestamp": "2026-01-27T20:46:59.590246",
+    "timestamp": "2026-01-29T08:33:04.688023",
     "service": "search-service",
     "status": "up",
-    "response_time": 43.652
+    "response_time": 3.0149999999999997
   },
   {
-    "timestamp": "2026-01-27T20:46:59.673847",
+    "timestamp": "2026-01-29T08:33:04.725267",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 28.77
+    "response_time": 16.725
   },
   {
-    "timestamp": "2026-01-27T20:46:59.747840",
+    "timestamp": "2026-01-29T08:33:04.768716",
     "service": "uat-management",
     "status": "up",
-    "response_time": 20.487
+    "response_time": 22.966
   },
   {
-    "timestamp": "2026-01-27T20:46:59.849497",
+    "timestamp": "2026-01-29T08:33:04.804504",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 51.836
+    "response_time": 15.945
   },
   {
-    "timestamp": "2026-01-27T20:46:59.931796",
+    "timestamp": "2026-01-29T08:33:04.832029",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 27.116999999999997
+    "response_time": 10.914
   },
   {
-    "timestamp": "2026-01-27T20:47:00.013578",
+    "timestamp": "2026-01-29T08:33:04.886525",
     "service": "vector-search",
     "status": "up",
-    "response_time": 32.908
+    "response_time": 35.92
   },
   {
-    "timestamp": "2026-01-27T20:50:43.759850",
+    "timestamp": "2026-01-29T08:33:06.993550",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 47.607
+    "response_time": 7.346
   },
   {
-    "timestamp": "2026-01-27T20:50:43.827869",
+    "timestamp": "2026-01-29T08:33:07.020955",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 35.086
+    "response_time": 4.162
   },
   {
-    "timestamp": "2026-01-27T20:50:43.878355",
+    "timestamp": "2026-01-29T08:33:07.041929",
     "service": "search-service",
     "status": "up",
-    "response_time": 26.048000000000002
+    "response_time": 3.5869999999999997
   },
   {
-    "timestamp": "2026-01-27T20:50:43.970196",
+    "timestamp": "2026-01-29T08:33:07.067357",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 63.719
+    "response_time": 4.3340000000000005
   },
   {
-    "timestamp": "2026-01-27T20:50:44.021241",
+    "timestamp": "2026-01-29T08:33:07.085450",
     "service": "uat-management",
     "status": "up",
-    "response_time": 24.066
+    "response_time": 2.513
   },
   {
-    "timestamp": "2026-01-27T20:50:44.077647",
+    "timestamp": "2026-01-29T08:33:07.102528",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 28.259
+    "response_time": 3.042
   },
   {
-    "timestamp": "2026-01-27T20:50:44.138932",
+    "timestamp": "2026-01-29T08:33:07.124403",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 30.991
+    "response_time": 3.457
   },
   {
-    "timestamp": "2026-01-27T20:50:44.201987",
+    "timestamp": "2026-01-29T08:33:07.148363",
     "service": "vector-search",
     "status": "up",
-    "response_time": 33.823
+    "response_time": 7.2620000000000005
   },
   {
-    "timestamp": "2026-01-27T20:52:00.142757",
+    "timestamp": "2026-01-29T08:38:04.911582",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 47.118
+    "response_time": 4.726
   },
   {
-    "timestamp": "2026-01-27T20:52:00.211825",
+    "timestamp": "2026-01-29T08:38:04.930907",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 23.432000000000002
+    "response_time": 3.2169999999999996
   },
   {
-    "timestamp": "2026-01-27T20:52:00.268300",
+    "timestamp": "2026-01-29T08:38:04.962361",
     "service": "search-service",
     "status": "up",
-    "response_time": 14.446
+    "response_time": 13.401
   },
   {
-    "timestamp": "2026-01-27T20:52:00.333596",
+    "timestamp": "2026-01-29T08:38:04.983527",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 11.556000000000001
+    "response_time": 4.337
   },
   {
-    "timestamp": "2026-01-27T20:52:00.394204",
+    "timestamp": "2026-01-29T08:38:05.005533",
     "service": "uat-management",
     "status": "up",
-    "response_time": 12.587
+    "response_time": 3.58
   },
   {
-    "timestamp": "2026-01-27T20:52:00.477193",
+    "timestamp": "2026-01-29T08:38:05.044272",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 38.191
+    "response_time": 17.424
   },
   {
-    "timestamp": "2026-01-27T20:52:00.526802",
+    "timestamp": "2026-01-29T08:38:05.073792",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 10.366999999999999
+    "response_time": 13.006
   },
   {
-    "timestamp": "2026-01-27T20:52:00.582988",
+    "timestamp": "2026-01-29T08:38:05.096701",
     "service": "vector-search",
     "status": "up",
-    "response_time": 13.334999999999999
+    "response_time": 3.883
   },
   {
-    "timestamp": "2026-01-28T05:16:44.389423",
+    "timestamp": "2026-01-29T08:38:07.190596",
     "service": "api-gateway",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 23.122
   },
   {
-    "timestamp": "2026-01-28T05:16:44.434591",
+    "timestamp": "2026-01-29T08:38:07.224675",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 9.16
+    "response_time": 11.035
   },
   {
-    "timestamp": "2026-01-28T05:16:44.481356",
+    "timestamp": "2026-01-29T08:38:07.246406",
     "service": "search-service",
     "status": "up",
-    "response_time": 8.792
+    "response_time": 2.7920000000000003
   },
   {
-    "timestamp": "2026-01-28T05:16:48.553172",
+    "timestamp": "2026-01-29T08:38:07.266194",
     "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 4.443
   },
   {
-    "timestamp": "2026-01-28T05:16:48.841397",
+    "timestamp": "2026-01-29T08:38:07.286786",
     "service": "uat-management",
     "status": "up",
-    "response_time": 243.5
+    "response_time": 2.339
   },
   {
-    "timestamp": "2026-01-28T05:16:49.002946",
+    "timestamp": "2026-01-29T08:38:07.306975",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 12.883000000000001
+    "response_time": 2.511
   },
   {
-    "timestamp": "2026-01-28T05:16:49.096583",
+    "timestamp": "2026-01-29T08:38:07.326813",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 24.762
+    "response_time": 2.4099999999999997
   },
   {
-    "timestamp": "2026-01-28T05:16:53.157859",
+    "timestamp": "2026-01-29T08:38:07.348445",
     "service": "vector-search",
-    "status": "down",
-    "response_time": null
+    "status": "up",
+    "response_time": 3.33
   },
   {
-    "timestamp": "2026-01-28T05:16:59.678955",
+    "timestamp": "2026-01-29T08:43:05.121191",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 30.314
+    "response_time": 4.783
   },
   {
-    "timestamp": "2026-01-28T05:16:59.722838",
+    "timestamp": "2026-01-29T08:43:05.148995",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 5.509
+    "response_time": 9.301
   },
   {
-    "timestamp": "2026-01-28T05:16:59.769695",
+    "timestamp": "2026-01-29T08:43:05.167070",
     "service": "search-service",
     "status": "up",
-    "response_time": 5.296
+    "response_time": 2.999
   },
   {
-    "timestamp": "2026-01-28T05:16:59.816489",
+    "timestamp": "2026-01-29T08:43:05.194479",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 6.897
+    "response_time": 12.25
   },
   {
-    "timestamp": "2026-01-28T05:16:59.855609",
+    "timestamp": "2026-01-29T08:43:05.227342",
     "service": "uat-management",
     "status": "up",
-    "response_time": 3.776
+    "response_time": 16.122999999999998
   },
   {
-    "timestamp": "2026-01-28T05:16:59.894812",
+    "timestamp": "2026-01-29T08:43:05.245735",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 3.9
+    "response_time": 3.597
   },
   {
-    "timestamp": "2026-01-28T05:16:59.938509",
+    "timestamp": "2026-01-29T08:43:05.275883",
     "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.762
-  },
-  {
-    "timestamp": "2026-01-28T05:16:59.982108",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.614
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.309673",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 45.001
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.370417",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.418
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.422638",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 15.657
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.469853",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 10.614
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.511365",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.469
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.552953",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 5.257000000000001
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.605979",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 12.893
-  },
-  {
-    "timestamp": "2026-01-28T05:21:53.667334",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 17.569000000000003
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.021035",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 5.001
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.054348",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.668
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.087661",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.834
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.122173",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 5.11
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.155718",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.064
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.210004",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 27.158
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.239425",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.128
-  },
-  {
-    "timestamp": "2026-01-28T05:22:00.269774",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 3.695
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.563576",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 14.054
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.596069",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.24
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.636599",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 6.093
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.670295",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 4.111
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.702702",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.125
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.738987",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.755
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.776340",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.312
-  },
-  {
-    "timestamp": "2026-01-28T05:24:18.811922",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 6.552
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.725519",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 15.254
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.773271",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 22.511
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.820487",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 24.241
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.865276",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 15.144
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.901596",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 17.58
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.928075",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 5.963
-  },
-  {
-    "timestamp": "2026-01-28T05:26:53.965684",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 18.401
-  },
-  {
-    "timestamp": "2026-01-28T05:26:54.006226",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 10.961
-  },
-  {
-    "timestamp": "2026-01-28T05:29:18.868469",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 30.241
-  },
-  {
-    "timestamp": "2026-01-28T05:29:18.935811",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 10.924
-  },
-  {
-    "timestamp": "2026-01-28T05:29:18.992428",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 30.028
-  },
-  {
-    "timestamp": "2026-01-28T05:29:19.029966",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 12.689
-  },
-  {
-    "timestamp": "2026-01-28T05:29:19.122274",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 58.96
-  },
-  {
-    "timestamp": "2026-01-28T05:29:19.160398",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 10.052
-  },
-  {
-    "timestamp": "2026-01-28T05:29:19.196515",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 10.586
-  },
-  {
-    "timestamp": "2026-01-28T05:29:19.233678",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 9.276
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.153659",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 10.383999999999999
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.177573",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.156
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.202329",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.0300000000000002
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.222736",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 3.215
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.248972",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.5509999999999997
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.284509",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 17.407
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.306204",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.324
-  },
-  {
-    "timestamp": "2026-01-28T05:30:06.332929",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 3.885
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.056172",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 20.091
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.099653",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 21.546
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.130813",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.199
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.160062",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 5.1770000000000005
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.199734",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 19.048
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.232615",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 11.745999999999999
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.267167",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 13.91
-  },
-  {
-    "timestamp": "2026-01-28T05:31:54.312780",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 24.292
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.225332",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.825
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.246304",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 2.97
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.266926",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.9810000000000003
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.288947",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 4.53
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.310250",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.1020000000000003
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.362632",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 28.329
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.414083",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 25.686
-  },
-  {
-    "timestamp": "2026-01-28T05:32:39.453343",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 22.163999999999998
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.710217",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 15.224
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.736704",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 7.550000000000001
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.786775",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 30.74
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.812943",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 9.052
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.862762",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 31.429
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.889010",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 7.545
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.918589",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 8.132
-  },
-  {
-    "timestamp": "2026-01-28T05:34:37.946248",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.317
-  },
-  {
-    "timestamp": "2026-01-28T05:39:03.235200",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 27.482
-  },
-  {
-    "timestamp": "2026-01-28T05:39:03.280684",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 7.642
-  },
-  {
-    "timestamp": "2026-01-28T05:39:03.327651",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 7.473999999999999
-  },
-  {
-    "timestamp": "2026-01-28T05:39:07.386347",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T05:39:07.424367",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.955
-  },
-  {
-    "timestamp": "2026-01-28T05:39:07.460093",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.9579999999999997
-  },
-  {
-    "timestamp": "2026-01-28T05:39:07.510484",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 9.054
-  },
-  {
-    "timestamp": "2026-01-28T05:39:07.556975",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 5.594
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.555507",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 27.192
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.605191",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 6.356
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.659632",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 5.647
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.694263",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 6.6579999999999995
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.738268",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.901
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.785316",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 17.988
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.820591",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.9960000000000004
-  },
-  {
-    "timestamp": "2026-01-28T05:39:14.850564",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.256
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.614120",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 10.714
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.649984",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 9.005
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.689645",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 20.462
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.721656",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 8.952
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.753130",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 9.227
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.788984",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 9.521999999999998
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.831025",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 12.043999999999999
-  },
-  {
-    "timestamp": "2026-01-28T05:44:07.859763",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 6.6930000000000005
-  },
-  {
-    "timestamp": "2026-01-28T05:44:14.924276",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 31.372999999999998
-  },
-  {
-    "timestamp": "2026-01-28T05:44:14.970405",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 6.227
-  },
-  {
-    "timestamp": "2026-01-28T05:44:15.008520",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.837
-  },
-  {
-    "timestamp": "2026-01-28T05:44:15.051692",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 6.8500000000000005
-  },
-  {
-    "timestamp": "2026-01-28T05:44:15.094558",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 5.073
-  },
-  {
-    "timestamp": "2026-01-28T05:44:15.138106",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 5.397
-  },
-  {
-    "timestamp": "2026-01-28T05:44:15.175440",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.723
-  },
-  {
-    "timestamp": "2026-01-28T05:44:15.210497",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 5.497
-  },
-  {
-    "timestamp": "2026-01-28T05:50:13.196928",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 21.886
-  },
-  {
-    "timestamp": "2026-01-28T05:50:13.231096",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.909
-  },
-  {
-    "timestamp": "2026-01-28T05:50:13.260349",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.5360000000000005
-  },
-  {
-    "timestamp": "2026-01-28T05:50:17.322192",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T05:50:17.405623",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 26.085
-  },
-  {
-    "timestamp": "2026-01-28T05:50:17.507990",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 52.408
-  },
-  {
-    "timestamp": "2026-01-28T05:50:17.568610",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 12.931
-  },
-  {
-    "timestamp": "2026-01-28T05:50:17.619082",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 5.845000000000001
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.421560",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.472
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.452219",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.719
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.479808",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.6879999999999997
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.509516",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 6.104
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.539386",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.323
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.567841",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.317
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.596198",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.427
-  },
-  {
-    "timestamp": "2026-01-28T05:50:25.631220",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 3.565
-  },
-  {
-    "timestamp": "2026-01-28T05:53:16.067978",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 23.682000000000002
-  },
-  {
-    "timestamp": "2026-01-28T05:53:16.111219",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 6.763
-  },
-  {
-    "timestamp": "2026-01-28T05:53:16.149692",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 6.168
-  },
-  {
-    "timestamp": "2026-01-28T05:53:17.209541",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 1023.503
-  },
-  {
-    "timestamp": "2026-01-28T05:53:17.243863",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 5.027
-  },
-  {
-    "timestamp": "2026-01-28T05:53:17.280962",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.795
-  },
-  {
-    "timestamp": "2026-01-28T05:53:17.318173",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.518999999999999
-  },
-  {
-    "timestamp": "2026-01-28T05:53:18.370820",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 1018.3850000000001
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.253219",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.149
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.281452",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.353
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.304374",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.539
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.351444",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 12.658000000000001
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.379035",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 2.951
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.399509",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 2.2920000000000003
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.431336",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 13.921
-  },
-  {
-    "timestamp": "2026-01-28T05:53:24.453647",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 2.3240000000000003
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.415679",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 13.929
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.453133",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 13.976
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.478440",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 6.9430000000000005
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.531689",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 26.869
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.573857",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 16.811
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.621220",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 17.793
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.671083",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 25.497
-  },
-  {
-    "timestamp": "2026-01-28T05:58:18.715643",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 20.653000000000002
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.494490",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 15.029
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.524564",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 10.259
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.558566",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 13.065
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.607536",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 26.77
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.640280",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 12.237
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.674072",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 11.979
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.708556",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 12.618
-  },
-  {
-    "timestamp": "2026-01-28T05:58:24.742050",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 11.199
-  },
-  {
-    "timestamp": "2026-01-28T06:03:18.774715",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 23.261
-  },
-  {
-    "timestamp": "2026-01-28T06:03:18.820931",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 13.06
-  },
-  {
-    "timestamp": "2026-01-28T06:03:18.863962",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 18.091
-  },
-  {
-    "timestamp": "2026-01-28T06:03:18.898907",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 14.073
-  },
-  {
-    "timestamp": "2026-01-28T06:03:18.934126",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 12.738
-  },
-  {
-    "timestamp": "2026-01-28T06:03:18.966498",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 11.436
-  },
-  {
-    "timestamp": "2026-01-28T06:03:19.006968",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 20.500999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:03:19.042663",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 15.216999999999999
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.775961",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 5.293
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.813441",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.8600000000000003
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.842529",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.398
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.872351",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 3.769
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.904326",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.705
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.929593",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.46
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.954550",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 2.783
-  },
-  {
-    "timestamp": "2026-01-28T06:03:24.982859",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.642
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.123675",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 41.501999999999995
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.169255",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 21.069000000000003
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.199105",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 9.284
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.233759",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 10.808
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.288684",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 29.680000000000003
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.335355",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 22.079
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.382130",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 21.3
-  },
-  {
-    "timestamp": "2026-01-28T06:08:19.433387",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 26.186999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.052522",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.762
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.100770",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 21.714000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.141272",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 20.863
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.198380",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 30.12
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.222028",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 2.975
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.276979",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 26.896
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.319031",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 16.817
-  },
-  {
-    "timestamp": "2026-01-28T06:08:25.366043",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 18.872
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.490533",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 16.896
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.530691",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 10.839
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.575123",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 18.457
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.620000",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 17.125
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.709894",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 67.628
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.758433",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 25.576999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.793693",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 11.82
-  },
-  {
-    "timestamp": "2026-01-28T06:13:19.830643",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 10.115
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.410372",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 13.237
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.434935",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.6350000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.462495",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 2.957
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.525122",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 26.492
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.559478",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 12.28
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.608993",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 26.246
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.650397",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 20.663
-  },
-  {
-    "timestamp": "2026-01-28T06:13:25.710880",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 30.758
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.024638",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 40.814
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.270822",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 171.213
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.472658",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 46.953
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.601486",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 44.327
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.682393",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 22.68
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.770141",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 24.796
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.843890",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 22.998
-  },
-  {
-    "timestamp": "2026-01-28T06:18:20.928171",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 31.181
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.782837",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 33.544
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.810110",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.161
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.834531",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.225
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.859529",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 2.942
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.886989",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.199
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.911600",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.139
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.939860",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.191
-  },
-  {
-    "timestamp": "2026-01-28T06:18:25.966138",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 3.195
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.020261",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 10.183
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.057382",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.9430000000000005
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.110551",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 21.262
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.151718",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 11.04
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.196894",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 18.115
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.241959",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 20.049
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.285486",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 16.854999999999997
-  },
-  {
-    "timestamp": "2026-01-28T06:23:21.336193",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 24.058
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.006163",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.325
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.042718",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 13.363999999999999
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.070817",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.4050000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.121543",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 25.535
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.169184",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 21.278
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.205504",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.289000000000001
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.260399",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 27.061999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:23:26.298950",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 5.787
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.432320",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 39.208
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.487040",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 21.069000000000003
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.672777",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 143.475
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.745330",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 34.713
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.796171",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 17.435
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.859801",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 22.225
-  },
-  {
-    "timestamp": "2026-01-28T06:28:21.950283",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 39.611
-  },
-  {
-    "timestamp": "2026-01-28T06:28:22.106159",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 94.646
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.343507",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.079000000000001
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.390583",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 19.349999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.424650",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.211
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.460838",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 4.963
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.490132",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 2.827
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.544202",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 26.171
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.593269",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 19.948
-  },
-  {
-    "timestamp": "2026-01-28T06:28:26.638696",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 19.11
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.157427",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.09
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.207003",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 18.263
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.251169",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 17.160999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.279614",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 4.939
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.312244",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.515
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.343553",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.069999999999999
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.372509",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.611
-  },
-  {
-    "timestamp": "2026-01-28T06:33:22.424934",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 22.794999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:33:26.724461",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 28.594
-  },
-  {
-    "timestamp": "2026-01-28T06:33:26.816945",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 22.613
-  },
-  {
-    "timestamp": "2026-01-28T06:33:26.888341",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 22.508
-  },
-  {
-    "timestamp": "2026-01-28T06:33:26.939901",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 6.072
-  },
-  {
-    "timestamp": "2026-01-28T06:33:26.972805",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.686
-  },
-  {
-    "timestamp": "2026-01-28T06:33:27.016029",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 20.254
-  },
-  {
-    "timestamp": "2026-01-28T06:33:27.065397",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 25.329
-  },
-  {
-    "timestamp": "2026-01-28T06:33:27.110099",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 22.418
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.489739",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 9.549999999999999
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.531698",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 16.279
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.569205",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 7.347
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.613330",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 10.489999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.643630",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 5.483
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.677779",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.5
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.709620",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.762
-  },
-  {
-    "timestamp": "2026-01-28T06:38:22.747938",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.819
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.155906",
-    "service": "api-gateway",
     "status": "up",
     "response_time": 12.041
   },
   {
-    "timestamp": "2026-01-28T06:38:27.179365",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 2.436
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.228021",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 21.112
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.277029",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 18.623
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.318890",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 20.160999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.384602",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 20.278000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.426919",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 19.809
-  },
-  {
-    "timestamp": "2026-01-28T06:38:27.482067",
+    "timestamp": "2026-01-29T08:43:05.295122",
     "service": "vector-search",
     "status": "up",
-    "response_time": 26.662000000000003
+    "response_time": 3.4880000000000004
   },
   {
-    "timestamp": "2026-01-28T06:43:22.839291",
+    "timestamp": "2026-01-29T08:43:07.381393",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 50.379
+    "response_time": 15.728
   },
   {
-    "timestamp": "2026-01-28T06:43:22.903842",
+    "timestamp": "2026-01-29T08:43:07.411025",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 29.548000000000002
+    "response_time": 12.76
   },
   {
-    "timestamp": "2026-01-28T06:43:22.954646",
+    "timestamp": "2026-01-29T08:43:07.433352",
     "service": "search-service",
     "status": "up",
-    "response_time": 20.771
+    "response_time": 2.4859999999999998
   },
   {
-    "timestamp": "2026-01-28T06:43:23.011706",
+    "timestamp": "2026-01-29T08:43:07.458466",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 31.209
+    "response_time": 8.996
   },
   {
-    "timestamp": "2026-01-28T06:43:23.062819",
+    "timestamp": "2026-01-29T08:43:07.482994",
     "service": "uat-management",
     "status": "up",
-    "response_time": 22.453999999999997
+    "response_time": 3.4949999999999997
   },
   {
-    "timestamp": "2026-01-28T06:43:23.118038",
+    "timestamp": "2026-01-29T08:43:07.506353",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 31.936
+    "response_time": 5.868
   },
   {
-    "timestamp": "2026-01-28T06:43:23.169744",
+    "timestamp": "2026-01-29T08:43:07.538980",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 26.77
+    "response_time": 15.339
   },
   {
-    "timestamp": "2026-01-28T06:43:23.261975",
+    "timestamp": "2026-01-29T08:43:07.561763",
     "service": "vector-search",
     "status": "up",
-    "response_time": 72.728
+    "response_time": 4.6080000000000005
   },
   {
-    "timestamp": "2026-01-28T06:43:27.520869",
+    "timestamp": "2026-01-29T08:48:05.329480",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 6.947
+    "response_time": 12.366999999999999
   },
   {
-    "timestamp": "2026-01-28T06:43:27.548847",
+    "timestamp": "2026-01-29T08:48:05.352179",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 3.8049999999999997
+    "response_time": 3.842
   },
   {
-    "timestamp": "2026-01-28T06:43:27.575626",
+    "timestamp": "2026-01-29T08:48:05.388588",
     "service": "search-service",
     "status": "up",
-    "response_time": 3.139
+    "response_time": 19.198
   },
   {
-    "timestamp": "2026-01-28T06:43:27.603307",
+    "timestamp": "2026-01-29T08:48:05.420854",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 4.688999999999999
+    "response_time": 16.563000000000002
   },
   {
-    "timestamp": "2026-01-28T06:43:27.631999",
+    "timestamp": "2026-01-29T08:48:05.456107",
     "service": "uat-management",
     "status": "up",
-    "response_time": 5.617999999999999
+    "response_time": 18.368
   },
   {
-    "timestamp": "2026-01-28T06:43:27.659270",
+    "timestamp": "2026-01-29T08:48:05.475832",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 2.887
+    "response_time": 3.561
   },
   {
-    "timestamp": "2026-01-28T06:43:27.684130",
+    "timestamp": "2026-01-29T08:48:05.498961",
     "service": "embedding-service",
     "status": "up",
-    "response_time": 3.3289999999999997
+    "response_time": 4.462
   },
   {
-    "timestamp": "2026-01-28T06:43:27.709788",
+    "timestamp": "2026-01-29T08:48:05.536506",
     "service": "vector-search",
     "status": "up",
-    "response_time": 2.406
+    "response_time": 20.251
   },
   {
-    "timestamp": "2026-01-28T06:48:23.335192",
+    "timestamp": "2026-01-29T08:48:07.607002",
     "service": "api-gateway",
     "status": "up",
-    "response_time": 43.621
+    "response_time": 24.494
   },
   {
-    "timestamp": "2026-01-28T06:48:23.405769",
+    "timestamp": "2026-01-29T08:48:07.632320",
     "service": "context-analyzer",
     "status": "up",
-    "response_time": 21.947000000000003
+    "response_time": 3.72
   },
   {
-    "timestamp": "2026-01-28T06:48:23.457145",
+    "timestamp": "2026-01-29T08:48:07.781128",
     "service": "search-service",
     "status": "up",
-    "response_time": 24.85
+    "response_time": 130.404
   },
   {
-    "timestamp": "2026-01-28T06:48:23.514124",
+    "timestamp": "2026-01-29T08:48:07.808457",
     "service": "enhanced-matching",
     "status": "up",
-    "response_time": 32.869
+    "response_time": 7.99
   },
   {
-    "timestamp": "2026-01-28T06:48:23.554266",
+    "timestamp": "2026-01-29T08:48:07.826556",
     "service": "uat-management",
     "status": "up",
-    "response_time": 20.169
+    "response_time": 2.649
   },
   {
-    "timestamp": "2026-01-28T06:48:23.609022",
+    "timestamp": "2026-01-29T08:48:07.850690",
     "service": "llm-classifier",
     "status": "up",
-    "response_time": 26.986
+    "response_time": 4.7299999999999995
   },
   {
-    "timestamp": "2026-01-28T06:48:23.653608",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 22.741999999999997
-  },
-  {
-    "timestamp": "2026-01-28T06:48:23.694677",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 19.852999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:48:27.754131",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 8.654
-  },
-  {
-    "timestamp": "2026-01-28T06:48:27.811440",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 27.044999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:48:27.845881",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.9779999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:48:27.881537",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 4.0889999999999995
-  },
-  {
-    "timestamp": "2026-01-28T06:48:27.924872",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.36
-  },
-  {
-    "timestamp": "2026-01-28T06:48:27.960947",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.3
-  },
-  {
-    "timestamp": "2026-01-28T06:48:28.001345",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.64
-  },
-  {
-    "timestamp": "2026-01-28T06:48:28.043466",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 17.258
-  },
-  {
-    "timestamp": "2026-01-28T06:53:23.782587",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 44.663000000000004
-  },
-  {
-    "timestamp": "2026-01-28T06:53:23.845660",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 21.737
-  },
-  {
-    "timestamp": "2026-01-28T06:53:23.897490",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 29.732000000000003
-  },
-  {
-    "timestamp": "2026-01-28T06:53:23.944378",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 22.653
-  },
-  {
-    "timestamp": "2026-01-28T06:53:24.000941",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 30.942999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:53:24.065860",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 35.822
-  },
-  {
-    "timestamp": "2026-01-28T06:53:24.115994",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 21.14
-  },
-  {
-    "timestamp": "2026-01-28T06:53:24.162337",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 20.845
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.103473",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 8.356
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.152779",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 17.881999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.199813",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.548
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.233032",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 5.043
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.273743",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 5.358
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.368492",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 53.659
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.400962",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.412
-  },
-  {
-    "timestamp": "2026-01-28T06:53:28.442512",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.167
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.245718",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 53.818
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.310659",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 22.543
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.371656",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 27.098
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.426810",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 33.295
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.472376",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 22.073
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.514389",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 16.913999999999998
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.561538",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 23.144000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:58:24.620285",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 29.423000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.506055",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 8.861
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.544594",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.528
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.581965",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.105
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.636140",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 22.892
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.675542",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.921
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.731911",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 25.714000000000002
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.780212",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 15.982
-  },
-  {
-    "timestamp": "2026-01-28T06:58:28.836010",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 27.738
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.398331",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 23.221
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.457414",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 26.378
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.521047",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 35.147999999999996
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.563000",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 19.979
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.598371",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 11.032
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.630764",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 10.203999999999999
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.662944",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 9.379999999999999
-  },
-  {
-    "timestamp": "2026-01-28T07:01:42.713591",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 25.881999999999998
-  },
-  {
-    "timestamp": "2026-01-28T07:02:40.949223",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.001000000000001
-  },
-  {
-    "timestamp": "2026-01-28T07:02:40.979592",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.564
-  },
-  {
-    "timestamp": "2026-01-28T07:02:41.038708",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 29.756
-  },
-  {
-    "timestamp": "2026-01-28T07:02:41.068367",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 4.789
-  },
-  {
-    "timestamp": "2026-01-28T07:02:41.097498",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.835
-  },
-  {
-    "timestamp": "2026-01-28T07:02:41.132441",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 6.308
-  },
-  {
-    "timestamp": "2026-01-28T07:02:41.173137",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 6.415
-  },
-  {
-    "timestamp": "2026-01-28T07:02:41.208717",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 6.183
-  },
-  {
-    "timestamp": "2026-01-28T07:03:24.687496",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 12.027
-  },
-  {
-    "timestamp": "2026-01-28T07:03:24.745500",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.343
-  },
-  {
-    "timestamp": "2026-01-28T07:03:24.797626",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 9.024000000000001
-  },
-  {
-    "timestamp": "2026-01-28T07:03:24.849707",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 6.436
-  },
-  {
-    "timestamp": "2026-01-28T07:03:24.906477",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.853
-  },
-  {
-    "timestamp": "2026-01-28T07:03:24.999845",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 27.63
-  },
-  {
-    "timestamp": "2026-01-28T07:03:25.058816",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.582
-  },
-  {
-    "timestamp": "2026-01-28T07:03:25.112117",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 5.973
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.355264",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 77.401
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.428955",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 33.459
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.486969",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 27.94
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.541906",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 24.418
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.589369",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 21.647
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.648812",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 35.283
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.694239",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 24.305
-  },
-  {
-    "timestamp": "2026-01-28T07:07:41.744441",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 28.863
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.176098",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 12.552999999999999
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.220723",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.9750000000000005
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.261742",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.821
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.326580",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 27.397000000000002
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.372273",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.8999999999999995
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.418454",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 6.025
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.463642",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.845000000000001
-  },
-  {
-    "timestamp": "2026-01-28T07:08:25.516292",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 6.5360000000000005
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.155159",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.479
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.182490",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 2.843
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.211455",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.73
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.239469",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 3.556
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.268612",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.292
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.303190",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 6.19
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.332617",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.1370000000000005
-  },
-  {
-    "timestamp": "2026-01-28T07:08:30.381154",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 22.319
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.381102",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 34.394
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.443021",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 8.66
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.512310",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 9.041
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.574076",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 7.851
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.634701",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 6.364
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.696356",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 7.225
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.751891",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 6.794
-  },
-  {
-    "timestamp": "2026-01-28T07:09:08.812759",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 6.31
-  },
-  {
-    "timestamp": "2026-01-28T07:13:25.630607",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 56.611000000000004
-  },
-  {
-    "timestamp": "2026-01-28T07:13:25.729425",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 33.469
-  },
-  {
-    "timestamp": "2026-01-28T07:13:25.824433",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 31.423
-  },
-  {
-    "timestamp": "2026-01-28T07:13:25.952639",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 52.66
-  },
-  {
-    "timestamp": "2026-01-28T07:13:26.051333",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 39.697
-  },
-  {
-    "timestamp": "2026-01-28T07:13:26.145317",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 38.071
-  },
-  {
-    "timestamp": "2026-01-28T07:13:26.222742",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 27.369999999999997
-  },
-  {
-    "timestamp": "2026-01-28T07:13:26.305229",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 28.757
-  },
-  {
-    "timestamp": "2026-01-28T07:14:08.938205",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 34.217
-  },
-  {
-    "timestamp": "2026-01-28T07:14:08.968684",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.2059999999999995
-  },
-  {
-    "timestamp": "2026-01-28T07:14:08.999858",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.223
-  },
-  {
-    "timestamp": "2026-01-28T07:14:09.050343",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 22.675
-  },
-  {
-    "timestamp": "2026-01-28T07:14:09.077812",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.273
-  },
-  {
-    "timestamp": "2026-01-28T07:14:09.110688",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.9240000000000004
-  },
-  {
-    "timestamp": "2026-01-28T07:14:09.154071",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 9.857
-  },
-  {
-    "timestamp": "2026-01-28T07:14:09.180754",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.112
-  },
-  {
-    "timestamp": "2026-01-28T07:46:56.501735",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 35.935
-  },
-  {
-    "timestamp": "2026-01-28T07:46:56.572281",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 8.838000000000001
-  },
-  {
-    "timestamp": "2026-01-28T07:46:56.634753",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 8.697
-  },
-  {
-    "timestamp": "2026-01-28T07:47:00.724150",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T07:47:00.791354",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 6.463
-  },
-  {
-    "timestamp": "2026-01-28T07:47:00.873624",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 12.356
-  },
-  {
-    "timestamp": "2026-01-28T07:47:00.962826",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 28.673000000000002
-  },
-  {
-    "timestamp": "2026-01-28T07:47:05.060300",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T07:47:12.442045",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 11.884
-  },
-  {
-    "timestamp": "2026-01-28T07:47:12.478003",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.2059999999999995
-  },
-  {
-    "timestamp": "2026-01-28T07:47:12.535574",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 22.1
-  },
-  {
-    "timestamp": "2026-01-28T07:47:16.594375",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T07:47:16.633627",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.6069999999999998
-  },
-  {
-    "timestamp": "2026-01-28T07:47:16.668891",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 2.9090000000000003
-  },
-  {
-    "timestamp": "2026-01-28T07:47:16.714394",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.8800000000000003
-  },
-  {
-    "timestamp": "2026-01-28T07:47:16.755028",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.076
-  },
-  {
-    "timestamp": "2026-01-28T07:52:05.471293",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 55.754999999999995
-  },
-  {
-    "timestamp": "2026-01-28T07:52:05.696866",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 120.985
-  },
-  {
-    "timestamp": "2026-01-28T07:52:05.886266",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 72.66
-  },
-  {
-    "timestamp": "2026-01-28T07:52:06.155555",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 182.18599999999998
-  },
-  {
-    "timestamp": "2026-01-28T07:52:06.278397",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 53.142
-  },
-  {
-    "timestamp": "2026-01-28T07:52:06.399536",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 58.647
-  },
-  {
-    "timestamp": "2026-01-28T07:52:06.515078",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 48.039
-  },
-  {
-    "timestamp": "2026-01-28T07:52:06.732485",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 134.619
-  },
-  {
-    "timestamp": "2026-01-28T07:52:16.871815",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 14.082
-  },
-  {
-    "timestamp": "2026-01-28T07:52:16.900630",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.1580000000000004
-  },
-  {
-    "timestamp": "2026-01-28T07:52:16.940400",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 14.257000000000001
-  },
-  {
-    "timestamp": "2026-01-28T07:52:16.988269",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 24.052
-  },
-  {
-    "timestamp": "2026-01-28T07:52:17.016710",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.219
-  },
-  {
-    "timestamp": "2026-01-28T07:52:17.065954",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 22.484
-  },
-  {
-    "timestamp": "2026-01-28T07:52:17.110049",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 16.747999999999998
-  },
-  {
-    "timestamp": "2026-01-28T07:52:17.165110",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 27.302
-  },
-  {
-    "timestamp": "2026-01-28T08:11:02.032911",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:11:06.103558",
-    "service": "context-analyzer",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:11:43.357435",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:11:43.439028",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 11.714
-  },
-  {
-    "timestamp": "2026-01-28T08:11:43.520629",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 20.212999999999997
-  },
-  {
-    "timestamp": "2026-01-28T08:11:47.594012",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:11:47.686606",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 10.456999999999999
-  },
-  {
-    "timestamp": "2026-01-28T08:11:47.768049",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 10.165000000000001
-  },
-  {
-    "timestamp": "2026-01-28T08:11:47.832447",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 7.644
-  },
-  {
-    "timestamp": "2026-01-28T08:11:51.902731",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.318564",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 26.596
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.363793",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 4.765000000000001
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.404561",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 3.699
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.446755",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 6.33
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.508348",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 19.157
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.557277",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.629
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.611644",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 3.718
-  },
-  {
-    "timestamp": "2026-01-28T08:11:55.665422",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 4.688000000000001
-  },
-  {
-    "timestamp": "2026-01-28T08:13:43.057762",
-    "service": "api-gateway",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:13:43.118774",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 7.003
-  },
-  {
-    "timestamp": "2026-01-28T08:13:43.192366",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 14.867
-  },
-  {
-    "timestamp": "2026-01-28T08:13:47.284057",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:13:47.334602",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.9830000000000005
-  },
-  {
-    "timestamp": "2026-01-28T08:13:47.388630",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.9319999999999995
-  },
-  {
-    "timestamp": "2026-01-28T08:13:47.440265",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 6.4910000000000005
-  },
-  {
-    "timestamp": "2026-01-28T08:13:47.494064",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 3.713
-  },
-  {
-    "timestamp": "2026-01-28T08:13:50.873116",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.694999999999999
-  },
-  {
-    "timestamp": "2026-01-28T08:13:50.902077",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 2.774
-  },
-  {
-    "timestamp": "2026-01-28T08:13:50.932220",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 2.868
-  },
-  {
-    "timestamp": "2026-01-28T08:13:50.963444",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 5.233
-  },
-  {
-    "timestamp": "2026-01-28T08:13:50.994867",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 2.453
-  },
-  {
-    "timestamp": "2026-01-28T08:13:51.044246",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 22.953000000000003
-  },
-  {
-    "timestamp": "2026-01-28T08:13:51.072641",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 2.4789999999999996
-  },
-  {
-    "timestamp": "2026-01-28T08:13:51.104140",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 2.8600000000000003
-  },
-  {
-    "timestamp": "2026-01-28T08:17:55.954812",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 42.573
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.048126",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 64.269
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.130488",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 56.664
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.219585",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 54.942
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.326335",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 67.652
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.416189",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 57.262
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.515185",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 68.571
-  },
-  {
-    "timestamp": "2026-01-28T08:17:56.643650",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 87.162
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.589378",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 10.706
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.617294",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.215
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.645361",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.6610000000000005
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.693910",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 24.182
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.724305",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.401000000000001
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.775802",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 23.514
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.808345",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 5.1339999999999995
-  },
-  {
-    "timestamp": "2026-01-28T08:18:30.844123",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 8.13
-  },
-  {
-    "timestamp": "2026-01-28T08:20:20.971706",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 1665.4759999999999
-  },
-  {
-    "timestamp": "2026-01-28T08:20:21.059344",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 11.817
-  },
-  {
-    "timestamp": "2026-01-28T08:20:21.158536",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 10.001
-  },
-  {
-    "timestamp": "2026-01-28T08:20:25.247632",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:20:25.312826",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 6.184
-  },
-  {
-    "timestamp": "2026-01-28T08:20:25.381559",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 6.617999999999999
-  },
-  {
-    "timestamp": "2026-01-28T08:20:25.452991",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 9.129
-  },
-  {
-    "timestamp": "2026-01-28T08:20:27.049648",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 1534.1070000000002
-  },
-  {
-    "timestamp": "2026-01-28T08:20:39.728596",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 13.786
-  },
-  {
-    "timestamp": "2026-01-28T08:20:39.779180",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.854
-  },
-  {
-    "timestamp": "2026-01-28T08:20:39.824811",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 4.642
-  },
-  {
-    "timestamp": "2026-01-28T08:20:39.884550",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 8.192
-  },
-  {
-    "timestamp": "2026-01-28T08:20:39.930554",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 4.096
-  },
-  {
-    "timestamp": "2026-01-28T08:20:39.980511",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.2589999999999995
-  },
-  {
-    "timestamp": "2026-01-28T08:20:40.031124",
+    "timestamp": "2026-01-29T08:48:07.872937",
     "service": "embedding-service",
     "status": "up",
     "response_time": 4.547
   },
   {
-    "timestamp": "2026-01-28T08:20:40.081170",
+    "timestamp": "2026-01-29T08:48:07.904176",
     "service": "vector-search",
     "status": "up",
-    "response_time": 3.7390000000000003
-  },
-  {
-    "timestamp": "2026-01-28T08:36:07.968331",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 35.207
-  },
-  {
-    "timestamp": "2026-01-28T08:36:08.035557",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 8.125
-  },
-  {
-    "timestamp": "2026-01-28T08:36:08.114195",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 12.996
-  },
-  {
-    "timestamp": "2026-01-28T08:36:12.188512",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:36:12.261845",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 11.964
-  },
-  {
-    "timestamp": "2026-01-28T08:36:16.352254",
-    "service": "llm-classifier",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:36:17.981226",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 1561.55
-  },
-  {
-    "timestamp": "2026-01-28T08:36:22.056940",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:36:25.245620",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 20.342
-  },
-  {
-    "timestamp": "2026-01-28T08:36:25.350449",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 5.667
-  },
-  {
-    "timestamp": "2026-01-28T08:36:25.457703",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 15.389
-  },
-  {
-    "timestamp": "2026-01-28T08:36:29.536393",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:36:29.596735",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 7.559
-  },
-  {
-    "timestamp": "2026-01-28T08:36:29.760980",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 70.726
-  },
-  {
-    "timestamp": "2026-01-28T08:36:29.819773",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 4.814
-  },
-  {
-    "timestamp": "2026-01-28T08:36:29.880403",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 6.043
-  },
-  {
-    "timestamp": "2026-01-28T08:38:10.943531",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 43.942
-  },
-  {
-    "timestamp": "2026-01-28T08:38:11.027808",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 12.208
-  },
-  {
-    "timestamp": "2026-01-28T08:38:11.110814",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 10.663
-  },
-  {
-    "timestamp": "2026-01-28T08:38:15.187720",
-    "service": "enhanced-matching",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:38:15.268135",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 11.004
-  },
-  {
-    "timestamp": "2026-01-28T08:38:19.337127",
-    "service": "llm-classifier",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:38:23.457936",
-    "service": "embedding-service",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:38:27.555622",
-    "service": "vector-search",
-    "status": "down",
-    "response_time": null
-  },
-  {
-    "timestamp": "2026-01-28T08:38:35.684476",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 16.976000000000003
-  },
-  {
-    "timestamp": "2026-01-28T08:38:35.754515",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 8.798
-  },
-  {
-    "timestamp": "2026-01-28T08:38:35.836182",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 7.922999999999999
-  },
-  {
-    "timestamp": "2026-01-28T08:38:36.924567",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 1021.231
-  },
-  {
-    "timestamp": "2026-01-28T08:38:36.984652",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 6.353
-  },
-  {
-    "timestamp": "2026-01-28T08:38:37.035220",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 4.647
-  },
-  {
-    "timestamp": "2026-01-28T08:38:37.092326",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 7.998
-  },
-  {
-    "timestamp": "2026-01-28T08:38:38.686787",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 1535.593
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.345057",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 12.923
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.419042",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 18.669
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.481200",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 7.720000000000001
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.516916",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 3.31
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.552673",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 3.736
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.588970",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 5.466
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.650318",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 29.628999999999998
-  },
-  {
-    "timestamp": "2026-01-28T08:39:26.688933",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 3.743
-  },
-  {
-    "timestamp": "2026-01-28T08:42:02.766264",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 50.634
-  },
-  {
-    "timestamp": "2026-01-28T08:42:02.835499",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 29.177000000000003
-  },
-  {
-    "timestamp": "2026-01-28T08:42:02.911387",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 34.923
-  },
-  {
-    "timestamp": "2026-01-28T08:42:02.994093",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 27.918
-  },
-  {
-    "timestamp": "2026-01-28T08:42:03.065409",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 27.086
-  },
-  {
-    "timestamp": "2026-01-28T08:42:03.142800",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 31.913999999999998
-  },
-  {
-    "timestamp": "2026-01-28T08:42:03.228470",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 31.749
-  },
-  {
-    "timestamp": "2026-01-28T08:42:03.310833",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 28.889000000000003
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.036874",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 7.9719999999999995
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.070368",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.485
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.099669",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 2.699
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.146174",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 20.467
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.196510",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 23.808
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.227572",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 3.057
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.279498",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 23.814999999999998
-  },
-  {
-    "timestamp": "2026-01-28T08:42:35.310037",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 2.83
-  },
-  {
-    "timestamp": "2026-01-28T08:43:27.883053",
-    "service": "api-gateway",
-    "status": "up",
-    "response_time": 20.122999999999998
-  },
-  {
-    "timestamp": "2026-01-28T08:43:27.919001",
-    "service": "context-analyzer",
-    "status": "up",
-    "response_time": 3.447
-  },
-  {
-    "timestamp": "2026-01-28T08:43:27.974895",
-    "service": "search-service",
-    "status": "up",
-    "response_time": 26.076999999999998
-  },
-  {
-    "timestamp": "2026-01-28T08:43:28.024110",
-    "service": "enhanced-matching",
-    "status": "up",
-    "response_time": 16.793
-  },
-  {
-    "timestamp": "2026-01-28T08:43:28.080314",
-    "service": "uat-management",
-    "status": "up",
-    "response_time": 30.337
-  },
-  {
-    "timestamp": "2026-01-28T08:43:28.117047",
-    "service": "llm-classifier",
-    "status": "up",
-    "response_time": 12.302999999999999
-  },
-  {
-    "timestamp": "2026-01-28T08:43:28.177964",
-    "service": "embedding-service",
-    "status": "up",
-    "response_time": 27.069
-  },
-  {
-    "timestamp": "2026-01-28T08:43:28.217466",
-    "service": "vector-search",
-    "status": "up",
-    "response_time": 7.492999999999999
+    "response_time": 15.034
   }
 ]

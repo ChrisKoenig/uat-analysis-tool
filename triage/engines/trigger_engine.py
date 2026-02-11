@@ -1,9 +1,9 @@
 """
-Decision Tree Engine
-====================
+Trigger Engine
+==============
 
-Walks decision trees in priority order using pre-computed rule results.
-The first tree whose expression evaluates to True wins, and its route
+Walks triggers in priority order using pre-computed rule results.
+The first trigger whose expression evaluates to True wins, and its route
 is selected for execution.
 
 This is Layer 2 of the four-layer model. It consumes the output of the
@@ -11,10 +11,10 @@ Rules Engine (Layer 1) - a dict of {ruleId: T/F} - and produces a
 routing decision: which route to execute, or "No Match".
 
 Evaluation Logic:
-    1. Sort all active trees by priority (ascending)
-    2. For each tree, evaluate its expression using stored rule results
-    3. First tree that evaluates to True → return its onTrue route
-    4. If no tree matches → return None (state becomes "No Match")
+    1. Sort all active triggers by priority (ascending)
+    2. For each trigger, evaluate its expression using stored rule results
+    3. First trigger that evaluates to True → return its onTrue route
+    4. If no trigger matches → return None (state becomes "No Match")
 
 Expression Evaluation Rules:
     - AND: All children must be True (short-circuits on first False)
@@ -23,7 +23,7 @@ Expression Evaluation Rules:
     - Leaf (rule ID): Looks up the stored T/F result
     
 Special Cases:
-    - Disabled rule in AND expression → tree evaluates as False
+    - Disabled rule in AND expression → trigger evaluates as False
       (conservative: prevents incorrect routing)
     - Missing rule (not in results and not skipped) → ERROR
       (data integrity issue, should not happen)
@@ -34,49 +34,49 @@ Special Cases:
 from typing import Dict, List, Optional, Tuple, Any
 import logging
 
-from ..models.tree import DecisionTree
+from ..models.trigger import Trigger
 
-logger = logging.getLogger("triage.engines.tree")
+logger = logging.getLogger("triage.engines.trigger")
 
 
-class TreeEngine:
+class TriggerEngine:
     """
-    Evaluates decision trees using pre-computed rule results.
+    Evaluates triggers using pre-computed rule results.
     
     Usage:
-        engine = TreeEngine()
+        engine = TriggerEngine()
         
-        # Find the winning tree and its route
-        matched_tree, route_id, errors = engine.evaluate(
-            trees=active_trees,
+        # Find the winning trigger and its route
+        matched_trigger, route_id, errors = engine.evaluate(
+            triggers=active_triggers,
             rule_results={"rule-1": True, "rule-3": False, ...},
             skipped_rules=["rule-4"]
         )
         
-        # matched_tree = "dt-10" (or None if no match)
+        # matched_trigger = "dt-10" (or None if no match)
         # route_id = "route-1" (or None if no match)
         # errors = [] (or list of error messages)
     """
     
     def evaluate(
         self,
-        trees: List[DecisionTree],
+        triggers: List[Trigger],
         rule_results: Dict[str, bool],
         skipped_rules: Optional[List[str]] = None,
         include_staged: bool = False
     ) -> Tuple[Optional[str], Optional[str], List[str]]:
         """
-        Walk decision trees in priority order, returning the first match.
+        Walk triggers in priority order, returning the first match.
         
         Args:
-            trees:          List of decision trees to evaluate
+            triggers:       List of triggers to evaluate
             rule_results:   Pre-computed rule results {ruleId: T/F}
             skipped_rules:  Rule IDs that were skipped (disabled/error)
-            include_staged: If True, include staged trees (dry-run mode)
+            include_staged: If True, include staged triggers (dry-run mode)
             
         Returns:
             Tuple of:
-                - Tree ID that matched (or None)
+                - Trigger ID that matched (or None)
                 - Route ID to execute (or None)
                 - List of error/warning messages
         """
@@ -84,76 +84,76 @@ class TreeEngine:
         errors: List[str] = []
         
         # Determine which statuses participate in evaluation.
-        # In dry-run/test mode, include_staged=True adds staged trees.
+        # In dry-run/test mode, include_staged=True adds staged triggers.
         allowed_statuses = {"active"}
         if include_staged:
             allowed_statuses.add("staged")
         
-        eligible_trees = [t for t in trees if t.status in allowed_statuses]
-        sorted_trees = sorted(eligible_trees, key=lambda t: t.priority)
+        eligible_triggers = [t for t in triggers if t.status in allowed_statuses]
+        sorted_triggers = sorted(eligible_triggers, key=lambda t: t.priority)
         
         logger.info(
-            "evaluate: %d total trees, %d eligible (allowed=%s), "
+            "evaluate: %d total triggers, %d eligible (allowed=%s), "
             "%d rule results, %d skipped rules",
-            len(trees), len(sorted_trees), allowed_statuses,
+            len(triggers), len(sorted_triggers), allowed_statuses,
             len(rule_results), len(skipped),
         )
         
-        for tree in sorted_trees:
+        for trigger in sorted_triggers:
             logger.debug(
-                "  tree '%s' (priority=%d): evaluating expression...",
-                tree.id, tree.priority,
+                "  trigger '%s' (priority=%d): evaluating expression...",
+                trigger.id, trigger.priority,
             )
             try:
                 result = self._evaluate_expression(
-                    tree.expression,
+                    trigger.expression,
                     rule_results,
                     skipped,
-                    tree.id
+                    trigger.id
                 )
                 
                 logger.debug(
-                    "  tree '%s' → %s (route=%s)",
-                    tree.id, result, tree.onTrue if result else "n/a",
+                    "  trigger '%s' → %s (route=%s)",
+                    trigger.id, result, trigger.onTrue if result else "n/a",
                 )
                 
                 if result is True:
-                    # First match wins - return this tree's route
+                    # First match wins - return this trigger's route
                     logger.info(
-                        "evaluate: MATCH tree '%s' (priority=%d) → route '%s'",
-                        tree.id, tree.priority, tree.onTrue,
+                        "evaluate: MATCH trigger '%s' (priority=%d) → route '%s'",
+                        trigger.id, trigger.priority, trigger.onTrue,
                     )
-                    return tree.id, tree.onTrue, errors
+                    return trigger.id, trigger.onTrue, errors
                     
             except MissingRuleError as e:
                 # Missing rule is a data integrity error - log and continue
-                logger.warning("  tree '%s' missing rule: %s", tree.id, e)
+                logger.warning("  trigger '%s' missing rule: %s", trigger.id, e)
                 errors.append(str(e))
                 continue
             except Exception as e:
                 logger.error(
-                    "  tree '%s' evaluation error: %s", tree.id, e, exc_info=True,
+                    "  trigger '%s' evaluation error: %s", trigger.id, e, exc_info=True,
                 )
                 errors.append(
-                    f"Error evaluating tree '{tree.id}': {e}"
+                    f"Error evaluating trigger '{trigger.id}': {e}"
                 )
                 continue
         
-        # No tree matched
-        logger.info("evaluate: NO MATCH — %d trees evaluated, none matched", len(sorted_trees))
+        # No trigger matched
+        logger.info("evaluate: NO MATCH — %d triggers evaluated, none matched", len(sorted_triggers))
         return None, None, errors
     
     def evaluate_single(
         self,
-        tree: DecisionTree,
+        trigger: Trigger,
         rule_results: Dict[str, bool],
         skipped_rules: Optional[List[str]] = None
     ) -> Tuple[bool, List[str]]:
         """
-        Evaluate a single tree's expression (for testing/preview).
+        Evaluate a single trigger's expression (for testing/preview).
         
         Args:
-            tree:          Decision tree to evaluate
+            trigger:       Trigger to evaluate
             rule_results:  Pre-computed rule results
             skipped_rules: Skipped rule IDs
             
@@ -165,10 +165,10 @@ class TreeEngine:
         
         try:
             result = self._evaluate_expression(
-                tree.expression,
+                trigger.expression,
                 rule_results,
                 skipped,
-                tree.id
+                trigger.id
             )
             return result, errors
         except Exception as e:
@@ -180,7 +180,7 @@ class TreeEngine:
         expr: Any,
         rule_results: Dict[str, bool],
         skipped_rules: set,
-        tree_id: str
+        trigger_id: str
     ) -> bool:
         """
         Recursively evaluate an expression tree.
@@ -195,7 +195,7 @@ class TreeEngine:
             expr:          Expression node to evaluate
             rule_results:  Pre-computed rule results
             skipped_rules: Set of skipped rule IDs
-            tree_id:       Tree ID (for error messages)
+            trigger_id:    Trigger ID (for error messages)
             
         Returns:
             True or False
@@ -225,7 +225,7 @@ class TreeEngine:
             
             # Rule not found in results OR skipped → data integrity error
             raise MissingRuleError(
-                f"Tree '{tree_id}' references rule '{rule_id}' which has "
+                f"Trigger '{trigger_id}' references rule '{rule_id}' which has "
                 f"no evaluation result and was not skipped. "
                 f"This rule may have been deleted."
             )
@@ -241,7 +241,7 @@ class TreeEngine:
                 logger.debug("    AND node (%d children)", len(expr["and"]))
                 result = all(
                     self._evaluate_expression(
-                        child, rule_results, skipped_rules, tree_id
+                        child, rule_results, skipped_rules, trigger_id
                     )
                     for child in expr["and"]
                 )
@@ -253,7 +253,7 @@ class TreeEngine:
                 logger.debug("    OR node (%d children)", len(expr["or"]))
                 result = any(
                     self._evaluate_expression(
-                        child, rule_results, skipped_rules, tree_id
+                        child, rule_results, skipped_rules, trigger_id
                     )
                     for child in expr["or"]
                 )
@@ -263,45 +263,45 @@ class TreeEngine:
             elif key == "not":
                 # NOT: invert the child result
                 child_result = self._evaluate_expression(
-                    expr["not"], rule_results, skipped_rules, tree_id
+                    expr["not"], rule_results, skipped_rules, trigger_id
                 )
                 logger.debug("    NOT(%s) → %s", child_result, not child_result)
                 return not child_result
             
             else:
                 raise ValueError(
-                    f"Unknown expression operator '{key}' in tree '{tree_id}'"
+                    f"Unknown expression operator '{key}' in trigger '{trigger_id}'"
                 )
         
         # Unexpected type
         raise ValueError(
-            f"Invalid expression type in tree '{tree_id}': "
+            f"Invalid expression type in trigger '{trigger_id}': "
             f"{type(expr).__name__}"
         )
     
     def get_evaluation_trace(
         self,
-        trees: List[DecisionTree],
+        triggers: List[Trigger],
         rule_results: Dict[str, bool],
         skipped_rules: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Evaluate all trees and return detailed trace information.
+        Evaluate all triggers and return detailed trace information.
         
         Unlike evaluate() which stops at the first match, this evaluates
-        ALL trees to show how each one would have resolved. Useful for
+        ALL triggers to show how each one would have resolved. Useful for
         testing, debugging, and the admin UI preview.
         
         Args:
-            trees:         List of trees to trace
+            triggers:      List of triggers to trace
             rule_results:  Pre-computed rule results
             skipped_rules: Skipped rule IDs
             
         Returns:
-            List of dicts, one per tree, with evaluation details:
+            List of dicts, one per trigger, with evaluation details:
             [
                 {
-                    "treeId": "dt-10",
+                    "triggerId": "dt-10",
                     "priority": 10,
                     "result": True,
                     "routeId": "route-1",
@@ -315,31 +315,31 @@ class TreeEngine:
         trace = []
         winner_found = False
         
-        active_trees = [t for t in trees if t.status == "active"]
-        sorted_trees = sorted(active_trees, key=lambda t: t.priority)
+        active_triggers = [t for t in triggers if t.status == "active"]
+        sorted_triggers = sorted(active_triggers, key=lambda t: t.priority)
         
         logger.debug(
-            "get_evaluation_trace: %d active trees, %d rule results",
-            len(sorted_trees), len(rule_results),
+            "get_evaluation_trace: %d active triggers, %d rule results",
+            len(sorted_triggers), len(rule_results),
         )
         
-        for tree in sorted_trees:
+        for trigger in sorted_triggers:
             entry = {
-                "treeId": tree.id,
-                "treeName": tree.name,
-                "priority": tree.priority,
+                "triggerId": trigger.id,
+                "triggerName": trigger.name,
+                "priority": trigger.priority,
                 "result": False,
-                "routeId": tree.onTrue,
+                "routeId": trigger.onTrue,
                 "isWinner": False,
                 "error": None,
             }
             
             try:
                 result = self._evaluate_expression(
-                    tree.expression,
+                    trigger.expression,
                     rule_results,
                     skipped,
-                    tree.id
+                    trigger.id
                 )
                 entry["result"] = result
                 
@@ -358,10 +358,10 @@ class TreeEngine:
 
 class MissingRuleError(Exception):
     """
-    Raised when a decision tree references a rule that has no
+    Raised when a trigger references a rule that has no
     evaluation result and was not in the skipped list.
     
     This indicates a data integrity issue - the rule may have been
-    deleted while still referenced by a tree.
+    deleted while still referenced by a trigger.
     """
     pass

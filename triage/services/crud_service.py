@@ -6,7 +6,7 @@ Generic CRUD (Create, Read, Update, Delete) operations for all triage entities.
 Handles Cosmos DB interactions with optimistic locking, status management,
 partition key routing, and audit trail generation.
 
-Each entity type (rules, actions, trees, routes) uses the same CRUD patterns
+Each entity type (rules, actions, triggers, routes) uses the same CRUD patterns
 with entity-specific validation. This service provides the shared implementation
 that the API endpoints delegate to.
 
@@ -30,7 +30,7 @@ from ..config.cosmos_config import get_cosmos_config
 from ..models.base import BaseEntity, EntityStatus, utc_now
 from ..models.rule import Rule
 from ..models.action import Action
-from ..models.tree import DecisionTree
+from ..models.trigger import Trigger
 from ..models.route import Route
 from ..models.audit_entry import AuditEntry, AuditAction
 
@@ -54,9 +54,9 @@ ENTITY_REGISTRY = {
         "container": "actions",
         "id_prefix": "action",
     },
-    "tree": {
-        "model_class": DecisionTree,
-        "container": "trees",
+    "trigger": {
+        "model_class": Trigger,
+        "container": "triggers",
         "id_prefix": "dt",
     },
     "route": {
@@ -69,7 +69,7 @@ ENTITY_REGISTRY = {
 
 class CrudService:
     """
-    Generic CRUD service for triage entities (rules, actions, trees, routes).
+    Generic CRUD service for triage entities (rules, actions, triggers, routes).
     
     Handles all Cosmos DB interactions with proper partition key routing,
     optimistic locking, and audit trail generation.
@@ -116,7 +116,7 @@ class CrudService:
         and populates audit fields (createdBy, createdDate, etc.).
         
         Args:
-            entity_type: Type of entity (rule, action, tree, route)
+            entity_type: Type of entity (rule, action, trigger, route)
             data:        Entity data dict
             actor:       Email of the creating user
             
@@ -184,7 +184,7 @@ class CrudService:
         know the entity's status from just its ID.
         
         Args:
-            entity_type: Type of entity (rule, action, tree, route)
+            entity_type: Type of entity (rule, action, trigger, route)
             entity_id:   The entity's ID
             
         Returns:
@@ -605,9 +605,9 @@ class CrudService:
         Find all entities that reference the given entity.
         
         Used for "used in" display and safe deletion checks:
-            - Rule: Which trees reference this rule?
+            - Rule: Which triggers reference this rule?
             - Action: Which routes use this action?
-            - Route: Which trees point to this route?
+            - Route: Which triggers point to this route?
         
         Args:
             entity_type: Type of entity being referenced
@@ -619,15 +619,15 @@ class CrudService:
         references = {}
         
         if entity_type == "rule":
-            # Find trees that reference this rule in their expressions
-            trees, _ = self.list("tree")
-            referencing_trees = []
-            for tree_doc in trees:
-                tree = DecisionTree.from_dict(tree_doc)
-                if entity_id in tree.get_referenced_rule_ids():
-                    referencing_trees.append(tree.id)
-            if referencing_trees:
-                references["trees"] = referencing_trees
+            # Find triggers that reference this rule in their expressions
+            triggers, _ = self.list("trigger")
+            referencing_triggers = []
+            for trigger_doc in triggers:
+                trigger = Trigger.from_dict(trigger_doc)
+                if entity_id in trigger.get_referenced_rule_ids():
+                    referencing_triggers.append(trigger.id)
+            if referencing_triggers:
+                references["triggers"] = referencing_triggers
         
         elif entity_type == "action":
             # Find routes that include this action
@@ -641,14 +641,14 @@ class CrudService:
                 references["routes"] = referencing_routes
         
         elif entity_type == "route":
-            # Find trees that point to this route
-            trees, _ = self.list("tree")
-            referencing_trees = []
-            for tree_doc in trees:
-                if tree_doc.get("onTrue") == entity_id:
-                    referencing_trees.append(tree_doc["id"])
-            if referencing_trees:
-                references["trees"] = referencing_trees
+            # Find triggers that point to this route
+            triggers, _ = self.list("trigger")
+            referencing_triggers = []
+            for trigger_doc in triggers:
+                if trigger_doc.get("onTrue") == entity_id:
+                    referencing_triggers.append(trigger_doc["id"])
+            if referencing_triggers:
+                references["triggers"] = referencing_triggers
         
         return references
     

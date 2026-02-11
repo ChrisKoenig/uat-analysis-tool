@@ -220,14 +220,14 @@ class TestRulesAPI:
         """GET /api/v1/rules/{id}/references returns cross-refs"""
         mock_crud = MagicMock()
         mock_crud.find_references.return_value = {
-            "trees": ["dt-10", "dt-20"]
+            "triggers": ["dt-10", "dt-20"]
         }
         mock_get_crud.return_value = mock_crud
         
         response = client.get("/api/v1/rules/rule-1/references")
         assert response.status_code == 200
         data = response.json()
-        assert "trees" in data["references"]
+        assert "triggers" in data["references"]
 
 
 # =============================================================================
@@ -257,7 +257,7 @@ class TestEvaluationAPI:
         mock_evaluation = MagicMock()
         mock_evaluation.id = "eval-1"
         mock_evaluation.analysisState = "No Match"
-        mock_evaluation.matchedTree = None
+        mock_evaluation.matchedTrigger = None
         mock_evaluation.appliedRoute = None
         mock_evaluation.actionsExecuted = []
         mock_evaluation.ruleResults = {}
@@ -293,7 +293,7 @@ class TestEvaluationAPI:
         mock_result = MagicMock()
         mock_result.id = "eval-2"
         mock_result.analysisState = "No Match"
-        mock_result.matchedTree = None
+        mock_result.matchedTrigger = None
         mock_result.appliedRoute = None
         mock_result.actionsExecuted = []
         mock_result.ruleResults = {}

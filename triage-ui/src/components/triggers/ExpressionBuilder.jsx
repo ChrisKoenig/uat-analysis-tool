@@ -1,12 +1,12 @@
 /**
- * ExpressionBuilder — Visual Decision Tree Expression Editor
- * ============================================================
+ * ExpressionBuilder — Visual Trigger Expression Editor
+ * ======================================================
  *
  * Interactive nested editor for building boolean expressions
  * that reference triage rules. Expressions combine rules with
  * AND / OR / NOT logic, nested to any depth.
  *
- * Expression format (matches backend DecisionTree.expression):
+ * Expression format (matches backend Trigger.expression):
  *   { "and": ["rule-1", "rule-3"] }
  *   { "or": [{ "and": ["rule-1", "rule-2"] }, "rule-5"] }
  *   { "and": ["rule-1", { "not": "rule-3" }] }
@@ -21,7 +21,7 @@
  *   - Color-coded nesting depth
  *
  * Props:
- *   expression : object — current expression tree
+ *   expression : object — current expression
  *   onChange   : (newExpression) => void
  *   rules      : Array — list of available rules [{id, name, status}]
  */
@@ -55,7 +55,7 @@ function getChildren(node) {
 
 export default function ExpressionBuilder({ expression, onChange, rules = [] }) {
   /**
-   * Replace a node at a specific path in the expression tree.
+   * Replace a node at a specific path in the expression.
    * Path is an array of indices navigating into and/or children.
    */
   const updateAtPath = (path, updater) => {

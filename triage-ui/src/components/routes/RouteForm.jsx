@@ -3,7 +3,7 @@
  * =======================================
  *
  * Form for creating or editing a route. A route is an ordered
- * list of action IDs that get executed when a decision tree matches.
+ * list of action IDs that get executed when a trigger matches.
  *
  * Uses the RouteDesigner component for the visual action composer.
  *

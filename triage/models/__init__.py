@@ -5,7 +5,7 @@ Triage Data Models
 Defines the core data structures for the four-layer triage model:
     - Rule: Atomic condition (field + operator + value) → True/False
     - Action: Atomic field assignment (field + operation + value)
-    - DecisionTree: Chains rules with AND/OR logic, maps to a route
+    - Trigger: Chains rules with AND/OR logic, maps to a route
     - Route: Collection of actions to execute
     - Evaluation: Per-item rule evaluation results
     - AnalysisResult: Structured analysis output
@@ -21,7 +21,7 @@ All managed models include:
 from .base import BaseEntity, EntityStatus, utc_now
 from .rule import Rule, VALID_OPERATORS
 from .action import Action, VALID_OPERATIONS, TEMPLATE_VARIABLES
-from .tree import DecisionTree
+from .trigger import Trigger
 from .route import Route
 from .evaluation import Evaluation, AnalysisState
 from .analysis_result import AnalysisResult
@@ -36,7 +36,7 @@ __all__ = [
     # Core entities
     "Rule",
     "Action",
-    "DecisionTree",
+    "Trigger",
     "Route",
     # Results
     "Evaluation",

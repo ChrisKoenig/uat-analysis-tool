@@ -2,7 +2,7 @@
 Route Model
 ============
 
-Represents a collection of actions to execute when a decision tree matches.
+Represents a collection of actions to execute when a trigger matches.
 Routes are the fourth layer of the four-layer model, grouping atomic actions
 into a logical set that together produce a complete triage routing.
 
@@ -35,11 +35,11 @@ from .base import BaseEntity
 @dataclass
 class Route(BaseEntity):
     """
-    A collection of actions that execute together when a tree matches.
+    A collection of actions that execute together when a trigger matches.
     
     Routes are the fourth layer of the four-layer model. They group
-    atomic actions into meaningful routing outcomes. When a decision
-    tree evaluates to True, its Route is executed, applying all
+    atomic actions into meaningful routing outcomes. When a
+    trigger evaluates to True, its Route is executed, applying all
     referenced actions to the work item.
     
     Attributes:
