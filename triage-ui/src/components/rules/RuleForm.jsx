@@ -149,11 +149,11 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
           value={field}
           onChange={setField}
           fields={adoFields}
-          placeholder="Search fields… e.g. Area Path, State, Priority"
+          placeholder="Click here and type to search fields…"
           required
         />
         <span className="hint">
-          Select a field or type a custom reference name (e.g., Custom.SolutionArea)
+          Click the field above to browse available ADO fields, or type to search by name.
         </span>
       </div>
 

@@ -445,8 +445,8 @@ class TestTrigger:
         errors = trigger.validate()
         assert any("priority" in e for e in errors)
     
-    def test_validate_and_needs_two_children(self):
-        """AND expression needs at least 2 children"""
+    def test_validate_and_allows_single_child(self):
+        """AND expression with a single child is valid"""
         trigger = Trigger(
             id="dt-10", name="Test",
             priority=10,
@@ -454,7 +454,18 @@ class TestTrigger:
             onTrue="route-1"
         )
         errors = trigger.validate()
-        assert any("at least 2" in e for e in errors)
+        assert len(errors) == 0
+
+    def test_validate_and_rejects_empty(self):
+        """AND expression with zero children is invalid"""
+        trigger = Trigger(
+            id="dt-10", name="Test",
+            priority=10,
+            expression={"and": []},
+            onTrue="route-1"
+        )
+        errors = trigger.validate()
+        assert any("at least 1" in e for e in errors)
     
     def test_validate_nested_expression(self):
         """Nested AND/OR expression validates"""

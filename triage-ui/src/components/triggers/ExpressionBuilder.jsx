@@ -178,11 +178,11 @@ export default function ExpressionBuilder({ expression, onChange, rules = [] }) 
           {isDisabled && <span className="expr-leaf-badge">disabled</span>}
           <div className="expr-node-actions">
             <button
-              className="btn-icon btn-sm"
-              title="Toggle NOT"
+              className="btn-not"
+              title="Wrap in NOT (negate this rule)"
               onClick={() => toggleNot(path)}
             >
-              ¬
+              NOT
             </button>
             <button
               className="btn-icon btn-sm"
@@ -204,7 +204,7 @@ export default function ExpressionBuilder({ expression, onChange, rules = [] }) 
             <span>NOT</span>
             <button
               className="btn-icon btn-sm"
-              title="Remove NOT"
+              title="Remove NOT (un-negate)"
               onClick={() => toggleNot(path)}
             >
               ✕
@@ -237,11 +237,11 @@ export default function ExpressionBuilder({ expression, onChange, rules = [] }) 
           {path.length > 0 && (
             <div className="expr-node-actions">
               <button
-                className="btn-icon btn-sm"
-                title="Toggle NOT"
+                className="btn-not"
+                title="Wrap this group in NOT (negate entire group)"
                 onClick={() => toggleNot(path)}
               >
-                ¬
+                NOT
               </button>
               <button
                 className="btn-icon btn-sm"

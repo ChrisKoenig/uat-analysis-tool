@@ -67,6 +67,7 @@ export const OPERATIONS = [
 // ---------------------------------------------------------------------------
 export const TEMPLATE_VARIABLES = [
   '{CreatedBy}',
+  '{SubmitterAlias}',
   '{WorkItemId}',
   '{Title}',
   '{today()}',

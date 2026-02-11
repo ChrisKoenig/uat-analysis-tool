@@ -49,6 +49,7 @@ VALID_OPERATIONS = [
 # Recognized template variables for the 'template' operation
 TEMPLATE_VARIABLES = [
     "{CreatedBy}",
+    "{SubmitterAlias}",
     "{WorkItemId}",
     "{Title}",
     "{today()}",

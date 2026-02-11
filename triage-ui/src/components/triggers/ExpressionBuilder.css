@@ -175,14 +175,24 @@
 .expr-node-actions {
   display: flex;
   gap: 2px;
-  opacity: 0.5;
-  transition: opacity 0.15s;
+  opacity: 1;
 }
 
-.expr-leaf:hover .expr-node-actions,
-.expr-group-header:hover .expr-node-actions,
-.expr-not-label:hover .expr-node-actions {
-  opacity: 1;
+.expr-node-actions .btn-not {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--danger, #d33428);
+  background: transparent;
+  border: 1px solid var(--danger, #d33428);
+  border-radius: 4px;
+  padding: 0 5px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.expr-node-actions .btn-not:hover {
+  background: var(--danger, #d33428);
+  color: white;
 }
 
 /* ── Add Rule Dropdown ───────────────────────────────────────── */

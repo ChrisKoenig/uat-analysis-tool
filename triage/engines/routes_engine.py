@@ -329,9 +329,16 @@ class RoutesEngine:
         For None: just set the value
         
         Example: APPEND Tags += "Triaged"
+        Example: APPEND System.History += "Triaged by @{SubmitterAlias} on {today()}"
         """
         current = work_item.get(action.field)
-        append_value = action.value
+        append_value = str(action.value) if action.value else ""
+        
+        # Resolve template variables if present (e.g. {SubmitterAlias}, {today()})
+        if "{" in append_value:
+            append_value = self._resolve_variables(
+                append_value, work_item, analysis, current_user, action.id
+            )
         
         if current is None:
             # No existing value - just set
@@ -370,7 +377,8 @@ class RoutesEngine:
         the work item and analysis data.
         
         Supported variables:
-            {CreatedBy}           → Work item creator
+            {CreatedBy}           → Work item creator (full email)
+            {SubmitterAlias}      → Alias extracted from email (e.g., rojyt@microsoft.com → @rojyt)
             {WorkItemId}          → Work item ID
             {Title}               → Work item title
             {today()}             → Current date
@@ -379,14 +387,37 @@ class RoutesEngine:
             {Analysis.Products}   → Detected products (comma-separated)
         
         Example:
-            Template: "@{CreatedBy} - Please provide the Milestone ID for {Title}"
-            Result:   "@john.doe@ms.com - Please provide the Milestone ID for GPU Request"
+            Template: "@{SubmitterAlias} - Please provide the Milestone ID for {Title}"
+            Result:   "@rojyt - Please provide the Milestone ID for GPU Request"
         """
-        template = str(action.value)
+        return self._resolve_variables(
+            str(action.value), work_item, analysis, current_user, action.id
+        )
+    
+    def _resolve_variables(
+        self,
+        template: str,
+        work_item: Dict[str, Any],
+        analysis: Optional[AnalysisResult],
+        current_user: str,
+        action_id: str = "",
+    ) -> str:
+        """
+        Replace {variable} placeholders in a string with actual values.
         
+        Used by both template and append operations.
+        """
         # Build the variable resolution map
+        created_by = work_item.get("System.CreatedBy", "")
+        # Extract alias from email: "rojyt@microsoft.com" → "@rojyt"
+        if "@" in created_by:
+            alias = "@" + created_by.split("@")[0]
+        else:
+            alias = created_by  # fallback to full value if not an email
+        
         variables = {
-            "{CreatedBy}": work_item.get("System.CreatedBy", ""),
+            "{CreatedBy}": created_by,
+            "{SubmitterAlias}": alias,
             "{WorkItemId}": str(work_item.get("System.Id", "")),
             "{Title}": work_item.get("System.Title", 
                        work_item.get("Title", "")),
@@ -415,7 +446,7 @@ class RoutesEngine:
         if unresolved:
             logger.warning(
                 "Unresolved template variables in action '%s': %s",
-                action.id, unresolved,
+                action_id, unresolved,
             )
         
         return result

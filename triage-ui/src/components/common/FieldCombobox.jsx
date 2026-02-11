@@ -2,8 +2,8 @@
  * FieldCombobox — ADO Field Autocomplete
  * =========================================
  *
- * Combobox input that searches and selects ADO field reference names.
- * Shows displayName + reference name, grouped by category.
+ * Searchable dropdown for selecting ADO field reference names.
+ * On focus the search text clears so the user sees all available fields.
  * Falls back to a regular text input if the field list fails to load.
  *
  * Props:
@@ -24,23 +24,24 @@ export default function FieldCombobox({
   onChange,
   fields = [],
   id,
-  placeholder = 'Search fields…',
+  placeholder = 'Click here and start typing to search fields…',
   required = false,
 }) {
-  const [inputValue, setInputValue] = useState('');
+  const [searchText, setSearchText] = useState('');
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const wrapperRef = useRef(null);
   const listRef = useRef(null);
+  const inputRef = useRef(null);
 
-  // ── Sync input text with selected value ────────────────────
-  useEffect(() => {
-    if (value && fields.length > 0) {
+  // ── Display text when NOT searching ────────────────────────
+  const displayText = useMemo(() => {
+    if (!value) return '';
+    if (fields.length > 0) {
       const match = fields.find((f) => f.id === value);
-      setInputValue(match ? `${match.displayName}  (${match.id})` : value);
-    } else {
-      setInputValue(value || '');
+      return match ? `${match.displayName}  —  ${match.id}` : value;
     }
+    return value;
   }, [value, fields]);
 
   // ── Close dropdown on outside click ────────────────────────
@@ -48,41 +49,28 @@ export default function FieldCombobox({
     const handleClick = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setOpen(false);
+        setSearchText('');
       }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ── Filter and group fields ────────────────────────────────
+  // ── Filter fields by search text ───────────────────────────
   const filtered = useMemo(() => {
-    if (!inputValue.trim()) return fields;
-    const q = inputValue.toLowerCase();
+    if (!searchText.trim()) return fields;
+    const q = searchText.toLowerCase();
     return fields.filter(
       (f) =>
         f.displayName.toLowerCase().includes(q) ||
         f.id.toLowerCase().includes(q) ||
         (f.description || '').toLowerCase().includes(q)
     );
-  }, [inputValue, fields]);
-
-  // Group by the "group" property
-  const grouped = useMemo(() => {
-    const groups = {};
-    for (const f of filtered) {
-      const g = f.group || 'Other';
-      if (!groups[g]) groups[g] = [];
-      groups[g].push(f);
-    }
-    return groups;
-  }, [filtered]);
-
-  // Flat list for keyboard nav
-  const flatList = useMemo(() => filtered, [filtered]);
+  }, [searchText, fields]);
 
   // ── Input handlers ─────────────────────────────────────────
   const handleInputChange = (e) => {
-    setInputValue(e.target.value);
+    setSearchText(e.target.value);
     setOpen(true);
     setHighlightIndex(-1);
     // If the user clears the input, also clear the value
@@ -92,12 +80,17 @@ export default function FieldCombobox({
   };
 
   const handleFocus = () => {
+    // Clear search so the user sees the full list
+    setSearchText('');
     setOpen(true);
+    setHighlightIndex(-1);
+    // Select input text for easy replacement
+    setTimeout(() => inputRef.current?.select(), 0);
   };
 
   const selectField = (f) => {
     onChange(f.id);
-    setInputValue(`${f.displayName}  (${f.id})`);
+    setSearchText('');
     setOpen(false);
   };
 
@@ -105,6 +98,7 @@ export default function FieldCombobox({
     if (!open) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         setOpen(true);
+        setSearchText('');
         e.preventDefault();
       }
       return;
@@ -113,7 +107,7 @@ export default function FieldCombobox({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightIndex((prev) => Math.min(prev + 1, flatList.length - 1));
+        setHighlightIndex((prev) => Math.min(prev + 1, filtered.length - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -121,14 +115,20 @@ export default function FieldCombobox({
         break;
       case 'Enter':
         e.preventDefault();
-        if (highlightIndex >= 0 && highlightIndex < flatList.length) {
-          selectField(flatList[highlightIndex]);
-        } else if (flatList.length === 1) {
-          selectField(flatList[0]);
+        if (highlightIndex >= 0 && highlightIndex < filtered.length) {
+          selectField(filtered[highlightIndex]);
+        } else if (filtered.length === 1) {
+          selectField(filtered[0]);
+        } else if (searchText.trim()) {
+          // Allow typing a custom reference name
+          onChange(searchText.trim());
+          setOpen(false);
+          setSearchText('');
         }
         break;
       case 'Escape':
         setOpen(false);
+        setSearchText('');
         break;
       default:
         break;
@@ -159,62 +159,60 @@ export default function FieldCombobox({
   }
 
   // ── Render ─────────────────────────────────────────────────
-  let flatIdx = -1;
+  // When the dropdown is open we show the search text; otherwise the display text
+  const inputText = open ? searchText : displayText;
 
   return (
     <div className="field-combobox" ref={wrapperRef}>
-      <input
-        id={id}
-        className="form-input"
-        type="text"
-        value={inputValue}
-        onChange={handleInputChange}
-        onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        required={required}
-        autoComplete="off"
-        role="combobox"
-        aria-expanded={open}
-        aria-autocomplete="list"
-      />
+      <div className="field-combobox-input-wrap">
+        <input
+          ref={inputRef}
+          id={id}
+          className="form-input"
+          type="text"
+          value={inputText}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          required={required}
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+        />
+        <span className="field-combobox-chevron" aria-hidden="true">
+          {open ? '▲' : '▼'}
+        </span>
+      </div>
 
-      {open && flatList.length > 0 && (
+      {open && filtered.length > 0 && (
         <div className="field-combobox-dropdown" ref={listRef} role="listbox">
-          {Object.entries(grouped).map(([groupName, items]) => (
-            <div key={groupName} className="field-combobox-group">
-              <div className="field-combobox-group-label">{groupName}</div>
-              {items.map((f) => {
-                flatIdx++;
-                const idx = flatIdx;
-                return (
-                  <div
-                    key={f.id}
-                    data-index={idx}
-                    className={`field-combobox-option ${idx === highlightIndex ? 'highlighted' : ''} ${f.id === value ? 'selected' : ''}`}
-                    role="option"
-                    aria-selected={f.id === value}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      selectField(f);
-                    }}
-                    onMouseEnter={() => setHighlightIndex(idx)}
-                  >
-                    <span className="field-display-name">{f.displayName}</span>
-                    <span className="field-ref-name">{f.id}</span>
-                    {f.type && <span className="field-type-badge">{f.type}</span>}
-                  </div>
-                );
-              })}
+          {filtered.map((f, idx) => (
+            <div
+              key={f.id}
+              data-index={idx}
+              className={`field-combobox-option ${idx === highlightIndex ? 'highlighted' : ''} ${f.id === value ? 'selected' : ''}`}
+              role="option"
+              aria-selected={f.id === value}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                selectField(f);
+              }}
+              onMouseEnter={() => setHighlightIndex(idx)}
+            >
+              <span className="field-display-name">{f.displayName}</span>
+              <span className="field-ref-name">{f.id}</span>
+              {f.type && <span className="field-type-badge">{f.type}</span>}
             </div>
           ))}
         </div>
       )}
 
-      {open && flatList.length === 0 && inputValue && (
+      {open && filtered.length === 0 && searchText && (
         <div className="field-combobox-dropdown" role="listbox">
           <div className="field-combobox-empty">
-            No matching fields. You can type a custom reference name.
+            No matching fields — press <strong>Enter</strong> to use "{searchText}" as a custom reference name.
           </div>
         </div>
       )}

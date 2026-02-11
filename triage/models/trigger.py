@@ -159,9 +159,9 @@ class Trigger(BaseEntity):
                     errors.append(
                         f"'{key}' must contain a list of expressions"
                     )
-                elif len(children) < 2:
+                elif len(children) < 1:
                     errors.append(
-                        f"'{key}' must have at least 2 child expressions"
+                        f"'{key}' must have at least 1 child expression"
                     )
                 else:
                     for i, child in enumerate(children):

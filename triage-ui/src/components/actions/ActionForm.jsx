@@ -24,7 +24,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { OPERATIONS, TEMPLATE_VARIABLES, VALUE_TYPES } from '../../utils/constants';
+import * as api from '../../api/triageApi';
+import { OPERATIONS, TEMPLATE_VARIABLES } from '../../utils/constants';
+import FieldCombobox from '../common/FieldCombobox';
 
 
 export default function ActionForm({ action, onSubmit, onCancel }) {
@@ -34,9 +36,20 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
   const [field, setField] = useState('');
   const [operation, setOperation] = useState('set');
   const [value, setValue] = useState('');
-  const [valueType, setValueType] = useState('static');
   const [status, setStatus] = useState('active');
   const [submitting, setSubmitting] = useState(false);
+  const [adoFields, setAdoFields] = useState([]);
+  const [readableFields, setReadableFields] = useState([]);
+
+  // ── Load ADO field lists ───────────────────────────────────
+  useEffect(() => {
+    api.listFields({ canSet: true })
+      .then((data) => setAdoFields(data.items || []))
+      .catch(() => setAdoFields([]));
+    api.listFields({ canEvaluate: true })
+      .then((data) => setReadableFields(data.items || []))
+      .catch(() => setReadableFields([]));
+  }, []);
 
 
   // ── Populate form when editing ───────────────────────────────
@@ -47,7 +60,6 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
       setField(action.field || '');
       setOperation(action.operation || 'set');
       setValue(action.value ?? '');
-      setValueType(action.valueType || 'static');
       setStatus(action.status || 'active');
     } else {
       setName('');
@@ -55,7 +67,6 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
       setField('');
       setOperation('set');
       setValue('');
-      setValueType('static');
       setStatus('active');
     }
   }, [action]);
@@ -65,6 +76,19 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    // Auto-derive valueType from the selected operation
+    const OP_TO_VALUE_TYPE = {
+      set: 'static',
+      set_computed: 'computed',
+      copy: 'field_ref',
+      append: 'static',
+      template: 'template',
+    };
+    // If append contains template variables, mark as template
+    let derivedType = OP_TO_VALUE_TYPE[operation] || 'static';
+    if (operation === 'append' && value && /\{[^}]+\}/.test(value)) {
+      derivedType = 'template';
+    }
     try {
       await onSubmit({
         name,
@@ -72,7 +96,7 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
         field,
         operation,
         value: value || null,
-        valueType,
+        valueType: derivedType,
         status,
       });
     } finally {
@@ -119,16 +143,17 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
       {/* Target Field */}
       <div className="form-group">
         <label htmlFor="action-field">Target Field *</label>
-        <input
+        <FieldCombobox
           id="action-field"
-          className="form-input"
-          type="text"
           value={field}
-          onChange={(e) => setField(e.target.value)}
-          placeholder="e.g., System.AssignedTo"
+          onChange={setField}
+          fields={adoFields}
+          placeholder="Click here and type to search fields…"
           required
         />
-        <span className="hint">ADO field reference name to modify</span>
+        <span className="hint">
+          Click the field above to browse available ADO fields, or type to search by name.
+        </span>
       </div>
 
       {/* Operation */}
@@ -165,17 +190,16 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
             <option value="currentUser()">currentUser() — Logged-in user</option>
           </select>
         ) : operation === 'copy' ? (
-          /* Copy: source field reference */
+          /* Copy: source field picker */
           <>
-            <input
+            <FieldCombobox
               id="action-value"
-              className="form-input"
-              type="text"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="Source field, e.g., System.CreatedBy"
+              onChange={setValue}
+              fields={readableFields}
+              placeholder="Click to browse source fields…"
             />
-            <span className="hint">Field reference name to copy from</span>
+            <span className="hint">Select the field whose value will be copied into the target field</span>
           </>
         ) : operation === 'template' ? (
           /* Template: text with variable insertion */
@@ -203,16 +227,29 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
             </div>
           </>
         ) : operation === 'append' ? (
-          /* Append: text with newline note */
+          /* Append: text with variable insertion */
           <>
             <textarea
               id="action-value"
               className="form-textarea"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder="Text to append"
+              placeholder="Text to append — can include variables like {SubmitterAlias}"
               rows={3}
             />
+            <div className="template-vars">
+              <span className="hint">Insert variable:</span>
+              {TEMPLATE_VARIABLES.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => insertTemplateVar(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
             <span className="hint">
               Appended with a newline separator to the existing field value
             </span>
@@ -228,21 +265,6 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
             placeholder="Value to set"
           />
         )}
-      </div>
-
-      {/* Value Type */}
-      <div className="form-group">
-        <label htmlFor="action-vtype">Value Type</label>
-        <select
-          id="action-vtype"
-          className="form-select"
-          value={valueType}
-          onChange={(e) => setValueType(e.target.value)}
-        >
-          {VALUE_TYPES.map((vt) => (
-            <option key={vt.value} value={vt.value}>{vt.label}</option>
-          ))}
-        </select>
       </div>
 
       {/* Status */}
