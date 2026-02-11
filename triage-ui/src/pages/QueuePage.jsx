@@ -460,7 +460,7 @@ export default function QueuePage({ addToast }) {
   return (
     <div className="queue-page">
       <div className="page-header">
-        <h1>\uD83D\uDCE5 Triage Queue</h1>
+        <h1>📥 Triage Queue</h1>
         <div className="page-header-actions">
           {queryName && (
             <span className="queue-query-name" title={queryName}>
@@ -472,7 +472,7 @@ export default function QueuePage({ addToast }) {
             onClick={loadQueue}
             disabled={busy}
           >
-            \uD83D\uDD04 Refresh
+            🔄 Refresh
           </button>
         </div>
       </div>
@@ -483,14 +483,14 @@ export default function QueuePage({ addToast }) {
           className={`queue-tab ${activeTab === 'analysis' ? 'active' : ''}`}
           onClick={() => handleTabChange('analysis')}
         >
-          \uD83D\uDD2C Analysis
+          🔬 Analysis
           <span className="queue-tab-count">{analysisItems.length}</span>
         </button>
         <button
           className={`queue-tab ${activeTab === 'triage' ? 'active' : ''}`}
           onClick={() => handleTabChange('triage')}
         >
-          \u2696\uFE0F Triage
+          ⚖️ Triage
           <span className="queue-tab-count">{triageItems.length}</span>
         </button>
       </div>
@@ -510,7 +510,7 @@ export default function QueuePage({ addToast }) {
                 disabled={selectedIds.size === 0 || busy}
                 onClick={handleAnalyze}
               >
-                {analyzing ? 'Analyzing\u2026' : '\uD83E\uDDE0 Analyze Selected'}
+                {analyzing ? 'Analyzing…' : '🧠 Analyze Selected'}
               </button>
               <button
                 className="btn btn-success"
@@ -518,7 +518,7 @@ export default function QueuePage({ addToast }) {
                 onClick={() => handleSetState('Awaiting Approval')}
                 title="Mark selected items as ready for triage"
               >
-                {settingState ? 'Updating\u2026' : '\u2705 Ready for Triage'}
+                {settingState ? 'Updating…' : '✅ Ready for Triage'}
               </button>
             </>
           ) : (
@@ -528,14 +528,14 @@ export default function QueuePage({ addToast }) {
                 disabled={selectedIds.size === 0 || busy}
                 onClick={() => handleEvaluate(true)}
               >
-                {evaluating ? 'Evaluating\u2026' : '\uD83E\uDDEA Dry Run Selected'}
+                {evaluating ? 'Evaluating…' : '🧪 Dry Run Selected'}
               </button>
               <button
                 className="btn btn-primary"
                 disabled={selectedIds.size === 0 || busy}
                 onClick={() => handleEvaluate(false)}
               >
-                {evaluating ? 'Evaluating\u2026' : '\u26A1 Evaluate Selected'}
+                {evaluating ? 'Evaluating…' : '⚡ Evaluate Selected'}
               </button>
               <button
                 className="btn btn-warning"
@@ -543,7 +543,7 @@ export default function QueuePage({ addToast }) {
                 onClick={() => handleSetState('Pending', 'Returned items to Analysis')}
                 title="Return selected items to the Analysis tab"
               >
-                {settingState ? 'Updating\u2026' : '\u21A9\uFE0F Return to Analysis'}
+                {settingState ? 'Updating…' : '↩️ Return to Analysis'}
               </button>
             </>
           )}
@@ -657,7 +657,7 @@ export default function QueuePage({ addToast }) {
                           rel="noopener noreferrer"
                           className="btn btn-ghost btn-sm"
                         >
-                          ADO \u2197
+                          ADO ↗
                         </a>
                       </td>
                     </tr>
@@ -672,10 +672,10 @@ export default function QueuePage({ addToast }) {
                                 {evalResult.analysisState}
                               </span>
                               {evalResult.matchedTrigger && (
-                                <span className="queue-result-tag">\u26A1 {evalResult.matchedTrigger}</span>
+                                <span className="queue-result-tag">⚡ {evalResult.matchedTrigger}</span>
                               )}
                               {evalResult.appliedRoute && (
-                                <span className="queue-result-tag">\uD83D\uDD00 {evalResult.appliedRoute}</span>
+                                <span className="queue-result-tag">🔀 {evalResult.appliedRoute}</span>
                               )}
                             </div>
 
