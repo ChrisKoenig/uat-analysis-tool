@@ -78,7 +78,7 @@ All routes are defined in `App.jsx` using React Router's lazy loading:
 | `/triggers` | `TriggersPage` | Triggers CRUD with expression builder |
 | `/routes` | `RoutesPage` | Routes CRUD with action list management |
 | `/evaluate` | `EvaluatePage` | Run evaluations against ADO items |
-| `/queue` | `QueuePage` | Browse ADO triage queue |
+| `/queue` | `QueuePage` | ADO triage queue — Analysis + Triage dual-tab view |
 | `/history` | `EvalHistoryPage` | View past evaluation results |
 | `/validation` | `ValidationPage` | System validation warnings |
 | `/audit` | `AuditPage` | Audit trail viewer |
@@ -95,7 +95,8 @@ All HTTP calls go through `triageApi.js`, which provides:
 - **`ApiError` class** with `status`, `message`, and `detail` fields
 - **CRUD functions for each entity type**: `listRules()`, `getRule(id)`, `createRule(data)`, `updateRule(id, data)`, `deleteRule(id, opts)`, `copyRule(id)`, `getRuleReferences(id)`, `updateRuleStatus(id, status, version)` — and equivalents for actions, triggers, routes
 - **Evaluation functions**: `evaluateWorkItems(ids, dryRun)`, `evaluateTest(ids)`, `applyEvaluation(evalId, wiId, rev)`, `getEvaluationHistory(wiId)`
-- **ADO functions**: `getTriageQueue(filters)`, `getTriageQueueDetails(filters)`, `getWorkItem(id)`, `getAdoStatus()`, `getAdoFields()`
+- **ADO functions**: `getTriageQueue(filters)`, `getTriageQueueDetails(filters)`, `getSavedQueryResults(queryId, max)`, `getWorkItem(id)`, `getAdoStatus()`, `getAdoFields()`
+- **Analysis functions**: `getAnalysisEngineStatus()`, `runAnalysis(ids)`, `getAnalysisBatch(ids)`, `getAnalysisDetail(id)`, `setAnalysisState(ids, state)`
 - **Other**: `getValidationWarnings()`, `getAuditLog(filters)`, `getEntityAudit(type, id)`, `healthCheck()`
 
 In development, Vite proxies `/api` requests to `http://localhost:8009`.
@@ -146,6 +147,42 @@ Features:
 - **Selected item** highlighted with blue left border accent
 - **Custom values**: press Enter to use a typed reference name not in the list
 - Falls back to plain text input if the field list API is unavailable
+
+### QueuePage (Triage Queue)
+
+The Queue page combines **analysis** and **triage** workflows into a dual-tab interface.
+
+#### Tab Layout
+
+| Tab | Color | Contents |
+|-----|-------|----------|
+| **Analysis** | Blue (#1565c0) | Items needing analysis (Pending / Needs Info / No Match / blank state) |
+| **Triage** | Green (#2e7d32) | Items ready for triage (Awaiting Approval) |
+
+A **toolbar row** sits above the tabs with action buttons (Refresh, Analyze/Evaluate). Action buttons use neutral gray styling (`btn-toolbar`) to visually separate them from the colored tab navigation.
+
+#### AI Availability Check
+
+Before running analysis, the UI calls `getAnalysisEngineStatus()`. If the AI engine is unavailable (`aiAvailable: false`), a confirmation dialog warns the user that analysis will use pattern-only mode. The user can proceed or cancel.
+
+#### Analysis Progress Panel
+
+While analysis is running, a centered modal panel shows:
+- Animated striped progress bar with percentage
+- Per-item status cards: queued → analyzing (spinner) → done / failed
+- Done items show category, intent, confidence, and source inline
+- Panel stays visible after completion with a Done button
+
+#### Analysis Detail Panel (slide-out)
+
+Clicking a work item's analysis indicator opens a slide-out panel with:
+- **Quality Score ring** — circular display with color-coded confidence (green ≥80%, orange ≥50%, red <50%)
+- **AI warning banner** — yellow alert when `aiAvailable` was false, indicating pattern-only results
+- **Classification** — category, intent, business impact, technical complexity, urgency
+- **AI Analysis Summary** — left-bordered block with context summary
+- **Color-coded tag sections**:
+  - Key Concepts (blue), Azure Services (green), Technologies (purple), Technical Areas (orange), Products (red)
+- **Metadata footer** — timestamp and analysis ID
 
 ### ActionForm
 

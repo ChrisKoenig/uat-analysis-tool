@@ -37,6 +37,8 @@ ADO Work Item
 └─────────────────┘
 ```
 
+> **Pre-requisite — Analysis Engine**: Before evaluation, work items typically pass through the **Analysis Engine** (`POST /api/v1/analyze`), which classifies items using pattern matching + optional Azure OpenAI. Analysis results populate `Analysis.*` fields that rules can reference in conditions. Check engine availability via `GET /api/v1/analyze/status`. See the [API Reference](API_REFERENCE.md#analysis-endpoints) for details.
+
 ---
 
 ## Step-by-Step

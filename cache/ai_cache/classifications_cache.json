@@ -213,6 +213,18 @@
     },
     "created_at": "2026-02-11T14:03:16.781203",
     "ttl_days": 7,
+    "hits": 1
+  },
+  "a5cf3ed1055d4888e675df6cbfeb74ab45015f3310285f426efffeaed009240c": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting quota approval for Azure Database for PostgreSQL Flexible Server, which is blocked due to capacity or regional offer restrictions. This aligns with the category 'capacity' and intent 'capacity_request'. The stated impact on deployment timelines indicates a high business impact."
+    },
+    "created_at": "2026-02-11T14:46:21.043821",
+    "ttl_days": 7,
     "hits": 0
   }
 }

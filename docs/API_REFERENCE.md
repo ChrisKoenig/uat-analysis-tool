@@ -14,11 +14,12 @@
 3. [CRUD Endpoints](#crud-endpoints) (Rules, Actions, Triggers, Routes)
 4. [Evaluation Endpoints](#evaluation-endpoints)
 5. [ADO Integration Endpoints](#ado-integration-endpoints)
-6. [Webhook Endpoint](#webhook-endpoint)
-7. [Audit Endpoints](#audit-endpoints)
-8. [Validation Endpoints](#validation-endpoints)
-9. [Health Check](#health-check)
-10. [Error Handling](#error-handling)
+6. [Analysis Endpoints](#analysis-endpoints)
+7. [Webhook Endpoint](#webhook-endpoint)
+8. [Audit Endpoints](#audit-endpoints)
+9. [Validation Endpoints](#validation-endpoints)
+10. [Health Check](#health-check)
+11. [Error Handling](#error-handling)
 11. [Schemas](#schemas)
 
 ---
@@ -417,6 +418,82 @@ GET /api/v1/ado/fields
 ```
 
 Returns metadata for all fields on the Action work item type.
+
+---
+
+## Analysis Endpoints
+
+The hybrid analysis engine classifies work items using pattern matching + optional Azure OpenAI (LLM).
+
+### Analysis Engine Status
+
+```
+GET /api/v1/analyze/status
+```
+
+Returns the current state of the analysis engine and AI availability.
+
+**Response**:
+```json
+{
+  "available": true,
+  "aiAvailable": true,
+  "mode": "AI-Powered",
+  "error": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `available` | boolean | Whether the analysis engine can be initialized |
+| `aiAvailable` | boolean | Whether Azure OpenAI is configured and reachable |
+| `mode` | string | `"AI-Powered"` \| `"Pattern Only"` \| `"Unavailable"` |
+| `error` | string? | Error message if `available` is false |
+
+### Run Analysis
+
+```
+POST /api/v1/analyze
+```
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workItemIds` | int[] | Yes | ADO work item IDs to analyze |
+
+Fetches title/description from ADO, runs the hybrid analyzer (pattern + LLM), stores results in the `analysis-results` Cosmos container, and returns classification summaries.
+
+### Get Analysis Detail
+
+```
+GET /api/v1/analysis/{work_item_id}
+```
+
+Returns the full stored analysis result for a single work item, including category, intent, confidence, key concepts, Azure services, technologies, technical areas, and context summary.
+
+### Batch Analysis Lookup
+
+```
+GET /api/v1/analysis/batch?ids=12345,67890
+```
+
+Returns analysis summaries for multiple work items in a single call. Used by the QueuePage on load to populate analysis status indicators.
+
+### Set Analysis State
+
+```
+POST /api/v1/ado/analysis-state
+```
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workItemIds` | int[] | Yes | ADO work item IDs |
+| `state` | string | Yes | New state (e.g., `Awaiting Approval`, `Pending`) |
+
+Updates the `Custom.ROBAnalysisState` field on the specified ADO work items.
 
 ---
 
