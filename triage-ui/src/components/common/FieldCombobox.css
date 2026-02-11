@@ -1,0 +1,84 @@
+/**
+ * FieldCombobox Styles
+ */
+
+.field-combobox {
+  position: relative;
+}
+
+.field-combobox-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+}
+
+.field-combobox-group-label {
+  padding: 6px 12px 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--content-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+}
+
+.field-combobox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.05));
+}
+
+.field-combobox-option:hover,
+.field-combobox-option.highlighted {
+  background: var(--primary-light);
+}
+
+.field-combobox-option.selected {
+  background: var(--primary-light);
+  font-weight: 500;
+}
+
+.field-display-name {
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+.field-ref-name {
+  flex: 1 1 auto;
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
+  font-family: var(--font-mono, 'Consolas', monospace);
+}
+
+.field-type-badge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--border);
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.field-combobox-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}

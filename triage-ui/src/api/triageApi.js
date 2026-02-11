@@ -298,6 +298,29 @@ export function updateRouteStatus(id, status, version) {
 
 
 // =============================================================================
+// Field Schema API
+// =============================================================================
+
+/**
+ * List available ADO field definitions.
+ * Used for field autocomplete in rule and action forms.
+ *
+ * @param {Object} [filters] - Optional filters
+ * @param {boolean} [filters.canEvaluate] - Only fields usable in rules
+ * @param {boolean} [filters.canSet] - Only fields settable by actions
+ * @param {string} [filters.group] - Filter by display group
+ */
+export function listFields({ canEvaluate, canSet, group } = {}) {
+  const params = new URLSearchParams();
+  if (canEvaluate != null) params.set('can_evaluate', String(canEvaluate));
+  if (canSet != null) params.set('can_set', String(canSet));
+  if (group) params.set('group', group);
+  const query = params.toString();
+  return get(`/fields${query ? '?' + query : ''}`);
+}
+
+
+// =============================================================================
 // Evaluation API
 // =============================================================================
 

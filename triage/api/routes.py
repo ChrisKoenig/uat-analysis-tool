@@ -1095,3 +1095,49 @@ async def get_references(entity_type: str, entity_id: str):
         "entityId": entity_id,
         "references": refs,
     }
+
+
+# =============================================================================
+# Field Schema Endpoints
+# =============================================================================
+
+@app.get("/api/v1/fields", tags=["Fields"])
+async def list_fields(
+    source: Optional[str] = Query(None, description="Filter by source (ado, analysis, system)"),
+    can_evaluate: Optional[bool] = Query(None, description="Filter to evaluable fields"),
+    can_set: Optional[bool] = Query(None, description="Filter to settable fields"),
+    group: Optional[str] = Query(None, description="Filter by display group"),
+):
+    """
+    List available ADO field definitions.
+    
+    Used by the rule and action forms to provide field autocomplete.
+    Returns field schemas with metadata about type, operators, and allowed values.
+    """
+    try:
+        cosmos = get_cosmos_config()
+        container = cosmos.get_container("field-schema")
+        
+        # Build query with optional filters
+        conditions = []
+        if source:
+            conditions.append(f"c.source = '{source}'")
+        if can_evaluate is not None:
+            conditions.append(f"c.canEvaluate = {'true' if can_evaluate else 'false'}")
+        if can_set is not None:
+            conditions.append(f"c.canSet = {'true' if can_set else 'false'}")
+        if group:
+            conditions.append(f"c.group = '{group}'")
+        
+        where_clause = " AND ".join(conditions)
+        query = f"SELECT * FROM c{' WHERE ' + where_clause if where_clause else ''} ORDER BY c.group, c.displayName"
+        
+        items = list(container.query_items(query=query, enable_cross_partition_query=True))
+        
+        return {
+            "items": items,
+            "total": len(items),
+        }
+    except Exception as e:
+        logger.error("Error listing fields: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

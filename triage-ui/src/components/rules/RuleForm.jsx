@@ -22,7 +22,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import * as api from '../../api/triageApi';
 import { OPERATORS, VALUELESS_OPERATORS } from '../../utils/constants';
+import FieldCombobox from '../common/FieldCombobox';
 
 
 export default function RuleForm({ rule, onSubmit, onCancel }) {
@@ -34,6 +36,14 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('active');
   const [submitting, setSubmitting] = useState(false);
+  const [adoFields, setAdoFields] = useState([]);
+
+  // ── Load ADO field list once ─────────────────────────────────
+  useEffect(() => {
+    api.listFields({ canEvaluate: true })
+      .then((data) => setAdoFields(data.items || []))
+      .catch(() => setAdoFields([]));
+  }, []);
 
   // Track whether the operator requires no value
   const isValueless = VALUELESS_OPERATORS.includes(operator);
@@ -134,17 +144,16 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
       {/* ADO Field */}
       <div className="form-group">
         <label htmlFor="rule-field">ADO Field *</label>
-        <input
+        <FieldCombobox
           id="rule-field"
-          className="form-input"
-          type="text"
           value={field}
-          onChange={(e) => setField(e.target.value)}
-          placeholder="e.g., Custom.SolutionArea or System.AreaPath"
+          onChange={setField}
+          fields={adoFields}
+          placeholder="Search fields… e.g. Area Path, State, Priority"
           required
         />
         <span className="hint">
-          Use the field reference name (e.g., Custom.SolutionArea)
+          Select a field or type a custom reference name (e.g., Custom.SolutionArea)
         </span>
       </div>
 
