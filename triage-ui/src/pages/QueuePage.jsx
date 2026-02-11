@@ -109,6 +109,10 @@ export default function QueuePage({ addToast }) {
   const [analysisDetailId, setAnalysisDetailId] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // Analysis progress panel state
+  const [analysisProgress, setAnalysisProgress] = useState(null);
+  // Shape: { total, completed, failed, currentId, items: [ { id, title, status, category, intent, confidence, source, error } ] }
+
 
   // ── Load Queue (Saved Query) ─────────────────────────────────
 
@@ -219,7 +223,7 @@ export default function QueuePage({ addToast }) {
   };
 
 
-  // ── Analyze Selected (Analysis tab) ──────────────────────────
+  // ── Analyze Selected (Analysis tab) — per-item progress ────
 
   const handleAnalyze = async () => {
     const ids = Array.from(selectedIds);
@@ -228,24 +232,111 @@ export default function QueuePage({ addToast }) {
       return;
     }
 
-    setAnalyzing(true);
-    try {
-      const data = await api.runAnalysis(ids);
-      addToast?.(
-        `Analyzed ${data.results?.length || 0} item(s) — ${data.succeeded} succeeded`,
-        data.failed > 0 ? 'warning' : 'success'
-      );
+    // Build progress tracker with titles from loaded items
+    const progressItems = ids.map((id) => {
+      const item = items.find((i) => i.id === id);
+      return {
+        id,
+        title: item?.fields?.['System.Title'] || `#${id}`,
+        status: 'queued',   // queued → analyzing → done | failed
+        category: null,
+        intent: null,
+        confidence: null,
+        source: null,
+        error: null,
+      };
+    });
 
-      // Refresh analysis batch data for updated items
+    setAnalysisProgress({
+      total: ids.length,
+      completed: 0,
+      failed: 0,
+      currentId: null,
+      items: progressItems,
+    });
+    setAnalyzing(true);
+
+    let completed = 0;
+    let failed = 0;
+
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+
+      // Mark current item as analyzing
+      setAnalysisProgress((prev) => ({
+        ...prev,
+        currentId: id,
+        items: prev.items.map((it) =>
+          it.id === id ? { ...it, status: 'analyzing' } : it
+        ),
+      }));
+
       try {
-        const analysisData = await api.getAnalysisBatch(ids);
-        setAnalysisMap((prev) => ({ ...prev, ...(analysisData.results || {}) }));
-      } catch { /* non-fatal */ }
-    } catch (err) {
-      addToast?.(err.message, 'error');
-    } finally {
-      setAnalyzing(false);
+        const data = await api.runAnalysis([id]);
+        const result = data.results?.[0];
+
+        if (result?.success) {
+          completed++;
+          setAnalysisProgress((prev) => ({
+            ...prev,
+            completed,
+            failed,
+            items: prev.items.map((it) =>
+              it.id === id
+                ? {
+                    ...it,
+                    status: 'done',
+                    category: result.category,
+                    intent: result.intent,
+                    confidence: result.confidence,
+                    source: result.source,
+                  }
+                : it
+            ),
+          }));
+        } else {
+          failed++;
+          setAnalysisProgress((prev) => ({
+            ...prev,
+            completed,
+            failed,
+            items: prev.items.map((it) =>
+              it.id === id
+                ? { ...it, status: 'failed', error: result?.error || 'Unknown error' }
+                : it
+            ),
+          }));
+        }
+      } catch (err) {
+        failed++;
+        setAnalysisProgress((prev) => ({
+          ...prev,
+          completed,
+          failed,
+          items: prev.items.map((it) =>
+            it.id === id
+              ? { ...it, status: 'failed', error: err.message }
+              : it
+          ),
+        }));
+      }
     }
+
+    // Mark progress as finished (currentId = null)
+    setAnalysisProgress((prev) => prev ? { ...prev, currentId: null } : null);
+
+    addToast?.(
+      `Analyzed ${completed + failed} item(s) — ${completed} succeeded${failed > 0 ? `, ${failed} failed` : ''}`,
+      failed > 0 ? 'warning' : 'success'
+    );
+
+    // Refresh analysis map for all processed items
+    try {
+      const analysisData = await api.getAnalysisBatch(ids);
+      setAnalysisMap((prev) => ({ ...prev, ...(analysisData.results || {}) }));
+    } catch { /* non-fatal */ }
+
+    setAnalyzing(false);
   };
 
 
@@ -442,15 +533,14 @@ export default function QueuePage({ addToast }) {
   // ── Busy state for any action ────────────────────────────────
 
   const busy = loading || evaluating || analyzing || settingState;
-  const overlayMsg = loading
+  const showSimpleOverlay = (loading || evaluating || settingState) && !analyzing;
+  const simpleOverlayMsg = loading
     ? 'Loading triage queue from ADO\u2026'
-    : analyzing
-      ? 'Running analysis engine\u2026'
-      : evaluating
-        ? 'Running evaluation pipeline\u2026'
-        : settingState
-          ? 'Updating analysis state\u2026'
-          : '';
+    : evaluating
+      ? 'Running evaluation pipeline\u2026'
+      : settingState
+        ? 'Updating analysis state\u2026'
+        : '';
 
 
   // ── Render ───────────────────────────────────────────────────
@@ -550,11 +640,107 @@ export default function QueuePage({ addToast }) {
         </div>
       </div>
 
-      {/* Loading / Busy Overlay */}
-      {busy && (
+      {/* Loading / Busy Overlay (non-analysis) */}
+      {showSimpleOverlay && (
         <div className="queue-overlay">
           <div className="queue-spinner" />
-          <p className="queue-overlay-text">{overlayMsg}</p>
+          <p className="queue-overlay-text">{simpleOverlayMsg}</p>
+        </div>
+      )}
+
+      {/* ── Analysis Progress Panel ────────────────────────────── */}
+      {analysisProgress && (
+        <div className="analysis-progress-overlay">
+          <div className="analysis-progress-panel">
+            <div className="analysis-progress-header">
+              <h3>🧠 Analyzing Work Items</h3>
+              {!analyzing && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setAnalysisProgress(null)}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Overall progress bar */}
+            <div className="analysis-progress-bar-section">
+              <div className="analysis-progress-stats">
+                <span>
+                  {analysisProgress.completed + analysisProgress.failed} of {analysisProgress.total} items
+                </span>
+                <span className="analysis-progress-pct">
+                  {Math.round(((analysisProgress.completed + analysisProgress.failed) / analysisProgress.total) * 100)}%
+                </span>
+              </div>
+              <div className="analysis-progress-track">
+                <div
+                  className={`analysis-progress-fill ${!analyzing ? 'done' : ''}`}
+                  style={{
+                    width: `${((analysisProgress.completed + analysisProgress.failed) / analysisProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+              {analysisProgress.failed > 0 && (
+                <div className="analysis-progress-fail-note">
+                  {analysisProgress.failed} failed
+                </div>
+              )}
+            </div>
+
+            {/* Per-item status cards */}
+            <div className="analysis-progress-items">
+              {analysisProgress.items.map((pi) => (
+                <div key={pi.id} className={`analysis-progress-item status-${pi.status}`}>
+                  <div className="api-status-icon">
+                    {pi.status === 'queued' && <span className="api-icon queued">○</span>}
+                    {pi.status === 'analyzing' && <span className="api-icon analyzing" />}
+                    {pi.status === 'done' && <span className="api-icon done">✓</span>}
+                    {pi.status === 'failed' && <span className="api-icon failed">✗</span>}
+                  </div>
+                  <div className="api-item-info">
+                    <div className="api-item-title">
+                      <span className="api-item-id">#{pi.id}</span>
+                      {truncate(pi.title, 60)}
+                    </div>
+                    {pi.status === 'done' && (
+                      <div className="api-item-result">
+                        <span className="queue-badge analysis-category-badge">
+                          {(pi.category || '').replace(/_/g, ' ')}
+                        </span>
+                        <span className="api-item-intent">
+                          {(pi.intent || '').replace(/_/g, ' ')}
+                        </span>
+                        <span className={`api-item-confidence ${pi.confidence >= 0.8 ? 'high' : pi.confidence >= 0.5 ? 'medium' : 'low'}`}>
+                          {((pi.confidence || 0) * 100).toFixed(0)}%
+                        </span>
+                        <span className="api-item-source">{pi.source}</span>
+                      </div>
+                    )}
+                    {pi.status === 'failed' && (
+                      <div className="api-item-error">{pi.error}</div>
+                    )}
+                    {pi.status === 'analyzing' && (
+                      <div className="api-item-analyzing">Analyzing title, description, and context…</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Done state */}
+            {!analyzing && (
+              <div className="analysis-progress-footer">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setAnalysisProgress(null)}
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
