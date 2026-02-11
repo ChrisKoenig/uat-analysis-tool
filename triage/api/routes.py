@@ -43,8 +43,10 @@ from .schemas import (
     HealthResponse, ErrorResponse, ReferenceResponse,
     TriageQueueRequest, TriageQueueResponse,
     TriageQueueDetailsResponse, QueueItemSummary,
+    SavedQueryResponse, SavedQueryItemSummary,
     ApplyChangesRequest, ApplyChangesResponse,
     WebhookResponse, AdoConnectionStatus,
+    AnalyzeRequest, AnalysisStateRequest,
 )
 from ..services.crud_service import CrudService, ConflictError
 from ..services.evaluation_service import EvaluationService
@@ -52,6 +54,7 @@ from ..services.audit_service import AuditService
 from ..services.ado_client import AdoClient, get_ado_client, TriageAdoConfig
 from ..services.webhook_receiver import WebhookProcessor, WebhookPayload
 from ..config.cosmos_config import get_cosmos_config
+from ..models.analysis_result import AnalysisResult
 
 
 # =============================================================================
@@ -439,13 +442,24 @@ async def evaluate(body: EvaluateRequest):
         work_item_id = item["id"]
         fields = item["fields"]
         
-        # TODO: In a future phase, also fetch/load AnalysisResult from Cosmos
-        # For now, analysis data would come from the existing analysis engine
+        # Look up existing analysis from Cosmos (if available)
+        analysis_obj = None
+        try:
+            analysis_container = get_cosmos_config().get_container("analysis-results")
+            analysis_docs = list(analysis_container.query_items(
+                query="SELECT * FROM c WHERE c.workItemId = @wid ORDER BY c.timestamp DESC OFFSET 0 LIMIT 1",
+                parameters=[{"name": "@wid", "value": work_item_id}],
+                partition_key=work_item_id,
+            ))
+            if analysis_docs:
+                analysis_obj = AnalysisResult.from_dict(analysis_docs[0])
+        except Exception:
+            pass  # Non-fatal — rules will skip Analysis.* conditions
         
         evaluation = eval_service.evaluate(
             work_item_id=work_item_id,
             work_item_data=fields,
-            analysis=None,  # Phase 2: analysis integration pending
+            analysis=analysis_obj,
             actor="api-user",
             dry_run=body.dryRun,
         )
@@ -618,6 +632,286 @@ async def get_evaluations(work_item_id: int, limit: int = 20):
 
 
 # =============================================================================
+# Analysis Result Endpoints
+# =============================================================================
+
+@app.get("/api/v1/analysis/batch", tags=["Analysis"])
+async def get_analysis_batch(
+    ids: str = Query(..., description="Comma-separated work item IDs"),
+):
+    """
+    Batch lookup of analysis results for multiple work items.
+
+    Returns a dict keyed by workItemId with summary fields
+    (category, intent, confidence, timestamp) for items that have
+    analysis results.  Items without analysis are omitted.
+    """
+    try:
+        work_item_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ids must be comma-separated integers")
+
+    if not work_item_ids:
+        return {"results": {}}
+
+    cosmos = get_cosmos_config()
+    container = cosmos.get_container("analysis-results")
+    results: dict = {}
+
+    for wid in work_item_ids:
+        try:
+            # Query by partition key for efficiency
+            query = (
+                "SELECT c.id, c.workItemId, c.timestamp, c.category, "
+                "c.intent, c.confidence, c.source, c.businessImpact, "
+                "c.urgencyLevel "
+                "FROM c WHERE c.workItemId = @wid "
+                "ORDER BY c.timestamp DESC OFFSET 0 LIMIT 1"
+            )
+            items = list(container.query_items(
+                query=query,
+                parameters=[{"name": "@wid", "value": wid}],
+                partition_key=wid,
+            ))
+            if items:
+                doc = items[0]
+                results[str(wid)] = {
+                    "id": doc.get("id", ""),
+                    "workItemId": wid,
+                    "category": doc.get("category", ""),
+                    "intent": doc.get("intent", ""),
+                    "confidence": doc.get("confidence", 0.0),
+                    "source": doc.get("source", ""),
+                    "businessImpact": doc.get("businessImpact", ""),
+                    "urgencyLevel": doc.get("urgencyLevel", ""),
+                    "timestamp": doc.get("timestamp", ""),
+                }
+        except Exception:
+            # Skip items that fail (e.g., partition not found)
+            continue
+
+    return {"results": results}
+
+
+@app.get("/api/v1/analysis/{work_item_id}", tags=["Analysis"])
+async def get_analysis_detail(work_item_id: int):
+    """
+    Get the full latest analysis result for a work item.
+
+    Returns all fields from the AnalysisResult model,
+    or 404 if no analysis exists.
+    """
+    cosmos = get_cosmos_config()
+    container = cosmos.get_container("analysis-results")
+
+    try:
+        query = (
+            "SELECT * FROM c WHERE c.workItemId = @wid "
+            "ORDER BY c.timestamp DESC OFFSET 0 LIMIT 1"
+        )
+        items = list(container.query_items(
+            query=query,
+            parameters=[{"name": "@wid", "value": work_item_id}],
+            partition_key=work_item_id,
+        ))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not items:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No analysis found for work item {work_item_id}",
+        )
+
+    return items[0]
+
+
+# -- Analyzer singleton (lazy init — may require Azure OpenAI config) ---------
+_analyzer = None
+
+def get_analyzer():
+    """Get or create the HybridContextAnalyzer singleton."""
+    global _analyzer
+    if _analyzer is None:
+        import sys, os
+        # Add workspace root so top-level modules are importable
+        workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        if workspace_root not in sys.path:
+            sys.path.insert(0, workspace_root)
+        from hybrid_context_analyzer import HybridContextAnalyzer
+        _analyzer = HybridContextAnalyzer(use_ai=True)
+    return _analyzer
+
+
+def _map_hybrid_to_analysis_result(
+    work_item_id: int, hybrid_result, title: str, description: str,
+) -> AnalysisResult:
+    """Map HybridAnalysisResult → AnalysisResult for Cosmos storage."""
+    from ..models.base import utc_now
+    import datetime
+    ts = utc_now()
+    date_str = datetime.datetime.utcnow().strftime("%Y%m%d")
+    return AnalysisResult(
+        id=f"analysis-{work_item_id}-{date_str}",
+        workItemId=work_item_id,
+        timestamp=ts,
+        originalTitle=title,
+        originalDescription=description[:500] if description else "",
+        category=getattr(hybrid_result, "category", ""),
+        intent=getattr(hybrid_result, "intent", ""),
+        confidence=getattr(hybrid_result, "confidence", 0.0),
+        source=getattr(hybrid_result, "source", "pattern"),
+        agreement=getattr(hybrid_result, "agreement", False),
+        businessImpact=getattr(hybrid_result, "business_impact", ""),
+        technicalComplexity=getattr(hybrid_result, "technical_complexity", "") or "",
+        urgencyLevel=getattr(hybrid_result, "urgency_level", "") or "",
+        detectedProducts=[
+            p.get("name", str(p)) if isinstance(p, dict) else str(p)
+            for p in (getattr(hybrid_result, "pattern_features", {}) or {}).get("detected_products", [])
+        ],
+        azureServices=[],
+        keyConcepts=getattr(hybrid_result, "key_concepts", None) or [],
+        semanticKeywords=getattr(hybrid_result, "semantic_keywords", None) or [],
+        contextSummary=getattr(hybrid_result, "context_summary", "") or "",
+        reasoning=str(getattr(hybrid_result, "reasoning", "")),
+        patternCategory=getattr(hybrid_result, "pattern_category", ""),
+        patternConfidence=getattr(hybrid_result, "pattern_confidence", 0.0),
+        aiAvailable=getattr(hybrid_result, "ai_available", True),
+        aiError=getattr(hybrid_result, "ai_error", None),
+    )
+
+
+@app.post("/api/v1/analyze", tags=["Analysis"])
+async def run_analysis(body: AnalyzeRequest):
+    """
+    Run the hybrid analysis engine on one or more work items.
+
+    Fetches title/description from ADO, runs pattern + LLM analysis,
+    stores the AnalysisResult in Cosmos, and returns summaries.
+    """
+    try:
+        ado = get_ado()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"ADO connection failed: {e}")
+
+    try:
+        analyzer = get_analyzer()
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Analysis engine failed to initialize: {e}",
+        )
+
+    cosmos = get_cosmos_config()
+    container = cosmos.get_container("analysis-results")
+
+    results = []
+    errors = []
+
+    # Fetch work items from ADO
+    if len(body.workItemIds) == 1:
+        ado_result = ado.get_work_item(body.workItemIds[0])
+        if ado_result["success"]:
+            items_data = [{
+                "id": ado_result["id"],
+                "fields": ado_result["fields"],
+            }]
+        else:
+            raise HTTPException(status_code=404, detail="Work item not found")
+    else:
+        batch = ado.get_work_items_batch(body.workItemIds)
+        if not batch["success"]:
+            raise HTTPException(status_code=502, detail="Batch fetch failed")
+        items_data = batch["items"]
+        for fid in batch.get("failed_ids", []):
+            errors.append(f"Failed to fetch #{fid}")
+
+    # Analyze each item
+    for item in items_data:
+        wid = item["id"]
+        fields = item.get("fields", {})
+        title = fields.get("System.Title", "")
+        description = fields.get("System.Description", "")
+        # Strip HTML tags from description (ADO descriptions contain HTML)
+        import re
+        clean_desc = re.sub(r"<[^>]+>", " ", description or "").strip()
+
+        try:
+            hybrid_result = analyzer.analyze(title, clean_desc)
+            analysis = _map_hybrid_to_analysis_result(wid, hybrid_result, title, clean_desc)
+
+            # Store in Cosmos
+            container.upsert_item(analysis.to_dict())
+
+            results.append({
+                "workItemId": wid,
+                "category": analysis.category,
+                "intent": analysis.intent,
+                "confidence": analysis.confidence,
+                "source": analysis.source,
+                "businessImpact": analysis.businessImpact,
+                "urgencyLevel": analysis.urgencyLevel,
+                "success": True,
+            })
+        except Exception as e:
+            logger.error("Analysis failed for %s: %s", wid, e)
+            errors.append(f"Analysis failed for #{wid}: {str(e)}")
+            results.append({
+                "workItemId": wid,
+                "success": False,
+                "error": str(e),
+            })
+
+    return {
+        "results": results,
+        "count": len(results),
+        "errors": errors,
+    }
+
+
+@app.post("/api/v1/ado/analysis-state", tags=["ADO"])
+async def update_analysis_state(body: AnalysisStateRequest):
+    """
+    Update Custom.ROBAnalysisState on one or more ADO work items.
+
+    Used to move items between workflow stages:
+      Analysis → 'Awaiting Approval' (ready for triage)
+      Triage → 'Approved' (triaged)
+      Return → 'Pending' (back to analysis)
+    """
+    VALID_STATES = {
+        "Approved", "Awaiting Approval", "Needs Info",
+        "No Match", "Override", "Pending", "Redirected",
+    }
+    if body.state not in VALID_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid state '{body.state}'. Valid: {sorted(VALID_STATES)}",
+        )
+
+    try:
+        ado = get_ado()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"ADO connection failed: {e}")
+
+    results = []
+    errors = []
+    for wid in body.workItemIds:
+        try:
+            result = ado.set_analysis_state(wid, body.state)
+            if result.get("success"):
+                results.append({"workItemId": wid, "success": True, "newRev": result.get("rev")})
+            else:
+                errors.append(f"#{wid}: {result.get('error', 'unknown error')}")
+                results.append({"workItemId": wid, "success": False, "error": result.get("error")})
+        except Exception as e:
+            errors.append(f"#{wid}: {str(e)}")
+            results.append({"workItemId": wid, "success": False, "error": str(e)})
+
+    return {"results": results, "count": len(results), "errors": errors}
+
+
+# =============================================================================
 # ADO Integration Endpoints
 # =============================================================================
 
@@ -735,6 +1029,56 @@ async def get_triage_queue_details(
         count=len(items),
         totalAvailable=queue_result.get("total_available"),
         failedIds=batch_result.get("failed_ids", []),
+    )
+
+
+@app.get("/api/v1/ado/queue/saved", tags=["ADO"])
+async def get_saved_query_results(
+    query_id: str = Query(
+        "b0ad9398-4942-4d8f-829e-604a347d8ac8",
+        description="GUID of the saved ADO query",
+    ),
+    max_results: int = Query(200, ge=1, le=500),
+):
+    """
+    Run a saved ADO query and return hydrated work items.
+
+    Default query: "Azure Corp Daily Triage" — the standard triage queue.
+    Returns all columns defined in the saved query plus key system fields.
+    """
+    try:
+        ado = get_ado()
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"ADO connection failed: {str(e)}"
+        )
+
+    result = ado.run_saved_query(query_id, max_results=max_results)
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error", "Saved query failed"),
+        )
+
+    items = [
+        SavedQueryItemSummary(
+            id=item["id"],
+            rev=item.get("rev", 0),
+            fields=item.get("fields", {}),
+            adoLink=item.get("adoLink", ""),
+        )
+        for item in result.get("items", [])
+    ]
+
+    return SavedQueryResponse(
+        queryName=result.get("queryName", ""),
+        columns=result.get("columns", []),
+        items=items,
+        count=len(items),
+        totalAvailable=result.get("totalAvailable"),
+        failedIds=result.get("failedIds", []),
     )
 
 

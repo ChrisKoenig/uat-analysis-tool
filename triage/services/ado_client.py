@@ -424,6 +424,180 @@ class AdoClient:
             }
 
     # =========================================================================
+    # Saved Query Operations — Run ADO Saved Queries by ID
+    # =========================================================================
+
+    def run_saved_query(
+        self,
+        query_id: str,
+        max_results: int = 200,
+        fields: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Run an ADO saved query by its GUID and return hydrated work items.
+
+        Steps:
+            1. Fetch the saved query definition (GET .../wit/queries/{id})
+            2. Extract the WIQL and execute it (POST .../wit/wiql)
+            3. Batch-fetch work items with the query's column list + extras
+            4. Return hydrated items with all field data
+
+        Args:
+            query_id:    GUID of the saved ADO query
+            max_results: Maximum items to return (default 200)
+            fields:      Extra fields to fetch beyond the query's columns.
+                         If None, uses the query's column definitions.
+
+        Returns:
+            Dict with keys:
+                success, queryName, wiql, items[], columns[], count,
+                totalAvailable, failedIds[], error
+        """
+        try:
+            # Step 1: Get query definition
+            query_def_url = (
+                f"{self._config.READ_BASE_URL}/{quote(self._config.READ_PROJECT)}"
+                f"/_apis/wit/queries/{query_id}"
+                f"?api-version={self._config.API_VERSION}&$expand=wiql"
+            )
+            logger.info("Fetching saved query %s", query_id)
+            resp = http_requests.get(query_def_url, headers=self._headers())
+
+            if resp.status_code == 404:
+                return {
+                    "success": False,
+                    "error": f"Saved query {query_id} not found",
+                }
+            if resp.status_code != 200:
+                return {
+                    "success": False,
+                    "error": (
+                        f"Failed to fetch saved query: "
+                        f"{resp.status_code} - {resp.text[:300]}"
+                    ),
+                }
+
+            query_def = resp.json()
+            query_name = query_def.get("name", "Unnamed")
+            wiql = query_def.get("wiql", "")
+            columns = [
+                c["referenceName"] for c in query_def.get("columns", [])
+            ]
+
+            if not wiql:
+                return {
+                    "success": False,
+                    "error": f"Saved query '{query_name}' has no WIQL",
+                }
+
+            # Step 2: Execute the WIQL
+            wiql_url = self._read_wiql_url()
+            logger.info("Running WIQL for '%s'", query_name)
+            wiql_resp = http_requests.post(
+                wiql_url,
+                json={"query": wiql},
+                headers=self._headers(),
+            )
+
+            if wiql_resp.status_code != 200:
+                return {
+                    "success": False,
+                    "error": (
+                        f"WIQL execution failed: "
+                        f"{wiql_resp.status_code} - {wiql_resp.text[:300]}"
+                    ),
+                }
+
+            wiql_result = wiql_resp.json()
+            all_ids = [item["id"] for item in wiql_result.get("workItems", [])]
+            total_available = len(all_ids)
+            ids_to_fetch = all_ids[:max_results]
+
+            if not ids_to_fetch:
+                return {
+                    "success": True,
+                    "queryName": query_name,
+                    "wiql": wiql,
+                    "items": [],
+                    "columns": columns,
+                    "count": 0,
+                    "totalAvailable": 0,
+                    "failedIds": [],
+                }
+
+            # Step 3: Determine fields to fetch
+            fetch_fields = list(set(columns + [
+                "System.Id", "System.State", "System.AssignedTo",
+                "System.AreaPath", "System.Tags",
+                "System.CreatedDate", "System.ChangedDate",
+                "System.WorkItemType", "Custom.ROBAnalysisState",
+            ] + (fields or [])))
+
+            # Step 4: Batch fetch using the work item batch API
+            items = []
+            failed_ids = []
+            chunk_size = 200
+
+            for i in range(0, len(ids_to_fetch), chunk_size):
+                chunk = ids_to_fetch[i:i + chunk_size]
+                try:
+                    batch_url = (
+                        f"{self._config.READ_BASE_URL}"
+                        f"/{quote(self._config.READ_PROJECT)}"
+                        f"/_apis/wit/workitemsbatch"
+                        f"?api-version={self._config.API_VERSION}"
+                    )
+                    batch_resp = http_requests.post(
+                        batch_url,
+                        json={"ids": chunk, "fields": fetch_fields},
+                        headers=self._headers(),
+                    )
+
+                    if batch_resp.status_code == 200:
+                        for item in batch_resp.json().get("value", []):
+                            raw_fields = item.get("fields", {})
+                            # Normalize identity fields (dict → displayName)
+                            normalized = {}
+                            for k, v in raw_fields.items():
+                                if isinstance(v, dict) and "displayName" in v:
+                                    normalized[k] = v["displayName"]
+                                else:
+                                    normalized[k] = v
+                            items.append({
+                                "id": item["id"],
+                                "rev": item.get("rev", 0),
+                                "fields": normalized,
+                                "adoLink": self.get_work_item_link(item["id"]),
+                            })
+                    else:
+                        failed_ids.extend(chunk)
+                        logger.warning(
+                            "Batch fetch for saved query failed: %s",
+                            batch_resp.status_code,
+                        )
+                except Exception as e:
+                    failed_ids.extend(chunk)
+                    logger.error("Batch error: %s", e, exc_info=True)
+
+            return {
+                "success": True,
+                "queryName": query_name,
+                "wiql": wiql,
+                "items": items,
+                "columns": columns,
+                "count": len(items),
+                "totalAvailable": total_available,
+                "failedIds": failed_ids,
+            }
+
+        except Exception as e:
+            logger.error("run_saved_query failed: %s", e, exc_info=True)
+            return {
+                "success": False,
+                "error": f"Saved query execution failed: {str(e)}",
+            }
+
+    # =========================================================================
     # Write Operations — To TEST org (safe for development)
     # =========================================================================
 

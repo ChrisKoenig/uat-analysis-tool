@@ -162,7 +162,7 @@ class EvaluationService:
             logger.debug("Step 3 - walking triggers...")
             matched_trigger_id, route_id, trigger_errors = (
                 self._trigger_engine.evaluate(
-                    trees=triggers,
+                    triggers=triggers,
                     rule_results=rule_results,
                     skipped_rules=skipped_rules,
                     include_staged=dry_run

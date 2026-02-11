@@ -1,67 +1,143 @@
 /**
- * QueuePage — Triage Queue Viewer
- * =================================
+ * QueuePage — Tabbed Analysis / Triage Queue
+ * =============================================
  *
- * Displays work items from the ADO triage queue with filters for
- * analysis state and area path. Users can select items and send them
- * to the evaluation pipeline.
+ * Two-tab interface driven by Custom.ROBAnalysisState:
  *
- * Features:
- *   - Fetches hydrated queue data (title, state, area path, etc.)
- *   - State filter (Pending, Awaiting Approval, Needs Info, All)
- *   - Checkbox multi-select with "Select All"
- *   - "Evaluate Selected" → pipes to evaluate API
- *   - ADO deep links per item
- *   - Inline evaluation results after run
- *   - Refresh button
+ *  Analysis tab  – items needing analysis (Pending / Needs Info / No Match / blank)
+ *    Actions: "Analyze Selected", "Ready for Triage"
+ *
+ *  Triage tab    – items ready for triage (Awaiting Approval)
+ *    Actions: "Dry Run Selected", "Evaluate Selected", per-row Apply, "Return to Analysis"
+ *
+ * Items with Approved / Override / Redirected are hidden (done).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as api from '../api/triageApi';
-import { formatDateTime, truncate } from '../utils/helpers';
-import { ANALYSIS_STATES } from '../utils/constants';
+import { formatDate, truncate } from '../utils/helpers';
 import './QueuePage.css';
 
 
-/** Available state filters for the queue */
-const STATE_FILTERS = [
-  { value: '',                   label: 'All States' },
-  { value: 'Pending',           label: 'Pending' },
-  { value: 'Awaiting Approval', label: 'Awaiting Approval' },
-  { value: 'Needs Info',        label: 'Needs Info' },
+// ── ROBAnalysisState bucket definitions ─────────────────────────
+
+/** States that appear in the Analysis tab */
+const ANALYSIS_STATES = new Set(['Pending', 'Needs Info', 'No Match', '', undefined, null]);
+const isAnalysisItem = (item) => {
+  const state = item.fields?.['Custom.ROBAnalysisState'] ?? '';
+  return ANALYSIS_STATES.has(state);
+};
+
+/** States that appear in the Triage tab */
+const isTriageItem = (item) => {
+  const state = item.fields?.['Custom.ROBAnalysisState'] ?? '';
+  return state === 'Awaiting Approval';
+};
+
+
+// ── Column definitions ──────────────────────────────────────────
+
+const COLUMNS = [
+  { key: 'System.Id',                    label: 'ID',          width: 70,  sticky: true },
+  { key: 'System.Title',                 label: 'Title',       width: 260 },
+  { key: 'Custom.ROBAnalysisState',      label: 'Analysis State', width: 120 },
+  { key: 'Custom.Customer_Commitment',   label: 'Commitment',  width: 105 },
+  { key: 'Custom.MilestoneStatus',       label: 'MS Status',   width: 100 },
+  { key: 'Custom.MilestoneID',          label: 'Milestone ID',width: 120 },
+  { key: 'Custom.SolutionArea',          label: 'Solution Area',width: 140 },
+  { key: 'analysis.category',           label: 'Category',    width: 130 },
+  { key: 'analysis.intent',             label: 'Intent',      width: 130 },
+  { key: 'Custom.AreaField',             label: 'Area',        width: 100 },
+  { key: 'Custom.Segment',              label: 'Segment',     width: 150 },
+  { key: 'Custom.pTriageType',          label: 'Triage Type', width: 120 },
+  { key: 'Custom.HelpNeededField',      label: 'Help Needed', width: 130 },
+  { key: 'Custom.Opportunity_ID',       label: 'Opp ID',      width: 120 },
+  { key: 'Custom.OpportunityStage',     label: 'Opp Stage',   width: 120 },
+  { key: 'Custom.PartnerOneName',       label: 'Partner',     width: 120 },
+  { key: 'System.CommentCount',         label: '\uD83D\uDCAC',   width: 40  },
+  { key: 'Custom.AssignToCorpDate',     label: 'Corp Date',   width: 100,
+    render: (v) => v ? formatDate(v) : '\u2014' },
 ];
+
+/** Badge color mapping for commitment values */
+const COMMITMENT_CLASSES = {
+  'Committed': 'badge-committed',
+  'Uncommitted': 'badge-uncommitted',
+  'Best Case': 'badge-bestcase',
+};
+
+/** Badge color mapping for milestone status */
+const MS_STATUS_CLASSES = {
+  'On Track': 'badge-ontrack',
+  'Blocked': 'badge-blocked',
+  'At Risk': 'badge-atrisk',
+  'Completed': 'badge-completed',
+};
+
+/** Badge color mapping for ROBAnalysisState */
+const STATE_CLASSES = {
+  'Pending':            'state-pending',
+  'Needs Info':         'state-needs-info',
+  'No Match':           'state-no-match',
+  'Awaiting Approval':  'state-awaiting',
+  'Approved':           'state-approved',
+  'Override':           'state-override',
+  'Redirected':         'state-redirected',
+};
 
 
 export default function QueuePage({ addToast }) {
   // ── State ────────────────────────────────────────────────────
   const [items, setItems] = useState([]);
+  const [queryName, setQueryName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [stateFilter, setStateFilter] = useState('');
+  const [activeTab, setActiveTab] = useState('analysis');   // 'analysis' | 'triage'
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [evaluating, setEvaluating] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [settingState, setSettingState] = useState(false);
   const [results, setResults] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [applying, setApplying] = useState(null);
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+  const [totalAvailable, setTotalAvailable] = useState(0);
 
-  const navigate = useNavigate();
+  // Analysis state
+  const [analysisMap, setAnalysisMap] = useState({});       // { workItemId: { category, intent, ... } }
+  const [analysisDetail, setAnalysisDetail] = useState(null);
+  const [analysisDetailId, setAnalysisDetailId] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
 
-  // ── Load Queue ───────────────────────────────────────────────
+  // ── Load Queue (Saved Query) ─────────────────────────────────
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
     setSelectedIds(new Set());
     setResults(null);
+    setAnalysisMap({});
+    setAnalysisDetail(null);
+    setAnalysisDetailId(null);
     try {
-      const data = await api.getTriageQueueDetails(
-        stateFilter || null,
-        null,  // area_path — could be made filterable later
-        200
-      );
-      setItems(data.items || []);
+      const data = await api.getSavedQueryResults(null, 200);
+      const loadedItems = data.items || [];
+      setItems(loadedItems);
+      setQueryName(data.queryName || '');
+      setTotalAvailable(data.totalAvailable || data.count || 0);
       if (data.failedIds?.length > 0) {
         addToast?.(`${data.failedIds.length} items failed to load`, 'warning');
+      }
+
+      // Batch-fetch analysis status for all work item IDs
+      if (loadedItems.length > 0) {
+        try {
+          const ids = loadedItems.map((i) => i.id);
+          const analysisData = await api.getAnalysisBatch(ids);
+          setAnalysisMap(analysisData.results || {});
+        } catch {
+          // Non-fatal: analysis lookup can fail silently
+        }
       }
     } catch (err) {
       addToast?.(err.message, 'error');
@@ -69,12 +145,50 @@ export default function QueuePage({ addToast }) {
     } finally {
       setLoading(false);
     }
-  }, [stateFilter, addToast]);
+  }, [addToast]);
 
 
   useEffect(() => {
     loadQueue();
   }, [loadQueue]);
+
+
+  // ── Filtered items per tab ───────────────────────────────────
+
+  const analysisItems = useMemo(() => items.filter(isAnalysisItem), [items]);
+  const triageItems   = useMemo(() => items.filter(isTriageItem), [items]);
+  const tabItems      = activeTab === 'analysis' ? analysisItems : triageItems;
+
+
+  // ── Sorting ──────────────────────────────────────────────────
+
+  const handleSort = (colKey) => {
+    if (sortCol === colKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(colKey);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    if (!sortCol) return tabItems;
+    return [...tabItems].sort((a, b) => {
+      let av, bv;
+      if (sortCol.startsWith('analysis.')) {
+        const field = sortCol.replace('analysis.', '');
+        av = analysisMap[String(a.id)]?.[field] ?? '';
+        bv = analysisMap[String(b.id)]?.[field] ?? '';
+      } else {
+        av = a.fields?.[sortCol] ?? '';
+        bv = b.fields?.[sortCol] ?? '';
+      }
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [tabItems, sortCol, sortDir, analysisMap]);
 
 
   // ── Selection ────────────────────────────────────────────────
@@ -89,15 +203,87 @@ export default function QueuePage({ addToast }) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === items.length) {
+    if (selectedIds.size === tabItems.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(items.map((i) => i.id)));
+      setSelectedIds(new Set(tabItems.map((i) => i.id)));
+    }
+  };
+
+  // Clear selection when switching tabs
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSelectedIds(new Set());
+    setResults(null);
+    setExpandedId(null);
+  };
+
+
+  // ── Analyze Selected (Analysis tab) ──────────────────────────
+
+  const handleAnalyze = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      addToast?.('Select at least one work item', 'warning');
+      return;
+    }
+
+    setAnalyzing(true);
+    try {
+      const data = await api.runAnalysis(ids);
+      addToast?.(
+        `Analyzed ${data.results?.length || 0} item(s) — ${data.succeeded} succeeded`,
+        data.failed > 0 ? 'warning' : 'success'
+      );
+
+      // Refresh analysis batch data for updated items
+      try {
+        const analysisData = await api.getAnalysisBatch(ids);
+        setAnalysisMap((prev) => ({ ...prev, ...(analysisData.results || {}) }));
+      } catch { /* non-fatal */ }
+    } catch (err) {
+      addToast?.(err.message, 'error');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
 
-  // ── Evaluate Selected ────────────────────────────────────────
+  // ── Set Analysis State (shared) ──────────────────────────────
+
+  const handleSetState = async (newState, successMsg) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      addToast?.('Select at least one work item', 'warning');
+      return;
+    }
+
+    setSettingState(true);
+    try {
+      const data = await api.setAnalysisState(ids, newState);
+      addToast?.(
+        successMsg || `Set ${data.updated} item(s) to "${newState}"`,
+        data.failed > 0 ? 'warning' : 'success'
+      );
+
+      // Update local item fields so filtering re-renders correctly
+      setItems((prev) =>
+        prev.map((item) =>
+          ids.includes(item.id)
+            ? { ...item, fields: { ...item.fields, 'Custom.ROBAnalysisState': newState } }
+            : item
+        )
+      );
+      setSelectedIds(new Set());
+    } catch (err) {
+      addToast?.(err.message, 'error');
+    } finally {
+      setSettingState(false);
+    }
+  };
+
+
+  // ── Evaluate Selected (Triage tab) ───────────────────────────
 
   const handleEvaluate = async (dryRun = true) => {
     const ids = Array.from(selectedIds);
@@ -155,95 +341,270 @@ export default function QueuePage({ addToast }) {
   };
 
 
+  // ── Analysis Detail Panel ────────────────────────────────────
+
+  const handleAnalysisClick = async (workItemId, e) => {
+    e.stopPropagation();
+    if (analysisDetailId === workItemId) {
+      setAnalysisDetailId(null);
+      setAnalysisDetail(null);
+      return;
+    }
+    setAnalysisDetailId(workItemId);
+    setLoadingDetail(true);
+    try {
+      const detail = await api.getAnalysisDetail(workItemId);
+      setAnalysisDetail(detail);
+    } catch {
+      setAnalysisDetail(null);
+      addToast?.(`No analysis found for #${workItemId}`, 'info');
+      setAnalysisDetailId(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+
+  // ── Render a cell value ──────────────────────────────────────
+
+  const renderCell = (col, item) => {
+    // Analysis columns — pull from analysisMap
+    if (col.key.startsWith('analysis.')) {
+      const field = col.key.replace('analysis.', '');
+      const analysis = analysisMap[String(item.id)];
+      if (!analysis) return '\u2014';
+      const val = analysis[field];
+      if (val === undefined || val === null || val === '') return '\u2014';
+      if (field === 'category') {
+        const label = String(val).replace(/_/g, ' ');
+        return <span className="queue-badge analysis-category-badge">{label}</span>;
+      }
+      if (field === 'intent') {
+        const label = String(val).replace(/_/g, ' ');
+        return <span className="queue-analysis-intent">{label}</span>;
+      }
+      return String(val);
+    }
+
+    const val = item.fields?.[col.key];
+
+    if (col.render) return col.render(val, item);
+
+    // ID column → ADO link
+    if (col.key === 'System.Id') {
+      return (
+        <a
+          href={item.adoLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="queue-id-link"
+        >
+          {item.id}
+        </a>
+      );
+    }
+
+    // Title column → truncated with tooltip
+    if (col.key === 'System.Title') {
+      return <span title={val}>{truncate(val, 55)}</span>;
+    }
+
+    // ROBAnalysisState → colored badge
+    if (col.key === 'Custom.ROBAnalysisState') {
+      const state = val || 'Pending';
+      const cls = STATE_CLASSES[state] || '';
+      return <span className={`queue-badge queue-state-badge ${cls}`}>{state}</span>;
+    }
+
+    // Commitment badge
+    if (col.key === 'Custom.Customer_Commitment' && val) {
+      const cls = COMMITMENT_CLASSES[val] || '';
+      return <span className={`queue-badge ${cls}`}>{val}</span>;
+    }
+
+    // Milestone status badge
+    if (col.key === 'Custom.MilestoneStatus' && val) {
+      const cls = MS_STATUS_CLASSES[val] || '';
+      return <span className={`queue-badge ${cls}`}>{val}</span>;
+    }
+
+    // Triage Type
+    if (col.key === 'Custom.pTriageType' && val) {
+      return <span className="queue-triage-type">{val}</span>;
+    }
+
+    if (val === undefined || val === null || val === '') return '\u2014';
+    return String(val);
+  };
+
+
+  // ── Busy state for any action ────────────────────────────────
+
+  const busy = loading || evaluating || analyzing || settingState;
+  const overlayMsg = loading
+    ? 'Loading triage queue from ADO\u2026'
+    : analyzing
+      ? 'Running analysis engine\u2026'
+      : evaluating
+        ? 'Running evaluation pipeline\u2026'
+        : settingState
+          ? 'Updating analysis state\u2026'
+          : '';
+
+
   // ── Render ───────────────────────────────────────────────────
+
+  const colCount = COLUMNS.length + 3; // +analysis dot +checkbox +actions
 
   return (
     <div className="queue-page">
       <div className="page-header">
-        <h1>📥 Triage Queue</h1>
+        <h1>\uD83D\uDCE5 Triage Queue</h1>
         <div className="page-header-actions">
-          <select
-            className="form-select"
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-            style={{ width: 'auto' }}
-          >
-            {STATE_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>{f.label}</option>
-            ))}
-          </select>
+          {queryName && (
+            <span className="queue-query-name" title={queryName}>
+              {queryName}
+            </span>
+          )}
           <button
             className="btn btn-secondary"
             onClick={loadQueue}
-            disabled={loading}
+            disabled={busy}
           >
-            🔄 Refresh
+            \uD83D\uDD04 Refresh
           </button>
         </div>
       </div>
 
-      {/* Action Bar */}
+      {/* ── Tab Bar ─────────────────────────────────────────────── */}
+      <div className="queue-tabs">
+        <button
+          className={`queue-tab ${activeTab === 'analysis' ? 'active' : ''}`}
+          onClick={() => handleTabChange('analysis')}
+        >
+          \uD83D\uDD2C Analysis
+          <span className="queue-tab-count">{analysisItems.length}</span>
+        </button>
+        <button
+          className={`queue-tab ${activeTab === 'triage' ? 'active' : ''}`}
+          onClick={() => handleTabChange('triage')}
+        >
+          \u2696\uFE0F Triage
+          <span className="queue-tab-count">{triageItems.length}</span>
+        </button>
+      </div>
+
+      {/* ── Action Bar (varies per tab) ─────────────────────────── */}
       <div className="queue-action-bar">
         <span className="queue-count">
-          {loading ? 'Loading…' : `${items.length} items`}
-          {selectedIds.size > 0 && ` · ${selectedIds.size} selected`}
+          {loading ? 'Loading\u2026' : `${tabItems.length} items`}
+          {totalAvailable > items.length && ` of ${totalAvailable} total`}
+          {selectedIds.size > 0 && ` \xb7 ${selectedIds.size} selected`}
         </span>
         <div className="queue-action-buttons">
-          <button
-            className="btn btn-secondary"
-            disabled={selectedIds.size === 0 || evaluating}
-            onClick={() => handleEvaluate(true)}
-          >
-            {evaluating ? 'Evaluating…' : '🧪 Dry Run Selected'}
-          </button>
-          <button
-            className="btn btn-primary"
-            disabled={selectedIds.size === 0 || evaluating}
-            onClick={() => handleEvaluate(false)}
-          >
-            {evaluating ? 'Evaluating…' : '⚡ Evaluate Selected'}
-          </button>
+          {activeTab === 'analysis' ? (
+            <>
+              <button
+                className="btn btn-primary"
+                disabled={selectedIds.size === 0 || busy}
+                onClick={handleAnalyze}
+              >
+                {analyzing ? 'Analyzing\u2026' : '\uD83E\uDDE0 Analyze Selected'}
+              </button>
+              <button
+                className="btn btn-success"
+                disabled={selectedIds.size === 0 || busy}
+                onClick={() => handleSetState('Awaiting Approval')}
+                title="Mark selected items as ready for triage"
+              >
+                {settingState ? 'Updating\u2026' : '\u2705 Ready for Triage'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="btn btn-secondary"
+                disabled={selectedIds.size === 0 || busy}
+                onClick={() => handleEvaluate(true)}
+              >
+                {evaluating ? 'Evaluating\u2026' : '\uD83E\uDDEA Dry Run Selected'}
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={selectedIds.size === 0 || busy}
+                onClick={() => handleEvaluate(false)}
+              >
+                {evaluating ? 'Evaluating\u2026' : '\u26A1 Evaluate Selected'}
+              </button>
+              <button
+                className="btn btn-warning"
+                disabled={selectedIds.size === 0 || busy}
+                onClick={() => handleSetState('Pending', 'Returned items to Analysis')}
+                title="Return selected items to the Analysis tab"
+              >
+                {settingState ? 'Updating\u2026' : '\u21A9\uFE0F Return to Analysis'}
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Loading / Busy Overlay */}
+      {busy && (
+        <div className="queue-overlay">
+          <div className="queue-spinner" />
+          <p className="queue-overlay-text">{overlayMsg}</p>
+        </div>
+      )}
 
       {/* Queue Table */}
       <div className="card queue-table-card">
         <table className="queue-table">
           <thead>
             <tr>
+              <th className="queue-col-analysis" title="Analysis status">A</th>
               <th className="queue-col-check">
                 <input
                   type="checkbox"
-                  checked={items.length > 0 && selectedIds.size === items.length}
+                  checked={tabItems.length > 0 && selectedIds.size === tabItems.length}
                   onChange={toggleSelectAll}
-                  disabled={items.length === 0}
+                  disabled={tabItems.length === 0}
                 />
               </th>
-              <th className="queue-col-id">ID</th>
-              <th className="queue-col-title">Title</th>
-              <th className="queue-col-type">Type</th>
-              <th className="queue-col-state">State</th>
-              <th className="queue-col-analysis">Analysis</th>
-              <th className="queue-col-area">Area Path</th>
-              <th className="queue-col-assigned">Assigned To</th>
-              <th className="queue-col-changed">Changed</th>
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  className="queue-col-header"
+                  style={{ width: col.width, minWidth: col.width }}
+                  onClick={() => handleSort(col.key)}
+                  title={`Sort by ${col.label}`}
+                >
+                  {col.label}
+                  {sortCol === col.key && (
+                    <span className="sort-arrow">{sortDir === 'asc' ? ' \u25B2' : ' \u25BC'}</span>
+                  )}
+                </th>
+              ))}
               <th className="queue-col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={10} className="queue-loading">Loading triage queue…</td>
+                <td colSpan={colCount} className="queue-loading"></td>
               </tr>
-            ) : items.length === 0 ? (
+            ) : tabItems.length === 0 ? (
               <tr>
-                <td colSpan={10} className="queue-empty">
-                  No items in the triage queue
-                  {stateFilter && ` with state "${stateFilter}"`}.
+                <td colSpan={colCount} className="queue-empty">
+                  {activeTab === 'analysis'
+                    ? 'No items need analysis. All items are in triage or done.'
+                    : 'No items awaiting triage. Run analysis first, then mark items "Ready for Triage".'
+                  }
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
+              sortedItems.map((item) => {
                 const evalResult = getResultForItem(item.id);
                 return (
                   <React.Fragment key={item.id}>
@@ -251,6 +612,19 @@ export default function QueuePage({ addToast }) {
                       className={`queue-row ${selectedIds.has(item.id) ? 'selected' : ''} ${evalResult ? 'has-result' : ''}`}
                       onClick={() => toggleSelect(item.id)}
                     >
+                      <td className="queue-col-analysis" onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          const hasAnalysis = !!analysisMap[String(item.id)];
+                          return (
+                            <button
+                              className={`analysis-dot ${hasAnalysis ? 'analysis-done' : 'analysis-none'}`}
+                              title={hasAnalysis ? 'View analysis details' : 'No analysis yet'}
+                              onClick={(e) => hasAnalysis ? handleAnalysisClick(item.id, e) : e.stopPropagation()}
+                              disabled={!hasAnalysis}
+                            />
+                          );
+                        })()}
+                      </td>
                       <td className="queue-col-check" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -258,38 +632,14 @@ export default function QueuePage({ addToast }) {
                           onChange={() => toggleSelect(item.id)}
                         />
                       </td>
-                      <td className="queue-col-id">
-                        <a
-                          href={item.adoLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="queue-id-link"
+                      {COLUMNS.map((col) => (
+                        <td
+                          key={col.key}
+                          className={`queue-cell ${col.sticky ? 'queue-col-id' : ''}`}
                         >
-                          {item.id}
-                        </a>
-                      </td>
-                      <td className="queue-col-title" title={item.title}>
-                        {truncate(item.title, 60)}
-                      </td>
-                      <td className="queue-col-type">{item.workItemType}</td>
-                      <td className="queue-col-state">
-                        <span className="queue-state-badge">{item.state}</span>
-                      </td>
-                      <td className="queue-col-analysis">
-                        <span className={`queue-analysis-badge analysis-${item.analysisState?.replace(/\s/g, '-').toLowerCase()}`}>
-                          {item.analysisState || '—'}
-                        </span>
-                      </td>
-                      <td className="queue-col-area" title={item.areaPath}>
-                        {truncate(item.areaPath, 30)}
-                      </td>
-                      <td className="queue-col-assigned" title={item.assignedTo}>
-                        {truncate(item.assignedTo, 20)}
-                      </td>
-                      <td className="queue-col-changed">
-                        {formatDateTime(item.changedDate)}
-                      </td>
+                          {renderCell(col, item)}
+                        </td>
+                      ))}
                       <td className="queue-col-actions" onClick={(e) => e.stopPropagation()}>
                         {evalResult && (
                           <button
@@ -298,7 +648,7 @@ export default function QueuePage({ addToast }) {
                               expandedId === item.id ? null : item.id
                             )}
                           >
-                            {expandedId === item.id ? '▼' : '▶'} Results
+                            {expandedId === item.id ? '\u25BC' : '\u25B6'} Results
                           </button>
                         )}
                         <a
@@ -307,7 +657,7 @@ export default function QueuePage({ addToast }) {
                           rel="noopener noreferrer"
                           className="btn btn-ghost btn-sm"
                         >
-                          ADO ↗
+                          ADO \u2197
                         </a>
                       </td>
                     </tr>
@@ -315,17 +665,17 @@ export default function QueuePage({ addToast }) {
                     {/* Inline Evaluation Result (expandable) */}
                     {evalResult && expandedId === item.id && (
                       <tr className="queue-result-row">
-                        <td colSpan={10}>
+                        <td colSpan={colCount}>
                           <div className="queue-result-detail">
                             <div className="queue-result-summary">
                               <span className={`queue-analysis-badge analysis-${evalResult.analysisState?.replace(/\s/g, '-').toLowerCase()}`}>
                                 {evalResult.analysisState}
                               </span>
                               {evalResult.matchedTrigger && (
-                                <span className="queue-result-tag">⚡ {evalResult.matchedTrigger}</span>
+                                <span className="queue-result-tag">\u26A1 {evalResult.matchedTrigger}</span>
                               )}
                               {evalResult.appliedRoute && (
-                                <span className="queue-result-tag">🔀 {evalResult.appliedRoute}</span>
+                                <span className="queue-result-tag">\uD83D\uDD00 {evalResult.appliedRoute}</span>
                               )}
                             </div>
 
@@ -336,7 +686,7 @@ export default function QueuePage({ addToast }) {
                                   key={ruleId}
                                   className={`queue-rule-chip ${passed ? 'rule-true' : 'rule-false'}`}
                                 >
-                                  {passed ? '✓' : '✗'} {ruleId}
+                                  {passed ? '\u2713' : '\u2717'} {ruleId}
                                 </span>
                               ))}
                             </div>
@@ -351,8 +701,8 @@ export default function QueuePage({ addToast }) {
                                   {Object.entries(evalResult.fieldsChanged).map(([field, change]) => (
                                     <tr key={field}>
                                       <td><code className="field-ref">{field}</code></td>
-                                      <td className="text-muted">{change.from ?? '—'}</td>
-                                      <td><strong>{change.to ?? '—'}</strong></td>
+                                      <td className="text-muted">{change.from ?? '\u2014'}</td>
+                                      <td><strong>{change.to ?? '\u2014'}</strong></td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -367,7 +717,7 @@ export default function QueuePage({ addToast }) {
                                   disabled={applying === evalResult.id}
                                   onClick={() => handleApply(evalResult)}
                                 >
-                                  {applying === evalResult.id ? 'Applying…' : 'Apply to ADO'}
+                                  {applying === evalResult.id ? 'Applying\u2026' : 'Apply to ADO'}
                                 </button>
                               </div>
                             )}
@@ -392,11 +742,140 @@ export default function QueuePage({ addToast }) {
         </table>
       </div>
 
+      {/* Analysis Detail Panel (slide-out) */}
+      {analysisDetailId && (
+        <div className="analysis-detail-overlay" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); }}>
+          <div className="analysis-detail-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="analysis-detail-header">
+              <h3>Analysis Details \u2014 #{analysisDetailId}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); }}>
+                \u2715
+              </button>
+            </div>
+            {loadingDetail ? (
+              <div className="analysis-detail-loading">Loading analysis...</div>
+            ) : analysisDetail ? (
+              <div className="analysis-detail-body">
+                {/* Classification */}
+                <section className="analysis-section">
+                  <h4>Classification</h4>
+                  <div className="analysis-field-grid">
+                    <div className="analysis-field">
+                      <label>Category</label>
+                      <span className="queue-badge analysis-category-badge">{(analysisDetail.category || '').replace(/_/g, ' ')}</span>
+                    </div>
+                    <div className="analysis-field">
+                      <label>Intent</label>
+                      <span>{(analysisDetail.intent || '').replace(/_/g, ' ')}</span>
+                    </div>
+                    <div className="analysis-field">
+                      <label>Confidence</label>
+                      <span className={`confidence-value ${analysisDetail.confidence >= 0.8 ? 'high' : analysisDetail.confidence >= 0.5 ? 'medium' : 'low'}`}>
+                        {((analysisDetail.confidence || 0) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="analysis-field">
+                      <label>Source</label>
+                      <span>{analysisDetail.source || '\u2014'}</span>
+                    </div>
+                    <div className="analysis-field">
+                      <label>Agreement</label>
+                      <span>{analysisDetail.agreement ? '\u2705 Yes' : '\u274C No'}</span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Business Context */}
+                <section className="analysis-section">
+                  <h4>Business Context</h4>
+                  <div className="analysis-field-grid">
+                    <div className="analysis-field">
+                      <label>Business Impact</label>
+                      <span className={`impact-badge impact-${(analysisDetail.businessImpact || '').toLowerCase()}`}>
+                        {analysisDetail.businessImpact || '\u2014'}
+                      </span>
+                    </div>
+                    <div className="analysis-field">
+                      <label>Technical Complexity</label>
+                      <span>{analysisDetail.technicalComplexity || '\u2014'}</span>
+                    </div>
+                    <div className="analysis-field">
+                      <label>Urgency</label>
+                      <span className={`impact-badge impact-${(analysisDetail.urgencyLevel || '').toLowerCase()}`}>
+                        {analysisDetail.urgencyLevel || '\u2014'}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Entities */}
+                {(analysisDetail.detectedProducts?.length > 0 || analysisDetail.azureServices?.length > 0 || analysisDetail.technologies?.length > 0) && (
+                  <section className="analysis-section">
+                    <h4>Detected Entities</h4>
+                    {analysisDetail.detectedProducts?.length > 0 && (
+                      <div className="analysis-field">
+                        <label>Products</label>
+                        <div className="analysis-tags">
+                          {analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag">{p}</span>)}
+                        </div>
+                      </div>
+                    )}
+                    {analysisDetail.azureServices?.length > 0 && (
+                      <div className="analysis-field">
+                        <label>Azure Services</label>
+                        <div className="analysis-tags">
+                          {analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag">{s}</span>)}
+                        </div>
+                      </div>
+                    )}
+                    {analysisDetail.technologies?.length > 0 && (
+                      <div className="analysis-field">
+                        <label>Technologies</label>
+                        <div className="analysis-tags">
+                          {analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag">{t}</span>)}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* Summary & Reasoning */}
+                {(analysisDetail.contextSummary || analysisDetail.reasoning) && (
+                  <section className="analysis-section">
+                    <h4>Summary</h4>
+                    {analysisDetail.contextSummary && (
+                      <div className="analysis-field">
+                        <label>Context Summary</label>
+                        <p className="analysis-text">{analysisDetail.contextSummary}</p>
+                      </div>
+                    )}
+                    {analysisDetail.reasoning && (
+                      <div className="analysis-field">
+                        <label>Reasoning</label>
+                        <p className="analysis-text">{analysisDetail.reasoning}</p>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* Metadata */}
+                <section className="analysis-section analysis-meta">
+                  <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '\u2014'}</span>
+                  <span className="text-muted">ID: {analysisDetail.id}</span>
+                </section>
+              </div>
+            ) : (
+              <div className="analysis-detail-loading">No analysis data available.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Bulk Results Summary */}
       {results && (
         <div className="queue-bulk-summary">
           <h3>
-            Evaluation Complete — {results.evaluations?.length || 0} items
+            Evaluation Complete \u2014 {results.evaluations?.length || 0} items
             {results.evaluations?.[0]?.isDryRun && (
               <span className="queue-dryrun-badge">DRY RUN</span>
             )}

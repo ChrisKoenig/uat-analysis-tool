@@ -191,6 +191,41 @@ class TriageQueueDetailsResponse(BaseModel):
     failedIds: List[int] = []
 
 
+class SavedQueryItemSummary(BaseModel):
+    """Work item from a saved ADO query with all field data."""
+    id: int
+    rev: int = 0
+    fields: Dict[str, Any] = {}
+    adoLink: str = ""
+
+
+class SavedQueryResponse(BaseModel):
+    """Response from running a saved ADO query."""
+    queryName: str = ""
+    columns: List[str] = []
+    items: List[SavedQueryItemSummary] = []
+    count: int = 0
+    totalAvailable: Optional[int] = None
+    failedIds: List[int] = []
+
+
+class AnalyzeRequest(BaseModel):
+    """Request body for running analysis on work items."""
+    workItemIds: List[int] = Field(
+        ..., description="ADO work item IDs to analyze"
+    )
+
+
+class AnalysisStateRequest(BaseModel):
+    """Request body for updating ROBAnalysisState on ADO work items."""
+    workItemIds: List[int] = Field(
+        ..., description="ADO work item IDs to update"
+    )
+    state: str = Field(
+        ..., description="New ROBAnalysisState value (e.g., 'Awaiting Approval', 'Pending')"
+    )
+
+
 class ApplyChangesRequest(BaseModel):
     """Request body for applying evaluation results to ADO"""
     evaluationId: str = Field(

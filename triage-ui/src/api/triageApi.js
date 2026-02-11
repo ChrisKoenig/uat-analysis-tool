@@ -389,6 +389,56 @@ export function getTriageQueueDetails(stateFilter = null, areaPath = null, maxRe
   return get(`/ado/queue/details?${params}`);
 }
 
+/**
+ * Run a saved ADO query and return hydrated work items.
+ * Default: "Azure Corp Daily Triage" queue.
+ */
+export function getSavedQueryResults(queryId = null, maxResults = 200) {
+  const params = new URLSearchParams();
+  if (queryId) params.set('query_id', queryId);
+  params.set('max_results', maxResults.toString());
+  return get(`/ado/queue/saved?${params}`);
+}
+
+
+// =============================================================================
+// Analysis API
+// =============================================================================
+
+/**
+ * Batch lookup analysis results for multiple work item IDs.
+ * Returns { results: { "12345": { category, intent, confidence, ... }, ... } }
+ */
+export function getAnalysisBatch(workItemIds) {
+  if (!workItemIds || workItemIds.length === 0) return Promise.resolve({ results: {} });
+  return get(`/analysis/batch?ids=${workItemIds.join(',')}`);
+}
+
+/**
+ * Get full analysis detail for a single work item.
+ */
+export function getAnalysisDetail(workItemId) {
+  return get(`/analysis/${workItemId}`);
+}
+
+/**
+ * Run the analysis engine on selected work items.
+ * Fetches from ADO, runs hybrid analyzer, stores in Cosmos.
+ */
+export function runAnalysis(workItemIds) {
+  return post('/analyze', { workItemIds });
+}
+
+/**
+ * Update ROBAnalysisState on one or more ADO work items.
+ * @param {number[]} workItemIds
+ * @param {string} state - e.g. 'Awaiting Approval', 'Pending', 'Approved'
+ */
+export function setAnalysisState(workItemIds, state) {
+  return post('/ado/analysis-state', { workItemIds, state });
+}
+
+
 /** Get ADO field definitions */
 export function getAdoFields() {
   return get('/ado/fields');
