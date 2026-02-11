@@ -44,7 +44,8 @@ triage-ui/src/
 │   ├── layout/
 │   │   └── AppLayout.jsx/.css   # Sidebar nav + content area shell
 │   ├── common/
-│   │   ├── EntityTable.jsx      # Reusable CRUD table
+│   │   ├── EntityTable.jsx      # Reusable CRUD table with toggle status
+│   │   ├── FieldCombobox.jsx/.css # ADO/Analysis field autocomplete dropdown
 │   │   ├── StatusBadge.jsx/.css # Status pill (active/disabled/staged)
 │   │   └── ViewCodeToggle.jsx/.css # JSON view toggle
 │   ├── rules/
@@ -59,7 +60,7 @@ triage-ui/src/
 │       └── RouteForm.jsx        # Route editor form
 │
 └── utils/
-    ├── constants.js             # Operators, operations, nav items, API base
+    ├── constants.js             # Operators, operations, template variables, nav items, API base
     └── helpers.js               # Formatting, validation helpers
 ```
 
@@ -126,7 +127,32 @@ All four entity pages (Rules, Actions, Triggers, Routes) follow the same pattern
 
 ### Expression Builder
 
-The Triggers page includes a visual expression builder (`ExpressionBuilder.jsx`) that lets admins compose AND/OR/NOT logic trees without writing JSON. It renders the nested expression as a draggable tree structure.
+The Triggers page includes a visual expression builder (`ExpressionBuilder.jsx`) that lets admins compose AND/OR/NOT logic trees without writing JSON. Features:
+- Nested AND/OR groups with depth-coded left borders
+- **NOT** button always visible in red accent on every rule and group
+- Single-condition AND/OR groups allowed (for wrapping a single rule)
+- Add rules from a dropdown of available active rules
+
+### FieldCombobox
+
+Reusable searchable dropdown (`FieldCombobox.jsx`) for selecting ADO and Analysis field reference names. Used in:
+- **RuleForm** — evaluable fields (`canEvaluate: true`)
+- **ActionForm** — settable fields for Target Field (`canSet: true`), evaluable fields for Copy source
+
+Features:
+- **Clear-on-focus**: clicking the field clears search text to show all options
+- **Dropdown chevron** (▼/▲) indicates it's a dropdown
+- **Flat list** sorted by display name, no group headers
+- **Selected item** highlighted with blue left border accent
+- **Custom values**: press Enter to use a typed reference name not in the list
+- Falls back to plain text input if the field list API is unavailable
+
+### ActionForm
+
+- **Operation selection** adapts the value input (text → dropdown → textarea → field picker)
+- **Value Type auto-derived**: no dropdown — set→static, copy→field_ref, template→template, set_computed→computed, append→static (or template if variables used)
+- **Template variable buttons** shown for both Template and Append operations
+- **{SubmitterAlias}** extracts alias from email for @-mentions in comments
 
 ### Evaluation Flow
 

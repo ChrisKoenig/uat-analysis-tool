@@ -27,7 +27,7 @@ python -m pytest triage/tests/test_models.py::TestTrigger::test_create_simple_tr
 
 ## Test Suite Overview
 
-**313 tests** across 8 modules, running in ~2 seconds (all in-memory, no external dependencies).
+**314 tests** across 8 modules, running in ~2 seconds (all in-memory, no external dependencies).
 
 | Module | Tests | What It Covers |
 |--------|-------|----------------|
@@ -127,8 +127,8 @@ Tests for all data model classes:
 - `set`: Static value assignment
 - `set_computed`: Computed values
 - `copy`: Field-to-field copy
-- `append`: Append to existing
-- `template`: Variable substitution
+- `append`: Append to existing (with template variable resolution via shared `_resolve_variables()`)
+- `template`: Variable substitution (uses shared `_resolve_variables()` helper)
 
 ### 3. API Tests (`test_api.py`, `test_phase2_api.py`)
 

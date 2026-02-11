@@ -71,7 +71,7 @@ POST /api/v1/rules
 |-------|------|----------|-------------|
 | `name` | string | Yes | Human-readable rule name |
 | `description` | string | No | Purpose of this rule |
-| `field` | string | Yes | ADO field reference (e.g., `Custom.SolutionArea`) |
+| `field` | string | Yes | Field reference — ADO (e.g., `Custom.SolutionArea`) or Analysis (e.g., `Analysis.Category`) |
 | `operator` | string | Yes | Comparison operator (see [Operators](#operators)) |
 | `value` | any | No | Comparison value (depends on operator) |
 | `status` | string | No | `active` \| `disabled` \| `staged` (default: `active`) |
@@ -135,7 +135,7 @@ POST /api/v1/actions
 | `field` | string | Yes | ADO field to modify |
 | `operation` | string | Yes | Operation type (see below) |
 | `value` | any | No | Value to apply |
-| `valueType` | string | No | `static` \| `computed` \| `field_ref` \| `template` |
+| `valueType` | string | No | Auto-derived from `operation` if omitted (set→static, copy→field_ref, template→template, set_computed→computed, append→static or template if variables used) |
 | `status` | string | No | `active` \| `disabled` \| `staged` |
 
 #### Operations
@@ -145,8 +145,47 @@ POST /api/v1/actions
 | `set` | Set field to a static value | `"Triage"` |
 | `set_computed` | Set field to a computed value | Current date |
 | `copy` | Copy value from another field | `System.AreaPath` → `Custom.Region` |
-| `append` | Append to existing field value | Add text to description |
-| `template` | Apply a template with variable substitution | `"Assigned to {AssignedTo}"` |
+| `append` | Append to existing value (supports template variables) | `"Triaged by @{SubmitterAlias}"` |
+| `template` | Apply a template with variable substitution | `"@{SubmitterAlias} - Please provide Milestone ID for {Title}"` |
+
+#### Template Variables
+
+Available in `template` and `append` operations:
+
+| Variable | Description |
+|----------|-------------|
+| `{CreatedBy}` | Work item creator (full email) |
+| `{SubmitterAlias}` | Alias from email (`rojyt@microsoft.com` → `@rojyt`) |
+| `{WorkItemId}` | ADO work item ID |
+| `{Title}` | Work item title |
+| `{today()}` | Current UTC date |
+| `{currentUser()}` | Authenticated user |
+| `{Analysis.Category}` | AI-classified category |
+| `{Analysis.Products}` | Detected products |
+| `{Analysis.Confidence}` | AI confidence score |
+| `{Analysis.Intent}` | Inferred intent |
+| `{Analysis.ContextSummary}` | AI-generated summary |
+
+---
+
+### Fields (`/api/v1/fields`)
+
+Field schemas for autocomplete in rule and action forms.
+
+```
+GET /api/v1/fields?source=analysis&can_evaluate=true
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `source` | string | Filter by source: `ado`, `analysis` |
+| `can_evaluate` | boolean | Include only fields usable in rules |
+| `can_set` | boolean | Include only fields usable in actions |
+| `group` | string | Filter by display group |
+
+Returns `{ items: [...], total: N }`.
+
+Includes 23 ADO fields and 14 Analysis fields (from the AI pipeline).
 
 ---
 
@@ -186,8 +225,8 @@ Expressions are nested JSON objects:
 ```
 
 - **String**: Rule ID reference → looks up True/False result
-- **`{"and": [...]}`**: All children must be True
-- **`{"or": [...]}`**: Any child must be True
+- **`{"and": [...]}`**: All children must be True (minimum 1 child)
+- **`{"or": [...]}`**: Any child must be True (minimum 1 child)
 - **`{"not": expr}`**: Inverts the child result
 
 ---

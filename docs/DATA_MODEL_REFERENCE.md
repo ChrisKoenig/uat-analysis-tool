@@ -106,17 +106,26 @@ active ←→ disabled ←→ staged
 | `set` | Set field to a static value | `"AMEA"` |
 | `set_computed` | Set to computed value | `"today()"`, `"currentUser()"` |
 | `copy` | Copy value from another field | `"System.AreaPath"` |
-| `append` | Append to existing field value | `" - Reviewed"` |
-| `template` | Variable substitution | `"Routed by {currentUser} on {today}"` |
+| `append` | Append to existing field value (supports template variables) | `"Triaged by @{SubmitterAlias}"` |
+| `template` | Variable substitution | `"Routed by {currentUser()} on {today()}"` |
 
 ### Template Variables
 
-Available in `template` operation:
-- `{today}` — Current date
-- `{currentUser}` — User who triggered the evaluation
-- `{workItemId}` — ADO work item ID
-- `{analysisState}` — Current analysis state
-- `{areaPath}` — Area Path value
+Available in `template` and `append` operations:
+
+| Variable | Resolves To |
+|----------|-------------|
+| `{CreatedBy}` | Work item creator (full email) |
+| `{SubmitterAlias}` | Alias from email (e.g., `rojyt@microsoft.com` → `@rojyt`) |
+| `{WorkItemId}` | ADO work item ID |
+| `{Title}` | Work item title |
+| `{today()}` | Current UTC date (`YYYY-MM-DD`) |
+| `{currentUser()}` | User who triggered the evaluation |
+| `{Analysis.Category}` | AI-classified category |
+| `{Analysis.Products}` | Detected products (comma-separated) |
+| `{Analysis.Confidence}` | AI confidence score |
+| `{Analysis.Intent}` | Inferred intent |
+| `{Analysis.ContextSummary}` | AI-generated context summary |
 
 ---
 
@@ -145,8 +154,8 @@ Available in `template` operation:
 ```
 
 - **String**: Rule ID → looks up True/False from rule evaluation results
-- **`{"and": [...]}`**: All children must be True
-- **`{"or": [...]}`**: Any child must be True
+- **`{"and": [...]}`**: All children must be True (minimum 1 child)
+- **`{"or": [...]}`**: Any child must be True (minimum 1 child)
 - **`{"not": expr}`**: Inverts the child result
 - Disabled/skipped rules evaluate as **False**
 - Missing rules raise **MissingRuleError**
@@ -257,3 +266,56 @@ Action ──referenced by──▶ Route (via actions list)
 | `audit-log` | `/entityType` | Grouped by entity type for filtering |
 
 All containers are auto-created on first startup.
+
+---
+
+## FieldSchema
+
+**Container**: `field-schema`  
+**Partition key**: `source`
+
+Field schemas describe every field available for rules (evaluation) and actions (modification).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Field reference name (e.g., `System.State`, `Analysis.Category`) |
+| `displayName` | string | Human-readable label |
+| `type` | string | `string` \| `integer` \| `double` \| `dateTime` \| `identity` \| `treePath` \| `html` \| `boolean` \| `stringList` |
+| `source` | string | `ado` (ADO work item field) or `analysis` (AI analysis result) |
+| `canEvaluate` | boolean | Available in Rule conditions |
+| `canSet` | boolean | Available in Action targets |
+| `operators` | string[] | Valid comparison operators for this field |
+| `allowedValues` | string[] | Pick-list of known values (if constrained) |
+| `group` | string | Display group: `Standard`, `Planning`, `Custom`, `Analysis` |
+| `description` | string | What this field represents |
+
+### Analysis Fields
+
+These fields come from the AI analysis pipeline (`source: "analysis"`, `canEvaluate: true`, `canSet: false`). Use them in rules to route work items based on AI classification:
+
+| Field ID | Display Name | Type | Allowed Values |
+|----------|-------------|------|----------------|
+| `Analysis.Category` | Analysis Category | string | capacity, feature_request, bug_report, configuration, access_permission, monitoring_alerting, documentation, security_compliance, performance, migration, cost_optimization, integration, general_inquiry |
+| `Analysis.Intent` | Analysis Intent | string | requesting_feature, reporting_bug, asking_question, requesting_access, requesting_capacity, reporting_issue, requesting_change, providing_feedback |
+| `Analysis.Confidence` | Analysis Confidence | double | 0.0 – 1.0 |
+| `Analysis.BusinessImpact` | Business Impact | string | high, medium, low |
+| `Analysis.TechnicalComplexity` | Technical Complexity | string | high, medium, low |
+| `Analysis.UrgencyLevel` | Urgency Level | string | high, medium, low |
+| `Analysis.Products` | Detected Products | stringList | (open) |
+| `Analysis.Services` | Azure Services | stringList | (open) |
+| `Analysis.Technologies` | Technologies | stringList | (open) |
+| `Analysis.Source` | Analysis Source | string | hybrid, llm, pattern, fallback |
+| `Analysis.Agreement` | Analysis Agreement | boolean | true, false |
+| `Analysis.ContextSummary` | Context Summary | string | (free text) |
+| `Analysis.PatternCategory` | Pattern Category | string | (open) |
+| `Analysis.PatternConfidence` | Pattern Confidence | double | 0.0 – 1.0 |
+
+### Example Rules Using Analysis Fields
+
+```
+IF Analysis.Category equals "capacity"        → Route to Capacity team
+IF Analysis.Category equals "feature_request"  → Route to Feature Intake
+IF Analysis.Confidence gte 0.8                  → Auto-apply route
+IF Analysis.UrgencyLevel equals "high"          → Escalate immediately
+IF Analysis.BusinessImpact equals "high"        → Flag for PM review
+```
