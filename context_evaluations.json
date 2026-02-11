@@ -7602,11 +7602,163 @@
       },
       "user_corrections": null,
       "comments": "User approved AI classification and continued to search"
+    },
+    {
+      "id": "a098bd78-df06-4890-9180-2b76f1ff2bc6",
+      "timestamp": "2026-02-11T14:35:10.601510",
+      "evaluation_result": "approve",
+      "action": "user_approved_and_continued",
+      "original_issue": {
+        "title": "MAPFRE MACC Azure Migrate – SQL assessment API behavior. portal appears to rely on a different internal API than the one the customer is calling.",
+        "description": "We need to open a Unified Action Tracker as this issue is impacting a committed MACC migration (~USD 36M). While a workaround exists, there is no permanent solution and the root cause remains unresolved. The customer is increasingly upset, the issue has been internally reproduced, and PG is still identifying the correct API. Given the business risk and escalation potential, executive visibility and ownership are required.",
+        "impact": "Enable the customer to successfully meet their MACC migration milestone, protecting committed Azure consumption and avoiding delays in the migration timeline. Reinforce confidence in Azure Migrate as a production‑ready migration tool for enterprise‑scale customers with automation requirements. Maintain transparent communication with the customer while the IcM investigation is ongoing, avoiding premature case closure. Clearly position Azure Resource Graph as a temporary workaround, not a forced substitute, until the root cause is resolved or a supported alternative is confirmed. Deliver a resolution that allows the customer to proceed without redesigning their migration approach, preserving trust and momentum."
+      },
+      "context_analysis": {
+        "category": "technical_support",
+        "intent": "escalation_request",
+        "confidence": 0.95,
+        "business_impact": "critical",
+        "technical_complexity": "medium",
+        "urgency_level": "low",
+        "key_concepts": [
+          "api",
+          "no permanent solution",
+          "azure resource graph",
+          "azure migrate",
+          "migration",
+          "sql",
+          "azure consumption and",
+          "azure migrate as"
+        ],
+        "semantic_keywords": [
+          "configuration",
+          "resolution",
+          "implementation",
+          "troubleshooting"
+        ],
+        "domain_entities": {
+          "azure_services": [
+            "azure migrate"
+          ],
+          "compliance_frameworks": [],
+          "technologies": [
+            "api",
+            "sql"
+          ],
+          "business_domains": [],
+          "technical_areas": [
+            "migration"
+          ],
+          "regions": [],
+          "discovered_services": []
+        },
+        "recommended_search_strategy": {
+          "search_retirements": false,
+          "prioritize_uats": false,
+          "prioritize_features": true,
+          "use_semantic_matching": true,
+          "expand_search_terms": true
+        },
+        "context_summary": "The inquiry describes a technical issue with Azure Migrate's SQL assessment API behavior, impacting a committed MACC migration worth $36M. The customer is upset, and executive visibility is required due to the business risk and escalation potential. The issue has been reproduced internally, and PG is still identifying the correct API, indicating a need for escalation to resolve the problem. The stated impact emphasizes the critical nature of the issue and the need for transparent communication and resolution.",
+        "reasoning": "The inquiry describes a technical issue with Azure Migrate's SQL assessment API behavior, impacting a committed MACC migration worth $36M. The customer is upset, and executive visibility is required due to the business risk and escalation potential. The issue has been reproduced internally, and PG is still identifying the correct API, indicating a need for escalation to resolve the problem. The stated impact emphasizes the critical nature of the issue and the need for transparent communication and resolution.",
+        "pattern_features": {
+          "category_scores": {
+            "IssueCategory.TECHNICAL_SUPPORT": 0.875
+          },
+          "detected_products": [],
+          "technical_indicators": [],
+          "relevant_corrections": []
+        },
+        "pattern_reasoning": {
+          "step_by_step": [
+            "[STEP 1] External Data Source Consultation",
+            "[STEP 2] Microsoft Product Detection",
+            "   [NONE] No Microsoft products detected",
+            "[STEP 3] Corrective Learning Application",
+            "   [INFO] No applicable corrections found in learning database",
+            "[STEP 4] Domain Entity Extraction",
+            "   [INFO] Extracted entities: 4 total",
+            "   [INFO] Categories: ['azure_services', 'compliance_frameworks', 'technologies', 'business_domains', 'technical_areas', 'regions', 'discovered_services']",
+            "[STEP 5] Category Classification",
+            "   [RESULT] Classified as: IssueCategory.TECHNICAL_SUPPORT (confidence: 1.00)",
+            "[STEP 6] Intent Determination",
+            "   [RESULT] Primary intent: IntentType.REQUESTING_FEATURE (confidence: 0.75)",
+            "[STEP 7] Key Concept and Keyword Analysis",
+            "   [INFO] Key concepts identified: 8",
+            "   [INFO] Semantic keywords generated: 4",
+            "[STEP 8] Business Impact and Complexity Assessment",
+            "   [INFO] Business impact: medium",
+            "   [INFO] Technical complexity: medium",
+            "[STEP 9] Search Strategy Optimization",
+            "Step 10: Context Summary Generation"
+          ],
+          "data_sources_used": [
+            {
+              "source": "Azure Services Database (.cache/azure_services.json)",
+              "status": "USED",
+              "reason": "Text contains Azure/Microsoft service references",
+              "matches_found": [
+                "azure"
+              ]
+            },
+            {
+              "source": "Regional Service Availability (.cache/regional_service_availability.json)",
+              "status": "USED",
+              "reason": "Available for region-specific service queries",
+              "data_size": "11 services mapped"
+            },
+            {
+              "source": "Microsoft Learn Documentation API",
+              "status": "AVAILABLE",
+              "reason": "External knowledge source for Microsoft product information",
+              "note": "Used for product disambiguation and context"
+            }
+          ],
+          "data_sources_skipped": [
+            {
+              "source": "Azure Regions Database",
+              "status": "SKIPPED",
+              "reason": "No geographic region keywords detected"
+            },
+            {
+              "source": "Compliance Frameworks Database",
+              "status": "SKIPPED",
+              "reason": "No compliance/regulatory/government keywords detected"
+            },
+            {
+              "source": "Service Retirements Database",
+              "status": "SKIPPED",
+              "reason": "No retirement/deprecation keywords detected"
+            }
+          ],
+          "confidence_breakdown": [
+            "Category confidence: 1.00",
+            "Intent confidence: 0.75",
+            "Overall confidence: 0.88"
+          ],
+          "microsoft_products": [],
+          "corrections_applied": [],
+          "final_analysis": {
+            "category_reason": "technical_support indicators found with 100% confidence",
+            "intent_reason": "requesting_feature patterns detected with 75% confidence",
+            "data_source_summary": "Consulted 3 data sources, skipped 3"
+          },
+          "decision_factors": []
+        },
+        "source": "llm",
+        "ai_available": true,
+        "ai_error": null,
+        "category_display": "Technical Support",
+        "intent_display": "Escalation Request",
+        "business_impact_display": "Critical"
+      },
+      "user_corrections": null,
+      "comments": "User approved AI classification and continued to search"
     }
   ],
   "statistics": {
-    "total": 51,
-    "approved": 25,
+    "total": 52,
+    "approved": 26,
     "rejected": 26
   }
 }

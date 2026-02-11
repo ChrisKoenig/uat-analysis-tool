@@ -781,6 +781,25 @@ def _map_hybrid_to_analysis_result(
     )
 
 
+@app.get("/api/v1/analyze/status", tags=["Analysis"])
+async def get_analysis_engine_status():
+    """Check whether the analysis engine and AI services are available."""
+    try:
+        analyzer = get_analyzer()
+        return {
+            "available": True,
+            "aiAvailable": getattr(analyzer, "use_ai", False),
+            "mode": "AI-Powered" if getattr(analyzer, "use_ai", False) else "Pattern Only",
+        }
+    except Exception as e:
+        return {
+            "available": False,
+            "aiAvailable": False,
+            "mode": "Unavailable",
+            "error": str(e),
+        }
+
+
 @app.post("/api/v1/analyze", tags=["Analysis"])
 async def run_analysis(body: AnalyzeRequest):
     """

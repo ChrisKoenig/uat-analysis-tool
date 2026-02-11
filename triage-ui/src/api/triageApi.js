@@ -422,6 +422,14 @@ export function getAnalysisDetail(workItemId) {
 }
 
 /**
+ * Check analysis engine status (AI availability).
+ * Returns { available, aiAvailable, mode, error? }
+ */
+export function getAnalysisEngineStatus() {
+  return get('/analyze/status');
+}
+
+/**
  * Run the analysis engine on selected work items.
  * Fetches from ADO, runs hybrid analyzer, stores in Cosmos.
  */

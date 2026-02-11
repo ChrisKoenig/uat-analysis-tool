@@ -202,5 +202,17 @@
     "created_at": "2026-01-16T14:32:43.588691",
     "ttl_days": 7,
     "hits": 0
+  },
+  "1380a275f8a9df35c4309c474775d1443131692e1afe09380451e64a864f92cd": {
+    "data": {
+      "category": "feature_request",
+      "intent": "requesting_feature",
+      "business_impact": "medium",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting a specific capability to analyze query logs for data assets and data products discovery, including metrics like access frequency, query parameters, and timing. While they briefly mention 'roadmap,' the primary focus is on requesting a feature to fulfill their needs, not explicitly asking about timelines or planned releases."
+    },
+    "created_at": "2026-02-11T14:03:16.781203",
+    "ttl_days": 7,
+    "hits": 0
   }
 }

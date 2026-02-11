@@ -232,6 +232,29 @@ export default function QueuePage({ addToast }) {
       return;
     }
 
+    // Check AI availability before starting
+    try {
+      const status = await api.getAnalysisEngineStatus();
+      if (!status.aiAvailable) {
+        const proceed = window.confirm(
+          `⚠️ AI Analysis Engine is not available.\n\n` +
+          `Mode: ${status.mode}\n` +
+          `${status.error ? `Error: ${status.error}\n\n` : '\n'}` +
+          `Analysis will use pattern matching only, which provides lower ` +
+          `confidence results without LLM-powered reasoning.\n\n` +
+          `Do you want to continue with pattern-only analysis?`
+        );
+        if (!proceed) return;
+      }
+    } catch {
+      // If status check fails, warn and let user decide
+      const proceed = window.confirm(
+        `⚠️ Unable to check analysis engine status.\n\n` +
+        `The AI service may be unavailable. Continue anyway?`
+      );
+      if (!proceed) return;
+    }
+
     // Build progress tracker with titles from loaded items
     const progressItems = ids.map((id) => {
       const item = items.find((i) => i.id === id);
@@ -933,15 +956,41 @@ export default function QueuePage({ addToast }) {
         <div className="analysis-detail-overlay" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); }}>
           <div className="analysis-detail-panel" onClick={(e) => e.stopPropagation()}>
             <div className="analysis-detail-header">
-              <h3>Analysis Details \u2014 #{analysisDetailId}</h3>
+              <h3>Analysis Details — #{analysisDetailId}</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); }}>
-                \u2715
+                {'✕'}
               </button>
             </div>
             {loadingDetail ? (
               <div className="analysis-detail-loading">Loading analysis...</div>
             ) : analysisDetail ? (
               <div className="analysis-detail-body">
+
+                {/* AI Availability Warning */}
+                {analysisDetail.aiAvailable === false && (
+                  <div className="analysis-ai-warning">
+                    {'⚠️'} AI engine was not available — results are pattern-matching only
+                    {analysisDetail.aiError && <span className="ai-error-detail"> ({analysisDetail.aiError})</span>}
+                  </div>
+                )}
+
+                {/* Quality Score (prominent) */}
+                <section className="analysis-section analysis-quality-section">
+                  <div className="quality-score-display">
+                    <div className={`quality-score-ring ${analysisDetail.confidence >= 0.8 ? 'high' : analysisDetail.confidence >= 0.5 ? 'medium' : 'low'}`}>
+                      <span className="quality-score-value">{((analysisDetail.confidence || 0) * 100).toFixed(0)}</span>
+                      <span className="quality-score-label">%</span>
+                    </div>
+                    <div className="quality-score-meta">
+                      <span className="quality-score-title">Confidence Score</span>
+                      <span className="quality-score-source">Source: {analysisDetail.source || 'Unknown'}</span>
+                      {analysisDetail.agreement !== undefined && (
+                        <span className="quality-score-agreement">{analysisDetail.agreement ? '✅ Models agree' : '❌ Models disagree'}</span>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
                 {/* Classification */}
                 <section className="analysis-section">
                   <h4>Classification</h4>
@@ -955,98 +1004,85 @@ export default function QueuePage({ addToast }) {
                       <span>{(analysisDetail.intent || '').replace(/_/g, ' ')}</span>
                     </div>
                     <div className="analysis-field">
-                      <label>Confidence</label>
-                      <span className={`confidence-value ${analysisDetail.confidence >= 0.8 ? 'high' : analysisDetail.confidence >= 0.5 ? 'medium' : 'low'}`}>
-                        {((analysisDetail.confidence || 0) * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className="analysis-field">
-                      <label>Source</label>
-                      <span>{analysisDetail.source || '\u2014'}</span>
-                    </div>
-                    <div className="analysis-field">
-                      <label>Agreement</label>
-                      <span>{analysisDetail.agreement ? '\u2705 Yes' : '\u274C No'}</span>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Business Context */}
-                <section className="analysis-section">
-                  <h4>Business Context</h4>
-                  <div className="analysis-field-grid">
-                    <div className="analysis-field">
                       <label>Business Impact</label>
                       <span className={`impact-badge impact-${(analysisDetail.businessImpact || '').toLowerCase()}`}>
-                        {analysisDetail.businessImpact || '\u2014'}
+                        {analysisDetail.businessImpact || '—'}
                       </span>
                     </div>
                     <div className="analysis-field">
                       <label>Technical Complexity</label>
-                      <span>{analysisDetail.technicalComplexity || '\u2014'}</span>
+                      <span>{analysisDetail.technicalComplexity || '—'}</span>
                     </div>
                     <div className="analysis-field">
                       <label>Urgency</label>
                       <span className={`impact-badge impact-${(analysisDetail.urgencyLevel || '').toLowerCase()}`}>
-                        {analysisDetail.urgencyLevel || '\u2014'}
+                        {analysisDetail.urgencyLevel || '—'}
                       </span>
                     </div>
                   </div>
                 </section>
 
-                {/* Entities */}
-                {(analysisDetail.detectedProducts?.length > 0 || analysisDetail.azureServices?.length > 0 || analysisDetail.technologies?.length > 0) && (
+                {/* AI Analysis Summary */}
+                {analysisDetail.contextSummary && (
                   <section className="analysis-section">
-                    <h4>Detected Entities</h4>
-                    {analysisDetail.detectedProducts?.length > 0 && (
-                      <div className="analysis-field">
-                        <label>Products</label>
-                        <div className="analysis-tags">
-                          {analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag">{p}</span>)}
-                        </div>
-                      </div>
-                    )}
-                    {analysisDetail.azureServices?.length > 0 && (
-                      <div className="analysis-field">
-                        <label>Azure Services</label>
-                        <div className="analysis-tags">
-                          {analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag">{s}</span>)}
-                        </div>
-                      </div>
-                    )}
-                    {analysisDetail.technologies?.length > 0 && (
-                      <div className="analysis-field">
-                        <label>Technologies</label>
-                        <div className="analysis-tags">
-                          {analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag">{t}</span>)}
-                        </div>
-                      </div>
-                    )}
+                    <h4>AI Analysis Summary</h4>
+                    <p className="analysis-summary-text">{analysisDetail.contextSummary}</p>
                   </section>
                 )}
 
-                {/* Summary & Reasoning */}
-                {(analysisDetail.contextSummary || analysisDetail.reasoning) && (
+                {/* Key Concepts */}
+                {analysisDetail.keyConcepts?.length > 0 && (
                   <section className="analysis-section">
-                    <h4>Summary</h4>
-                    {analysisDetail.contextSummary && (
-                      <div className="analysis-field">
-                        <label>Context Summary</label>
-                        <p className="analysis-text">{analysisDetail.contextSummary}</p>
-                      </div>
-                    )}
-                    {analysisDetail.reasoning && (
-                      <div className="analysis-field">
-                        <label>Reasoning</label>
-                        <p className="analysis-text">{analysisDetail.reasoning}</p>
-                      </div>
-                    )}
+                    <h4>Key Concepts</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.keyConcepts.map((c, i) => <span key={i} className="analysis-tag tag-concept">{c}</span>)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Azure Services */}
+                {analysisDetail.azureServices?.length > 0 && (
+                  <section className="analysis-section">
+                    <h4>Azure Services</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag tag-service">{s}</span>)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Technologies */}
+                {analysisDetail.technologies?.length > 0 && (
+                  <section className="analysis-section">
+                    <h4>Technologies</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag tag-tech">{t}</span>)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Technical Areas */}
+                {analysisDetail.technicalAreas?.length > 0 && (
+                  <section className="analysis-section">
+                    <h4>Technical Areas</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.technicalAreas.map((a, i) => <span key={i} className="analysis-tag tag-area">{a}</span>)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Products */}
+                {analysisDetail.detectedProducts?.length > 0 && (
+                  <section className="analysis-section">
+                    <h4>Detected Products</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag tag-product">{p}</span>)}
+                    </div>
                   </section>
                 )}
 
                 {/* Metadata */}
                 <section className="analysis-section analysis-meta">
-                  <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '\u2014'}</span>
+                  <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '—'}</span>
                   <span className="text-muted">ID: {analysisDetail.id}</span>
                 </section>
               </div>
@@ -1061,7 +1097,7 @@ export default function QueuePage({ addToast }) {
       {results && (
         <div className="queue-bulk-summary">
           <h3>
-            Evaluation Complete \u2014 {results.evaluations?.length || 0} items
+            Evaluation Complete — {results.evaluations?.length || 0} items
             {results.evaluations?.[0]?.isDryRun && (
               <span className="queue-dryrun-badge">DRY RUN</span>
             )}
