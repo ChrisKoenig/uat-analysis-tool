@@ -71,6 +71,11 @@ export const TEMPLATE_VARIABLES = [
   '{Title}',
   '{today()}',
   '{currentUser()}',
+  '{Analysis.Category}',
+  '{Analysis.Products}',
+  '{Analysis.Confidence}',
+  '{Analysis.Intent}',
+  '{Analysis.ContextSummary}',
 ];
 
 
@@ -91,13 +96,13 @@ export const STATUSES = [
 // ---------------------------------------------------------------------------
 export const ANALYSIS_STATES = [
   'Pending',
-  'Evaluated',
   'Awaiting Approval',
-  'Approved',
   'Needs Info',
+  'Redirected',
   'No Match',
-  'Override',
   'Error',
+  'Approved',
+  'Override',
 ];
 
 

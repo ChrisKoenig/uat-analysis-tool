@@ -3,7 +3,7 @@ Route Model
 ============
 
 Represents a collection of actions to execute when a decision tree matches.
-Routes are the third layer of the four-layer model, grouping atomic actions
+Routes are the fourth layer of the four-layer model, grouping atomic actions
 into a logical set that together produce a complete triage routing.
 
 When a route executes, ALL of its actions are applied to the work item
@@ -37,7 +37,7 @@ class Route(BaseEntity):
     """
     A collection of actions that execute together when a tree matches.
     
-    Routes are the third layer of the four-layer model. They group
+    Routes are the fourth layer of the four-layer model. They group
     atomic actions into meaningful routing outcomes. When a decision
     tree evaluates to True, its Route is executed, applying all
     referenced actions to the work item.

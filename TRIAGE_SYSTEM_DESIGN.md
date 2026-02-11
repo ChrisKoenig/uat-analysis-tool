@@ -1,7 +1,8 @@
 # Triage Management System - Design Document
 
 **Created**: February 10, 2026  
-**Status**: Phase 1 - Foundation  
+**Updated**: February 11, 2026  
+**Status**: Phases 1–5 Complete (Foundation through Hardening)  
 **Author**: GitHub Copilot + Brad Price
 
 ---
@@ -233,8 +234,11 @@ After processing, the triage person:
 | **Needs Info** | Missing data, submitter pinged via Discussion comments | No |
 | **Redirected** | Out of scope, instructions posted, item being closed | No |
 | **No Match** | No decision tree matched, needs manual triage | No |
+| **Error** | Pipeline error during evaluation | No |
 | **Approved** | Human confirmed routing, no changes made | Yes |
 | **Override** | Human confirmed routing with modifications | Yes |
+
+Re-triggerable states (allow re-evaluation): Pending, Needs Info, No Match, Error.
 
 ### ADO Fields for State Management
 
@@ -350,13 +354,19 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
 
 | Variable | Resolves To |
 |----------|-------------|
-| `{CreatedBy}` | Work item creator |
-| `{WorkItemId}` | Work item ID |
+| `{CreatedBy}` | Work item creator (`System.CreatedBy`) |
+| `{WorkItemId}` | Work item ID (`System.Id`) |
 | `{Title}` | Work item title |
-| `{today()}` | Current date |
+| `{today()}` | Current date (UTC, YYYY-MM-DD) |
 | `{currentUser()}` | Authenticated user |
 | `{Analysis.Category}` | Analysis result category |
-| `{Analysis.Products}` | Detected products |
+| `{Analysis.Products}` | Detected products (comma-separated) |
+| `{Analysis.Confidence}` | Analysis confidence score |
+| `{Analysis.Intent}` | Detected intent |
+| `{Analysis.ContextSummary}` | Analysis context summary |
+
+> `Analysis.*` variables resolve only when analysis data is available.
+> Unresolved variables are left as-is with a warning logged.
 
 ---
 
@@ -564,105 +574,96 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
 
 ### Base URL: `http://localhost:8009/api/v1`
 
-### Rules API
+### Entity CRUD APIs (Rules, Actions, Trees, Routes)
+
+All four entity types share the same 8-endpoint pattern:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/rules` | List all rules (filterable by status) |
-| `GET` | `/rules/{id}` | Get single rule |
-| `POST` | `/rules` | Create rule |
-| `PUT` | `/rules/{id}` | Update rule |
-| `DELETE` | `/rules/{id}` | Delete rule |
-| `POST` | `/rules/{id}/copy` | Copy/clone rule |
+| `GET` | `/{entities}` | List all (filterable by `?status=`) |
+| `GET` | `/{entities}/{id}` | Get single entity |
+| `POST` | `/{entities}` | Create entity |
+| `PUT` | `/{entities}/{id}` | Update entity (optimistic locking via `version`) |
+| `DELETE` | `/{entities}/{id}` | Soft delete (`?hard=true` for permanent) |
+| `POST` | `/{entities}/{id}/copy` | Clone entity |
+| `PUT` | `/{entities}/{id}/status` | Change status (active/disabled/staged) |
+| `GET` | `/{entities}/{id}/references` | Cross-references (which trees use this rule, etc.) |
 
-### Actions API
+Where `{entities}` is one of: `rules`, `actions`, `trees`, `routes` (32 endpoints total).
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/actions` | List all actions |
-| `GET` | `/actions/{id}` | Get single action |
-| `POST` | `/actions` | Create action |
-| `PUT` | `/actions/{id}` | Update action |
-| `DELETE` | `/actions/{id}` | Delete action |
-| `POST` | `/actions/{id}/copy` | Copy/clone action |
-
-### Trees API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/trees` | List all trees (sortable by priority) |
-| `GET` | `/trees/{id}` | Get single tree |
-| `POST` | `/trees` | Create tree |
-| `PUT` | `/trees/{id}` | Update tree |
-| `DELETE` | `/trees/{id}` | Delete tree |
-| `POST` | `/trees/{id}/copy` | Copy/clone tree |
-
-### Routes API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/routes` | List all routes |
-| `GET` | `/routes/{id}` | Get single route |
-| `POST` | `/routes` | Create route |
-| `PUT` | `/routes/{id}` | Update route |
-| `DELETE` | `/routes/{id}` | Delete route |
-| `POST` | `/routes/{id}/copy` | Copy/clone route |
+Delete is blocked if the entity is still referenced by other entities.
 
 ### Evaluation API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/evaluate` | Evaluate work item(s) - full pipeline |
-| `POST` | `/evaluate/test` | Dry run - no ADO updates |
-| `GET` | `/evaluations/{workItemId}` | Get evaluation history for item |
-| `GET` | `/evaluations` | List evaluations (filterable by date, state) |
+| `POST` | `/evaluate` | Evaluate work item(s) — full pipeline |
+| `POST` | `/evaluate/test` | Dry run — no ADO updates, results stored |
+| `POST` | `/evaluate/apply` | Apply a stored evaluation to ADO |
+| `GET` | `/evaluations/{workItemId}` | Get evaluation history for a work item |
 
-### Field Schema API
+### ADO Integration API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/fields` | Get all field definitions |
-| `POST` | `/fields/refresh` | Re-pull from ADO API |
-| `PUT` | `/fields/{id}` | Update field enrichment (operators, group) |
+| `GET` | `/ado/queue` | Fetch triage queue work item IDs |
+| `GET` | `/ado/queue/details` | Fetch queue with hydrated fields |
+| `GET` | `/ado/workitem/{id}` | Fetch a single work item from ADO |
+| `GET` | `/ado/status` | ADO connection health check |
+| `GET` | `/ado/fields` | ADO field definitions for the Action work item type |
+
+### Webhook API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/webhook/workitem` | Receive ADO Service Hook notifications |
+| `GET` | `/webhook/stats` | Webhook processing statistics |
 
 ### Validation API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/validation/warnings` | Get all validation warnings (orphans, conflicts, etc.) |
-| `GET` | `/validation/references/{type}/{id}` | Get usage references for an entity |
+| `GET` | `/validation/warnings` | System-wide validation (orphans, broken refs, dup priorities) |
+| `GET` | `/validation/references/{type}/{id}` | Entity reference lookup |
 
 ### Audit API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/audit` | List audit entries (filterable) |
+| `GET` | `/audit` | List audit entries (filterable by entity_type, actor) |
 | `GET` | `/audit/{entityType}/{entityId}` | Audit history for specific entity |
+
+### Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Service health + Cosmos DB status |
+
+**Total: 48 endpoints** (32 CRUD + 16 specialized)
 
 ---
 
 ## Admin UI
 
 ### Tech Stack
-- **React** with blade-style layout (Azure portal pattern)
-- **Flask/FastAPI** backend API (port 8009)
+- **React** (Vite) with blade-style layout (Azure portal pattern)
+- **FastAPI** backend API (port 8009)
 
 ### Layout
 
-Left navigation:
-- Evaluate Triage
-- Analytics (future)
-- Rules
-- Trees
-- Actions
-- Routes
-- Users
+Left navigation (sidebar):
 
-> **Design note:** The nav order follows the compositional hierarchy —
-> Rules are atomic conditions composed into Trees; Actions are atomic
-> operations composed into Routes.
+| Section | Items |
+|---------|-------|
+| Operations | Dashboard, Queue, Evaluate |
+| Configuration | Rules, Trees, Actions, Routes |
+| System | Validation, Audit Log, Eval History |
 
-### Features
+> **Design note:** The configuration nav order follows the compositional
+> hierarchy — Rules are atomic conditions composed into Trees; Actions are
+> atomic operations composed into Routes.
+
+### Features (Implemented)
 
 - **CRUD** for all four layers (rules, trees, actions, routes — in compositional order)
 - **Expression builder** for decision trees (nested AND/OR groups)
@@ -670,11 +671,18 @@ Left navigation:
 - **Status management**: Active / Disabled / Staged per item
 - **Copy/Clone** any item
 - **"Used in" references**: Rule shows which trees reference it
-- **Execution preview**: Full chain display when clicking any item
-- **View Code toggle**: DSL view for power users
+- **View Code toggle**: JSON view for power users
 - **Validation warnings**: Inline alerts for conflicts, orphans, duplicates
-- **Import/Export**: Bulk operations for initial setup
+- **Confirm dialogs**: Safe delete with reference checking
+- **Status filter**: Filter entity lists by active/disabled/staged
 - **Test mode**: Enter work item ID → dry run without updating ADO
+
+### Features (Planned)
+
+- **Import/Export**: Bulk operations for initial setup
+- **Execution preview**: Full chain display when clicking any item
+- **Analytics dashboard**: Rule hit rates, route frequency, triage throughput
+- **User management**: Admin roles and permissions
 
 ---
 
@@ -691,55 +699,70 @@ Left navigation:
 
 ## Build Phases
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✅
 Backend infrastructure, data layer, core engine logic.
-- Cosmos DB setup (8 containers)
-- Data models for all entities
-- Rules Engine (evaluate atomic rules → T/F)
-- Decision Tree Engine (walk trees, find first TRUE match)
-- Routes Engine (execute action collections)
-- CRUD APIs for rules, actions, trees, routes
-- Audit logging
+- Cosmos DB setup (8 containers) with in-memory fallback for local dev
+- Data models for all entities (BaseEntity + Rule, Action, Tree, Route, Evaluation, AnalysisResult, AuditEntry, FieldSchema)
+- Rules Engine (15 operators, evaluate atomic rules → T/F)
+- Decision Tree Engine (AND/OR/NOT expressions, priority-ordered, first TRUE wins)
+- Routes Engine (5 operations: set, set_computed, copy, append, template)
+- CRUD APIs for rules, actions, trees, routes (8 endpoints each, 32 total)
+- Audit logging service
 - ADO field schema integration
 - Analysis results storage
+- Centralized logging (`triage.*` namespace, `TRIAGE_LOG_LEVEL` env var)
 
-### Phase 2: ADO Integration
+### Phase 2: ADO Integration ✅
 Connect the engine to real ADO data.
-- Fetch work items from triage queue
-- Analysis engine → Cosmos DB → rules engine pipeline
-- ADO write-back with 409 conflict handling
+- Fetch work items from triage queue (WIQL-based)
+- Full evaluation pipeline (rules → trees → route → state → HTML → store)
+- ADO write-back with 409 conflict handling (revision-aware)
 - Analysis.State management (Custom.ROBAnalysisState)
 - HTML summary generation (Custom.pChallengeDetails)
 - Discussion comment posting (@ping for Needs Info)
-- Evaluation logging
+- Evaluation logging with full trace
+- Webhook receiver (ADO Service Hooks) with HMAC verification
+- Batch evaluation support
+- Dual-org pattern (read from production, write to test)
 
-### Phase 3: React UI - Admin
+### Phase 3: React UI - Admin ✅
 Admin can manage rules, trees, actions, routes.
-- React project setup with blade-style layout
-- Rules, Actions, Trees, Routes management pages
-- Expression builder for trees
-- Visual route designer
-- Validation warnings
-- Status management (Active/Disabled/Staged)
-- Execution preview and View Code toggle
+- React + Vite project with blade-style layout (76 modules)
+- Rules, Actions, Trees, Routes CRUD pages with EntityTable
+- Expression builder for trees (nested AND/OR/NOT groups)
+- Visual route designer (action sequencer)
+- Validation page (orphans, broken refs, dup priorities)
+- Status management (Active/Disabled/Staged) with StatusBadge
+- View Code toggle (JSON view)
+- Confirm dialogs for safe delete
+- Status filter dropdowns
 
-### Phase 4: React UI - Triage
+### Phase 4: React UI - Triage ✅
 Triage person can evaluate queue and review results.
-- Queue view from ADO query
-- Select & evaluate functionality
-- Results review per item
+- Queue page from ADO query with hydrated fields
+- Evaluate page — select items, run pipeline
+- Dashboard — system overview
+- Eval History page — past evaluations
+- Audit Log page — change history
 - ADO deep links
 
-### Phase 5: Test Mode & Hardening
+### Phase 5: Test Mode & Hardening ✅
 Safe testing, edge cases, production readiness.
-- Dry run test mode
-- Staged rules (test-only visibility)
-- Optimistic locking for concurrent edits
-- Error handling for missing references
-- Disabled rule behavior in trees
+- Dry run test mode (results stored, no ADO writes)
+- Staged rules/actions/trees/routes (test-only visibility via `include_staged`)
+- Optimistic locking for concurrent edits (all entity types)
+- Referential integrity on delete (blocked if still referenced)
+- Broken reference validation (trees→rules, trees→routes, routes→actions)
+- Error state in evaluation pipeline
+- 313 automated tests across 8 test modules
 
 ### Phase 6: Analytics & Fine Tuning (Future)
-Deferred - build first, analyze later.
+Deferred — build first, analyze later.
+- Rule hit-rate analytics
+- Route frequency tracking
+- Triage throughput metrics
+- Import/Export for bulk operations
+- User management and roles
 
 ---
 
@@ -747,12 +770,13 @@ Deferred - build first, analyze later.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| ADO authentication | Azure AD interactive login | AzureCliCredential → InteractiveBrowserCredential chain; no PAT tokens |
 | Integration method | Service Hooks (webhooks) | ADO extensions blocked by MS security policy |
 | Human review location | Native ADO interface | Business processes require ADO |
 | Route application | Before human review | System applies, human reviews/approves |
 | Storage | Cosmos DB | Flexible schema, audit, analytics, Azure-native |
 | Frontend | React | Complex interactive UI (expression builders, visual designers) |
-| Backend | Flask/FastAPI (single service) | Consistent with existing Python stack, right scale |
+| Backend | FastAPI (single service) | Consistent with existing Python stack, async-capable, auto-docs |
 | Rule evaluation | All rules first, then walk trees | Analytics value from knowing all rule results |
 | Tree matching | First TRUE by priority | Deterministic, predictable routing |
 | Disabled rules in AND trees | Tree evaluates as FALSE | Safe - prevents incorrect routing |
@@ -768,19 +792,31 @@ Deferred - build first, analyze later.
 
 ### Start Services
 ```powershell
-# Start triage API
-python triage_service.py  # port 8009
+# Start triage API (from project root)
+python -m triage.triage_service          # port 8009
+# — or use the launcher script —
+.\start_triage.ps1
 
 # Start React UI (development)
 cd triage-ui
-npm start               # port 3000
+npm run dev              # port 3000
 ```
+
+### API Documentation (auto-generated)
+- Swagger UI: http://localhost:8009/docs
+- ReDoc: http://localhost:8009/redoc
 
 ### Test Commands
 ```powershell
+# Run all 313 automated tests
+python -m pytest triage/tests/ -v
+
 # Evaluate a single work item (dry run)
-curl -X POST http://localhost:8009/api/v1/evaluate/test -d '{"workItemIds": [12345]}'
+curl -X POST http://localhost:8009/api/v1/evaluate/test -H "Content-Type: application/json" -d '{"workItemIds": [12345]}'
 
 # List all active rules
 curl http://localhost:8009/api/v1/rules?status=active
+
+# Check service health
+curl http://localhost:8009/health
 ```

@@ -55,6 +55,9 @@ TEMPLATE_VARIABLES = [
     "{currentUser()}",
     "{Analysis.Category}",
     "{Analysis.Products}",
+    "{Analysis.Confidence}",
+    "{Analysis.Intent}",
+    "{Analysis.ContextSummary}",
 ]
 
 
