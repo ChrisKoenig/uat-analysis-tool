@@ -52,9 +52,18 @@
 }
 
 .queue-tab.active {
-  color: var(--primary);
   background: var(--card-bg, #fff);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* Analysis tab — blue */
+.queue-tab.tab-analysis.active {
+  color: #1565c0;
+}
+
+/* Triage tab — green */
+.queue-tab.tab-triage.active {
+  color: #2e7d32;
 }
 
 .queue-tab-count {
@@ -71,8 +80,13 @@
   color: var(--text-light);
 }
 
-.queue-tab.active .queue-tab-count {
-  background: var(--primary);
+.queue-tab.tab-analysis.active .queue-tab-count {
+  background: #1565c0;
+  color: #fff;
+}
+
+.queue-tab.tab-triage.active .queue-tab-count {
+  background: #2e7d32;
   color: #fff;
 }
 
@@ -95,11 +109,25 @@
   gap: 6px;
 }
 
-.queue-action-buttons .btn {
+/* Toolbar buttons — neutral gray */
+.btn-toolbar {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #d0d0d0;
   font-size: 12px;
   padding: 5px 12px;
   font-weight: 600;
   border-radius: 6px;
+}
+
+.btn-toolbar:hover:not(:disabled) {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+.btn-toolbar:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ── Table ───────────────────────────────────────────────────── */

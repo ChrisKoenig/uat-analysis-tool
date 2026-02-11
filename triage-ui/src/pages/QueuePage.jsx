@@ -567,25 +567,7 @@ export default function QueuePage({ addToast }) {
         </div>
       </div>
 
-      {/* ── Tab Bar ─────────────────────────────────────────────── */}
-      <div className="queue-tabs">
-        <button
-          className={`queue-tab ${activeTab === 'analysis' ? 'active' : ''}`}
-          onClick={() => handleTabChange('analysis')}
-        >
-          🔬 Analysis
-          <span className="queue-tab-count">{analysisItems.length}</span>
-        </button>
-        <button
-          className={`queue-tab ${activeTab === 'triage' ? 'active' : ''}`}
-          onClick={() => handleTabChange('triage')}
-        >
-          ⚖️ Triage
-          <span className="queue-tab-count">{triageItems.length}</span>
-        </button>
-      </div>
-
-      {/* ── Action Bar (varies per tab) ─────────────────────────── */}
+      {/* ── Toolbar ───────────────────────────────────────────────── */}
       <div className="queue-action-bar">
         <span className="queue-count">
           {loading ? 'Loading\u2026' : `${tabItems.length} items`}
@@ -596,14 +578,14 @@ export default function QueuePage({ addToast }) {
           {activeTab === 'analysis' ? (
             <>
               <button
-                className="btn btn-primary"
+                className="btn btn-toolbar"
                 disabled={selectedIds.size === 0 || busy}
                 onClick={handleAnalyze}
               >
                 {analyzing ? 'Analyzing…' : '🧠 Analyze Selected'}
               </button>
               <button
-                className="btn btn-success"
+                className="btn btn-toolbar"
                 disabled={selectedIds.size === 0 || busy}
                 onClick={() => handleSetState('Awaiting Approval')}
                 title="Mark selected items as ready for triage"
@@ -614,21 +596,21 @@ export default function QueuePage({ addToast }) {
           ) : (
             <>
               <button
-                className="btn btn-secondary"
+                className="btn btn-toolbar"
                 disabled={selectedIds.size === 0 || busy}
                 onClick={() => handleEvaluate(true)}
               >
                 {evaluating ? 'Evaluating…' : '🧪 Dry Run Selected'}
               </button>
               <button
-                className="btn btn-primary"
+                className="btn btn-toolbar"
                 disabled={selectedIds.size === 0 || busy}
                 onClick={() => handleEvaluate(false)}
               >
                 {evaluating ? 'Evaluating…' : '⚡ Evaluate Selected'}
               </button>
               <button
-                className="btn btn-warning"
+                className="btn btn-toolbar"
                 disabled={selectedIds.size === 0 || busy}
                 onClick={() => handleSetState('Pending', 'Returned items to Analysis')}
                 title="Return selected items to the Analysis tab"
@@ -638,6 +620,24 @@ export default function QueuePage({ addToast }) {
             </>
           )}
         </div>
+      </div>
+
+      {/* ── Tab Bar ─────────────────────────────────────────────── */}
+      <div className="queue-tabs">
+        <button
+          className={`queue-tab tab-analysis ${activeTab === 'analysis' ? 'active' : ''}`}
+          onClick={() => handleTabChange('analysis')}
+        >
+          🔬 Analysis
+          <span className="queue-tab-count">{analysisItems.length}</span>
+        </button>
+        <button
+          className={`queue-tab tab-triage ${activeTab === 'triage' ? 'active' : ''}`}
+          onClick={() => handleTabChange('triage')}
+        >
+          ⚖️ Triage
+          <span className="queue-tab-count">{triageItems.length}</span>
+        </button>
       </div>
 
       {/* Loading / Busy Overlay (non-analysis) */}
