@@ -1,0 +1,39 @@
+/**
+ * ActionsPage Styles
+ * Same layout pattern as RulesPage.
+ */
+
+.actions-page {
+  max-width: 1400px;
+}
+
+.actions-layout {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.actions-list {
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.2s ease;
+}
+
+.actions-list-narrow {
+  flex: 0.55;
+}
+
+.actions-detail-panel {
+  flex: 0.45;
+  min-width: 380px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  position: sticky;
+  top: var(--space-lg);
+}
+
+.actions-count {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+}

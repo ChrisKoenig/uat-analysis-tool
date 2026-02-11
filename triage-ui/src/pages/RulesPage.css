@@ -1,0 +1,85 @@
+/**
+ * RulesPage Styles
+ */
+
+.rules-page {
+  max-width: 1400px;
+}
+
+/* ── Blade Layout (list + detail panel) ──────────────────────── */
+
+.rules-layout {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.rules-list {
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.2s ease;
+}
+
+.rules-list-narrow {
+  flex: 0.55;
+}
+
+.rules-detail-panel {
+  flex: 0.45;
+  min-width: 380px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  position: sticky;
+  top: var(--space-lg);
+}
+
+.rules-count {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+}
+
+/* ── Field Reference ─────────────────────────────────────────── */
+
+.field-ref {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: var(--font-size-xs);
+  background: var(--muted-bg);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.text-muted {
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* ── Panel Sections ──────────────────────────────────────────── */
+
+.panel-section {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.panel-section h3 {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.reference-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.reference-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+}

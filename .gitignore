@@ -49,8 +49,8 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-test_*.py
+# Project specific (root-level scratch test files only)
+/test_*.py
 *_backup.*
 *_old.*
 app_backup.py
@@ -60,6 +60,9 @@ app_backup.py
 
 # Backups
 backup_*/
+
+# Node
+node_modules/
 
 # Logs
 *.log

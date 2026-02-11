@@ -1,0 +1,40 @@
+/**
+ * AppLayout Styles
+ * =================
+ *
+ * Two-column layout: fixed sidebar + scrollable content.
+ */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-content {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  padding: var(--space-lg);
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* Page-level heading used by each page component */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.page-header h1 {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}

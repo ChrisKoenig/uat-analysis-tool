@@ -1,0 +1,197 @@
+/**
+ * ExpressionBuilder Styles
+ * =========================
+ *
+ * Visual nested expression editor with depth-coded colors.
+ */
+
+.expression-builder {
+  font-size: var(--font-size-md);
+}
+
+/* ── Empty State ─────────────────────────────────────────────── */
+
+.expr-empty-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.expr-empty {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Group Container ─────────────────────────────────────────── */
+
+.expr-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  margin: var(--space-xs) 0;
+}
+
+/* Depth-coded left borders for visual nesting */
+.expr-group-depth-0 { border-left: 3px solid #0078d4; }
+.expr-group-depth-1 { border-left: 3px solid #ca5010; }
+.expr-group-depth-2 { border-left: 3px solid #107c10; }
+.expr-group-depth-3 { border-left: 3px solid #8764b8; }
+
+.expr-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--content-bg);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.expr-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  font-family: var(--font-family);
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.expr-group-toggle:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.expr-group-children {
+  padding: var(--space-sm);
+}
+
+.expr-group-footer {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-top: 1px dashed var(--border);
+}
+
+/* ── Child Row ───────────────────────────────────────────────── */
+
+.expr-child-row {
+  position: relative;
+}
+
+.expr-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.expr-separator-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-light);
+  padding: 0 8px;
+  background: var(--card-bg);
+}
+
+/* ── Leaf (Rule Reference) ───────────────────────────────────── */
+
+.expr-leaf {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-sm);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin: var(--space-xs) 0;
+}
+
+.expr-leaf:hover {
+  border-color: var(--primary);
+}
+
+.expr-leaf-disabled {
+  opacity: 0.6;
+}
+
+.expr-leaf-icon {
+  font-size: var(--font-size-sm);
+}
+
+.expr-leaf-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.expr-leaf-badge {
+  font-size: var(--font-size-xs);
+  padding: 1px 6px;
+  background: var(--muted-bg);
+  color: var(--muted);
+  border-radius: 8px;
+}
+
+/* ── NOT Wrapper ─────────────────────────────────────────────── */
+
+.expr-not-wrapper {
+  margin: var(--space-xs) 0;
+}
+
+.expr-not-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border: 1px solid var(--danger);
+  border-bottom: none;
+}
+
+.expr-not-content {
+  border: 1px dashed var(--danger);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) var(--radius-sm);
+  padding: var(--space-xs);
+  background: rgba(211, 52, 56, 0.03);
+}
+
+/* ── Shared Node Actions ─────────────────────────────────────── */
+
+.expr-node-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.expr-leaf:hover .expr-node-actions,
+.expr-group-header:hover .expr-node-actions,
+.expr-not-label:hover .expr-node-actions {
+  opacity: 1;
+}
+
+/* ── Add Rule Dropdown ───────────────────────────────────────── */
+
+.add-rule-dropdown {
+  min-width: 200px;
+}
+
+.add-rule-dropdown .form-select {
+  font-size: var(--font-size-sm);
+  padding: 4px 8px;
+}

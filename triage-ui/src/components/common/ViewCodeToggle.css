@@ -1,0 +1,22 @@
+/**
+ * ViewCodeToggle Styles
+ */
+
+.view-code-toggle {
+  margin-top: var(--space-sm);
+}
+
+.view-code-block {
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  background: #1e1e2e;
+  color: #d4d4d4;
+  border-radius: var(--radius-md);
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  max-height: 400px;
+  overflow-y: auto;
+}

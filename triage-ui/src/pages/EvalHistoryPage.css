@@ -1,0 +1,386 @@
+/**
+ * EvalHistoryPage.css — Styles for Evaluation History Browser
+ * =============================================================
+ *
+ * Timeline-style layout with expandable cards. Uses the same
+ * colour variables as the rest of the triage UI for consistency.
+ */
+
+
+/* ── Page Layout ─────────────────────────────────────────────── */
+
+.eval-history-page {
+  padding: 1.5rem 2rem;
+  max-width: 1100px;
+}
+
+.eval-history-page h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  color: var(--text);
+}
+
+.eval-subtitle {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+
+/* ── Search Bar ──────────────────────────────────────────────── */
+
+.eval-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.eval-search-bar label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.eval-search-bar input[type='number'] {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  font-size: 0.92rem;
+  width: 140px;
+}
+
+.eval-search-bar input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.15);
+}
+
+.eval-limit-select {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.eval-search-btn {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 4px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.eval-search-btn:hover:not(:disabled) {
+  background: var(--primary-hover, #005fa3);
+}
+
+.eval-search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ── Loading / Empty ─────────────────────────────────────────── */
+
+.eval-loading,
+.eval-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.eval-empty strong {
+  color: var(--text);
+}
+
+
+/* ── Result Header ───────────────────────────────────────────── */
+
+.eval-result-header {
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.eval-result-header a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.eval-result-header a:hover {
+  text-decoration: underline;
+}
+
+
+/* ── Timeline Cards ──────────────────────────────────────────── */
+
+.eval-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eval-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.eval-card:hover {
+  border-color: var(--primary);
+}
+
+.eval-card.expanded {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.eval-card.dry-run {
+  border-left: 3px solid var(--warning, #e6a817);
+}
+
+
+/* ── Card Header ─────────────────────────────────────────────── */
+
+.eval-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  flex-wrap: wrap;
+}
+
+.eval-card-header:hover {
+  background: rgba(0, 120, 215, 0.04);
+}
+
+.eval-card-arrow {
+  font-size: 0.7rem;
+  width: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.eval-card-date {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 150px;
+}
+
+.eval-dryrun-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  background: var(--warning, #e6a817);
+  color: #1a1a2e;
+}
+
+.eval-card-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.eval-card-meta span {
+  white-space: nowrap;
+}
+
+
+/* ── Analysis State Badges ───────────────────────────────────── */
+
+.eval-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badge-pending     { background: #444; color: #ccc; }
+.badge-evaluated   { background: #1a6fc4; color: #fff; }
+.badge-awaiting    { background: #c48f1a; color: #fff; }
+.badge-approved    { background: #2e7d32; color: #fff; }
+.badge-applied     { background: #1b5e20; color: #fff; }
+.badge-needsinfo   { background: #b8860b; color: #fff; }
+.badge-error       { background: #c62828; color: #fff; }
+
+
+/* ── Expanded Detail Panel ───────────────────────────────────── */
+
+.eval-card-detail {
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.eval-detail-row {
+  display: flex;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  font-size: 0.88rem;
+}
+
+.eval-detail-label {
+  min-width: 140px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.eval-detail-value {
+  color: var(--text);
+}
+
+.eval-detail-value code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+  background: var(--bg-secondary);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+
+/* ── Detail Sections ─────────────────────────────────────────── */
+
+.eval-detail-section {
+  margin-top: 0.75rem;
+}
+
+.eval-detail-section h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.eval-muted {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+
+/* ── Rule Chips ──────────────────────────────────────────────── */
+
+.eval-rule-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.eval-rule-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.chip-pass {
+  background: rgba(46, 125, 50, 0.15);
+  color: #4caf50;
+}
+
+.chip-fail {
+  background: rgba(198, 40, 40, 0.15);
+  color: #ef5350;
+}
+
+
+/* ── Field Changes Table ─────────────────────────────────────── */
+
+.eval-changes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.eval-changes-table th {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.eval-changes-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+}
+
+.eval-field-name {
+  font-weight: 600;
+  color: var(--primary) !important;
+}
+
+.eval-field-from {
+  color: var(--text-muted) !important;
+  text-decoration: line-through;
+}
+
+.eval-field-to {
+  color: var(--success, #4caf50) !important;
+}
+
+
+/* ── Skipped Rules / Errors ──────────────────────────────────── */
+
+.eval-skipped-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.eval-errors {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  background: rgba(198, 40, 40, 0.08);
+  border-left: 3px solid #c62828;
+  font-size: 0.85rem;
+}
+
+.eval-errors strong {
+  color: #ef5350;
+}
+
+.eval-errors ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text);
+}

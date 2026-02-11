@@ -1,0 +1,96 @@
+/**
+ * ValidationPage Styles
+ */
+
+.validation-page {
+  max-width: 1100px;
+}
+
+/* ── Summary Bar ─────────────────────────────────────────────── */
+
+.validation-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  font-size: var(--font-size-sm);
+}
+
+.validation-summary-total {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.validation-all-clear {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.validation-loading {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-light);
+}
+
+/* ── Warning Groups ──────────────────────────────────────────── */
+
+.validation-group {
+  margin-bottom: var(--space-md);
+}
+
+.validation-group .card-header h2 {
+  font-size: var(--font-size-md);
+}
+
+/* ── Validation Table ────────────────────────────────────────── */
+
+.validation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.validation-table th {
+  text-align: left;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-light);
+  border-bottom: 1px solid var(--border);
+}
+
+.validation-table td {
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.validation-row:hover {
+  background: var(--primary-light);
+}
+
+/* ── Type Badges ─────────────────────────────────────────────── */
+
+.validation-type-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.validation-type-badge.severity-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.validation-type-badge.severity-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.validation-type-badge.severity-info {
+  background: var(--primary-light);
+  color: var(--primary);
+}

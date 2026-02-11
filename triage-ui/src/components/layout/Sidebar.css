@@ -1,0 +1,140 @@
+/**
+ * Sidebar Styles
+ * ===============
+ *
+ * Dark sidebar with Azure portal-inspired design.
+ */
+
+/* ── Container ───────────────────────────────────────────────── */
+
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+
+/* ── Brand Area ──────────────────────────────────────────────── */
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-brand-icon {
+  font-size: 1.5rem;
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-brand-title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.sidebar-brand-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--sidebar-text);
+  opacity: 0.7;
+}
+
+
+/* ── Navigation ──────────────────────────────────────────────── */
+
+.sidebar-nav {
+  flex: 1;
+  padding: var(--space-sm) 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  color: var(--sidebar-text);
+  text-decoration: none;
+  font-size: var(--font-size-md);
+  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-link:hover {
+  background: var(--sidebar-hover);
+  color: #ffffff;
+}
+
+.sidebar-link-active {
+  background: rgba(0, 120, 212, 0.15);
+  color: #ffffff;
+  border-left-color: var(--sidebar-active);
+  font-weight: 600;
+}
+
+.sidebar-link-icon {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-link-label {
+  white-space: nowrap;
+}
+
+.sidebar-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: var(--space-sm) var(--space-md);
+}
+
+
+/* ── Footer / Health ─────────────────────────────────────────── */
+
+.sidebar-footer {
+  padding: var(--space-md);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-health {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--sidebar-text);
+}
+
+.sidebar-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.sidebar-health.healthy .sidebar-health-dot {
+  background: #2ea043;
+}
+
+.sidebar-health.degraded .sidebar-health-dot {
+  background: var(--warning);
+}
+
+.sidebar-health-text {
+  opacity: 0.8;
+}

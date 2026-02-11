@@ -1,0 +1,48 @@
+/**
+ * RoutesPage Styles
+ */
+
+.routes-page {
+  max-width: 1400px;
+}
+
+.routes-layout {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.routes-list {
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.2s ease;
+}
+
+.routes-list-narrow {
+  flex: 0.4;
+}
+
+.routes-detail-panel {
+  flex: 0.6;
+  min-width: 500px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  position: sticky;
+  top: var(--space-lg);
+}
+
+.routes-count {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+}
+
+/* Form-specific spacing */
+.route-form .form-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}

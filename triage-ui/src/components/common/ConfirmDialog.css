@@ -1,0 +1,48 @@
+/**
+ * ConfirmDialog Styles
+ */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.confirm-dialog {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: var(--space-lg);
+  min-width: 380px;
+  max-width: 480px;
+  outline: none;
+}
+
+.confirm-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+}
+
+.confirm-message {
+  font-size: var(--font-size-md);
+  color: var(--text-light);
+  margin: 0 0 var(--space-lg);
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

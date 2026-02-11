@@ -1,0 +1,122 @@
+/**
+ * RouteDesigner Styles
+ */
+
+.route-designer {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.route-designer-available,
+.route-designer-selected {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  min-height: 200px;
+}
+
+.route-designer-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--content-bg);
+  border-bottom: 1px solid var(--border);
+  margin: 0;
+}
+
+.route-designer-arrow {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  color: var(--text-light);
+  padding-top: 80px;
+}
+
+.route-designer-empty {
+  padding: var(--space-md);
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── List items ──────────────────────────────────────────────── */
+
+.route-designer-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.route-designer-available-item,
+.route-designer-selected-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.route-designer-available-item:hover,
+.route-designer-selected-item:hover {
+  background: var(--primary-light);
+}
+
+.route-designer-available-item:last-child,
+.route-designer-selected-item:last-child {
+  border-bottom: none;
+}
+
+/* Step number indicator for ordered list */
+.route-designer-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Item info block */
+.route-designer-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-designer-item-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.route-designer-item-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Action buttons for reorder/remove */
+.route-designer-item-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.route-designer-selected-item:hover .route-designer-item-actions {
+  opacity: 1;
+}

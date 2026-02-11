@@ -1,0 +1,131 @@
+/**
+ * Constants
+ * =========
+ *
+ * Shared constants for the Triage Management UI.
+ * Mirrors values from the backend Python models to keep
+ * the frontend in sync without runtime validation calls.
+ */
+
+// ---------------------------------------------------------------------------
+// API base path — in development, Vite proxy forwards /api to port 8009
+// ---------------------------------------------------------------------------
+export const API_BASE = '/api/v1';
+
+// ---------------------------------------------------------------------------
+// ADO base URL — used for deep-linking to work items in the browser.
+// Points to the READ org (production data source).
+// ---------------------------------------------------------------------------
+export const ADO_BASE_URL =
+  'https://dev.azure.com/unifiedactiontracker/Unified%20Action%20Tracker';
+
+
+// ---------------------------------------------------------------------------
+// Rule Operators
+// Mirrors triage/models/rule.py → VALID_OPERATORS (15 total)
+// ---------------------------------------------------------------------------
+export const OPERATORS = [
+  { value: 'equals',      label: 'Equals',             group: 'String / All' },
+  { value: 'notEquals',   label: 'Not Equals',         group: 'String / All' },
+  { value: 'in',          label: 'In (list)',          group: 'String / All' },
+  { value: 'notIn',       label: 'Not In (list)',      group: 'String / All' },
+  { value: 'isNull',      label: 'Is Null',            group: 'String / All' },
+  { value: 'isNotNull',   label: 'Is Not Null',        group: 'String / All' },
+  { value: 'contains',    label: 'Contains',           group: 'String' },
+  { value: 'notContains', label: 'Not Contains',       group: 'String' },
+  { value: 'startsWith',  label: 'Starts With',        group: 'String' },
+  { value: 'matches',     label: 'Matches (Regex)',    group: 'String' },
+  { value: 'under',       label: 'Under (Tree Path)',  group: 'Hierarchical' },
+  { value: 'gt',          label: 'Greater Than',       group: 'Numeric / Date' },
+  { value: 'lt',          label: 'Less Than',          group: 'Numeric / Date' },
+  { value: 'gte',         label: 'Greater or Equal',   group: 'Numeric / Date' },
+  { value: 'lte',         label: 'Less or Equal',      group: 'Numeric / Date' },
+];
+
+/**
+ * Operators that don't require a value input (null checks).
+ */
+export const VALUELESS_OPERATORS = ['isNull', 'isNotNull'];
+
+
+// ---------------------------------------------------------------------------
+// Action Operations
+// Mirrors triage/models/action.py → VALID_OPERATIONS (5 total)
+// ---------------------------------------------------------------------------
+export const OPERATIONS = [
+  { value: 'set',          label: 'Set',           description: 'Set field to a static value' },
+  { value: 'set_computed', label: 'Set Computed',  description: 'Set to computed value (today(), currentUser())' },
+  { value: 'copy',         label: 'Copy',          description: 'Copy value from another field' },
+  { value: 'append',       label: 'Append',        description: 'Append to existing value' },
+  { value: 'template',     label: 'Template',      description: 'Set with variable substitution' },
+];
+
+
+// ---------------------------------------------------------------------------
+// Template Variables (for the "template" operation)
+// Mirrors triage/models/action.py → TEMPLATE_VARIABLES
+// ---------------------------------------------------------------------------
+export const TEMPLATE_VARIABLES = [
+  '{CreatedBy}',
+  '{WorkItemId}',
+  '{Title}',
+  '{today()}',
+  '{currentUser()}',
+];
+
+
+// ---------------------------------------------------------------------------
+// Entity Statuses
+// Shared across rules, actions, trees, routes
+// ---------------------------------------------------------------------------
+export const STATUSES = [
+  { value: 'active',   label: 'Active',   color: 'var(--success)' },
+  { value: 'disabled', label: 'Disabled', color: 'var(--muted)' },
+  { value: 'staged',   label: 'Staged',   color: 'var(--warning)' },
+];
+
+
+// ---------------------------------------------------------------------------
+// Analysis States
+// From the evaluation state machine
+// ---------------------------------------------------------------------------
+export const ANALYSIS_STATES = [
+  'Pending',
+  'Evaluated',
+  'Awaiting Approval',
+  'Approved',
+  'Needs Info',
+  'No Match',
+  'Override',
+  'Error',
+];
+
+
+// ---------------------------------------------------------------------------
+// Value Types for Actions
+// ---------------------------------------------------------------------------
+export const VALUE_TYPES = [
+  { value: 'static',     label: 'Static Value' },
+  { value: 'computed',   label: 'Computed Expression' },
+  { value: 'field_ref',  label: 'Field Reference' },
+  { value: 'template',   label: 'Template String' },
+];
+
+
+// ---------------------------------------------------------------------------
+// Navigation items for the sidebar
+// ---------------------------------------------------------------------------
+export const NAV_ITEMS = [
+  { path: '/',           label: 'Dashboard',   icon: '📊' },
+  { path: '/queue',      label: 'Queue',       icon: '📥' },
+  { path: '/evaluate',   label: 'Evaluate',    icon: '⚡' },
+  { divider: true },
+  { path: '/rules',      label: 'Rules',       icon: '📋' },
+  { path: '/trees',      label: 'Trees',       icon: '🌳' },
+  { path: '/routes',     label: 'Routes',      icon: '🔀' },
+  { path: '/actions',    label: 'Actions',     icon: '🎯' },
+  { divider: true },
+  { path: '/validation', label: 'Validation',  icon: '⚠️' },
+  { path: '/audit',      label: 'Audit Log',   icon: '📜' },
+  { path: '/history',    label: 'Eval History', icon: '📑' },
+];
