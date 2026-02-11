@@ -38,7 +38,7 @@ export default function RulesPage({ addToast }) {
   const [statusFilter, setStatusFilter] = useState(null);
   const [selectedRule, setSelectedRule] = useState(null);
   const [formMode, setFormMode] = useState(null); // 'create' | 'edit' | null
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
   const [references, setReferences] = useState(null);
 
 
@@ -91,23 +91,20 @@ export default function RulesPage({ addToast }) {
     }
   };
 
-  /** Initiate delete (shows confirmation dialog) */
-  const handleDeleteClick = (rule) => {
-    setDeleteTarget(rule);
+  /** Initiate status toggle (shows confirmation dialog) */
+  const handleToggleStatusClick = (rule) => {
+    setToggleTarget(rule);
   };
 
-  /** Confirm delete */
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
+  /** Confirm status toggle (disable or enable) */
+  const handleToggleStatusConfirm = async () => {
+    if (!toggleTarget) return;
+    const newStatus = toggleTarget.status === 'disabled' ? 'active' : 'disabled';
+    const action = newStatus === 'disabled' ? 'Disabled' : 'Enabled';
     try {
-      await api.deleteRule(deleteTarget.id, { version: deleteTarget.version });
-      addToast?.(`Deleted "${deleteTarget.name}"`, 'success');
-      setDeleteTarget(null);
-      // Close detail panel if the deleted rule was selected
-      if (selectedRule?.id === deleteTarget.id) {
-        setSelectedRule(null);
-        setFormMode(null);
-      }
+      await api.updateRuleStatus(toggleTarget.id, newStatus, toggleTarget.version);
+      addToast?.(`${action} "${toggleTarget.name}"`, 'success');
+      setToggleTarget(null);
       loadRules();
     } catch (err) {
       if (err.status === 409) {
@@ -115,7 +112,7 @@ export default function RulesPage({ addToast }) {
       } else {
         addToast?.(err.message, 'error');
       }
-      setDeleteTarget(null);
+      setToggleTarget(null);
     }
   };
 
@@ -209,7 +206,7 @@ export default function RulesPage({ addToast }) {
               onRowClick={handleEdit}
               onEdit={handleEdit}
               onCopy={handleCopy}
-              onDelete={handleDeleteClick}
+              onToggleStatus={handleToggleStatusClick}
             />
           </div>
 
@@ -264,14 +261,19 @@ export default function RulesPage({ addToast }) {
         )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Toggle Status Confirmation Dialog */}
       <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete Rule"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete Rule"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTarget(null)}
+        open={!!toggleTarget}
+        title={toggleTarget?.status === 'disabled' ? 'Enable Rule' : 'Disable Rule'}
+        message={
+          toggleTarget?.status === 'disabled'
+            ? `Enable "${toggleTarget?.name}"? It will be included in evaluations again.`
+            : `Disable "${toggleTarget?.name}"? It will be excluded from evaluations. You can re-enable it later.`
+        }
+        confirmLabel={toggleTarget?.status === 'disabled' ? 'Enable Rule' : 'Disable Rule'}
+        danger={toggleTarget?.status !== 'disabled'}
+        onConfirm={handleToggleStatusConfirm}
+        onCancel={() => setToggleTarget(null)}
       />
     </div>
   );

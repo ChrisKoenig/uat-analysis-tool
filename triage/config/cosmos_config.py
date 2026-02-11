@@ -120,6 +120,7 @@ class CosmosDBConfig:
         self._database = None
         self._containers: Dict[str, Any] = {}
         self._initialized = False
+        self._in_memory = False
         
         # Load configuration from Key Vault / environment
         self._load_config()
@@ -246,10 +247,37 @@ class CosmosDBConfig:
         """
         Ensure all containers exist with correct partition keys.
         Creates missing containers automatically on first access.
+        Falls back to in-memory storage if no Cosmos DB endpoint is configured.
         """
         if self._initialized:
             return
-            
+        
+        # ── In-memory fallback when Cosmos DB is not configured ──
+        if not self.endpoint:
+            from .memory_store import InMemoryContainer, seed_containers
+            logger.warning(
+                "COSMOS_ENDPOINT not set — using in-memory storage "
+                "(data will not persist across restarts)"
+            )
+            self._in_memory = True
+            for name, defn in CONTAINER_DEFINITIONS.items():
+                self._containers[name] = InMemoryContainer(
+                    container_name=name,
+                    partition_key_path=defn["partition_key"]
+                )
+                logger.info(
+                    "  [MEM] Container '%s' ready (partition: %s)",
+                    name, defn['partition_key'],
+                )
+            seed_containers(self._containers)
+            self._initialized = True
+            logger.info(
+                "All %d containers initialized (in-memory mode)",
+                len(CONTAINER_DEFINITIONS)
+            )
+            return
+        
+        # ── Real Cosmos DB initialization ──
         self._ensure_database()
         
         for container_name, definition in CONTAINER_DEFINITIONS.items():
@@ -310,9 +338,10 @@ class CosmosDBConfig:
         """
         try:
             self._ensure_containers()
+            status = "healthy (in-memory)" if self._in_memory else "healthy"
             return {
-                "status": "healthy",
-                "endpoint": self.endpoint,
+                "status": status,
+                "endpoint": self.endpoint or "in-memory",
                 "database": self.database_name,
                 "containers": {
                     name: {
@@ -321,7 +350,7 @@ class CosmosDBConfig:
                     }
                     for name, defn in CONTAINER_DEFINITIONS.items()
                 },
-                "auth_mode": "aad" if self.use_aad else "key"
+                "auth_mode": "in-memory" if self._in_memory else ("aad" if self.use_aad else "key")
             }
         except Exception as e:
             return {

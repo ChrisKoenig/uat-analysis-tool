@@ -32,7 +32,7 @@ export default function TriggersPage({ addToast }) {
   const [statusFilter, setStatusFilter] = useState(null);
   const [selectedTrigger, setSelectedTrigger] = useState(null);
   const [formMode, setFormMode] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
 
 
   // ── Data Loading ─────────────────────────────────────────────
@@ -92,18 +92,16 @@ export default function TriggersPage({ addToast }) {
     }
   };
 
-  const handleDeleteClick = (trigger) => setDeleteTarget(trigger);
+  const handleToggleStatusClick = (trigger) => setToggleTarget(trigger);
 
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
+  const handleToggleStatusConfirm = async () => {
+    if (!toggleTarget) return;
+    const newStatus = toggleTarget.status === 'disabled' ? 'active' : 'disabled';
+    const action = newStatus === 'disabled' ? 'Disabled' : 'Enabled';
     try {
-      await api.deleteTrigger(deleteTarget.id, { version: deleteTarget.version });
-      addToast?.(`Deleted "${deleteTarget.name}"`, 'success');
-      setDeleteTarget(null);
-      if (selectedTrigger?.id === deleteTarget.id) {
-        setSelectedTrigger(null);
-        setFormMode(null);
-      }
+      await api.updateTriggerStatus(toggleTarget.id, newStatus, toggleTarget.version);
+      addToast?.(`${action} "${toggleTarget.name}"`, 'success');
+      setToggleTarget(null);
       loadData();
     } catch (err) {
       if (err.status === 409) {
@@ -111,7 +109,7 @@ export default function TriggersPage({ addToast }) {
       } else {
         addToast?.(err.message, 'error');
       }
-      setDeleteTarget(null);
+      setToggleTarget(null);
     }
   };
 
@@ -204,7 +202,7 @@ export default function TriggersPage({ addToast }) {
               onRowClick={handleEdit}
               onEdit={handleEdit}
               onCopy={handleCopy}
-              onDelete={handleDeleteClick}
+              onToggleStatus={handleToggleStatusClick}
             />
           </div>
           <div className="triggers-count">
@@ -250,12 +248,17 @@ export default function TriggersPage({ addToast }) {
       </div>
 
       <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete Trigger"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
-        confirmLabel="Delete Trigger"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTarget(null)}
+        open={!!toggleTarget}
+        title={toggleTarget?.status === 'disabled' ? 'Enable Trigger' : 'Disable Trigger'}
+        message={
+          toggleTarget?.status === 'disabled'
+            ? `Enable "${toggleTarget?.name}"? It will participate in evaluations again.`
+            : `Disable "${toggleTarget?.name}"? It will be skipped during evaluations. You can re-enable it later.`
+        }
+        confirmLabel={toggleTarget?.status === 'disabled' ? 'Enable Trigger' : 'Disable Trigger'}
+        danger={toggleTarget?.status !== 'disabled'}
+        onConfirm={handleToggleStatusConfirm}
+        onCancel={() => setToggleTarget(null)}
       />
     </div>
   );

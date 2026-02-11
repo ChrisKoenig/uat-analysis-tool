@@ -46,6 +46,14 @@
   align-items: center;
 }
 
+.btn-icon-disable:hover {
+  color: var(--warning);
+}
+
+.btn-icon-enable:hover {
+  color: var(--success);
+}
+
 /* ── Loading State ───────────────────────────────────────────── */
 
 .entity-table-loading {

@@ -36,6 +36,7 @@ export default function EntityTable({
   onEdit,
   onCopy,
   onDelete,
+  onToggleStatus,
   loading = false,
   emptyMessage = 'No items found.',
 }) {
@@ -66,7 +67,7 @@ export default function EntityTable({
               </th>
             ))}
             {/* Actions column */}
-            {(onEdit || onCopy || onDelete) && (
+            {(onEdit || onCopy || onDelete || onToggleStatus) && (
               <th style={{ width: '120px' }}>Actions</th>
             )}
           </tr>
@@ -89,7 +90,7 @@ export default function EntityTable({
               ))}
 
               {/* Action buttons — stop propagation to prevent row click */}
-              {(onEdit || onCopy || onDelete) && (
+              {(onEdit || onCopy || onDelete || onToggleStatus) && (
                 <td className="entity-table-actions" onClick={(e) => e.stopPropagation()}>
                   {onEdit && (
                     <button
@@ -107,6 +108,15 @@ export default function EntityTable({
                       onClick={() => onCopy(item)}
                     >
                       📋
+                    </button>
+                  )}
+                  {onToggleStatus && (
+                    <button
+                      className={`btn-icon ${item.status === 'disabled' ? 'btn-icon-enable' : 'btn-icon-disable'}`}
+                      title={item.status === 'disabled' ? 'Enable' : 'Disable'}
+                      onClick={() => onToggleStatus(item)}
+                    >
+                      {item.status === 'disabled' ? '▶️' : '⏸️'}
                     </button>
                   )}
                   {onDelete && (
