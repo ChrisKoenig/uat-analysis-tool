@@ -1274,6 +1274,7 @@ async def webhook_stats():
 @app.get("/api/v1/audit", tags=["Audit"])
 async def list_audit(
     entity_type: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
     actor: Optional[str] = Query(None),
     limit: int = Query(50, le=200)
 ):
@@ -1283,6 +1284,7 @@ async def list_audit(
         audit = get_audit()
         entries = audit.get_recent(
             entity_type=entity_type,
+            action=action,
             actor=actor,
             limit=limit
         )

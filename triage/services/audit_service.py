@@ -179,6 +179,7 @@ class AuditService:
     def get_recent(
         self,
         entity_type: Optional[str] = None,
+        action: Optional[str] = None,
         actor: Optional[str] = None,
         limit: int = 50
     ) -> List[Dict[str, Any]]:
@@ -187,6 +188,9 @@ class AuditService:
         
         Args:
             entity_type: Filter by entity type
+            action:      Filter by action (e.g. 'create', 'update', 'delete');
+                         matches the operation suffix of the stored action
+                         (e.g. 'create' matches 'rule.create')
             actor:       Filter by actor email
             limit:       Maximum entries to return
             
@@ -202,6 +206,12 @@ class AuditService:
         if entity_type:
             conditions.append("c.entityType = @entityType")
             params.append({"name": "@entityType", "value": entity_type})
+        
+        if action:
+            # Actions are stored as "entity.operation" (e.g. "rule.create").
+            # Filter by the operation suffix using CONTAINS.
+            conditions.append("CONTAINS(c.action, @action)")
+            params.append({"name": "@action", "value": action})
         
         if actor:
             conditions.append("c.actor = @actor")

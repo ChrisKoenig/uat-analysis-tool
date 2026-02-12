@@ -473,9 +473,10 @@ export function getReferences(entityType, entityId) {
 // =============================================================================
 
 /** List recent audit entries */
-export function listAudit(entityType = null, actor = null, limit = 50) {
+export function listAudit({ entity_type, action, actor, limit = 50 } = {}) {
   const params = new URLSearchParams();
-  if (entityType) params.set('entity_type', entityType);
+  if (entity_type) params.set('entity_type', entity_type);
+  if (action) params.set('action', action);
   if (actor) params.set('actor', actor);
   params.set('limit', limit.toString());
   return get(`/audit?${params}`);

@@ -16,8 +16,17 @@ import './AuditPage.css';
 /** Entity types available for filtering */
 const ENTITY_TYPES = ['all', 'rule', 'action', 'trigger', 'route'];
 
-/** Audit actions for filtering */
-const AUDIT_ACTIONS = ['all', 'created', 'updated', 'deleted', 'status_changed', 'copied'];
+/** Audit actions for filtering (matches operation suffix in stored "entity.operation" format) */
+const AUDIT_ACTIONS = [
+  { value: 'all',      label: 'All Actions' },
+  { value: 'create',   label: 'Created' },
+  { value: 'update',   label: 'Updated' },
+  { value: 'delete',   label: 'Deleted' },
+  { value: 'activate', label: 'Activated' },
+  { value: 'disable',  label: 'Disabled' },
+  { value: 'copy',     label: 'Copied' },
+  { value: 'evaluate', label: 'Evaluated' },
+];
 
 
 export default function AuditPage({ addToast }) {
@@ -66,14 +75,21 @@ export default function AuditPage({ addToast }) {
 
   // ── Action Color ─────────────────────────────────────────────
 
+  /** Extract the operation part from "entity.operation" format */
+  const getOperation = (action) => (action || '').split('.').pop();
+
   const actionColor = (action) => {
-    switch (action) {
-      case 'created': return 'audit-created';
-      case 'deleted': return 'audit-deleted';
-      case 'updated': return 'audit-updated';
-      case 'status_changed': return 'audit-status';
-      case 'copied': return 'audit-copied';
-      default: return '';
+    const op = getOperation(action);
+    switch (op) {
+      case 'create':   return 'audit-created';
+      case 'delete':   return 'audit-deleted';
+      case 'update':   return 'audit-updated';
+      case 'activate':
+      case 'disable':
+      case 'stage':    return 'audit-status';
+      case 'copy':     return 'audit-copied';
+      case 'evaluate': return 'audit-evaluate';
+      default:         return '';
     }
   };
 
@@ -112,8 +128,8 @@ export default function AuditPage({ addToast }) {
               onChange={(e) => updateFilter('action', e.target.value)}
             >
               {AUDIT_ACTIONS.map((a) => (
-                <option key={a} value={a}>
-                  {a === 'all' ? 'All Actions' : capitalize(a.replace(/_/g, ' '))}
+                <option key={a.value} value={a.value}>
+                  {a.label}
                 </option>
               ))}
             </select>
@@ -159,7 +175,7 @@ export default function AuditPage({ addToast }) {
             <div className="audit-entry-header">
               <div className="audit-entry-summary">
                 <span className={`audit-action-badge ${actionColor(entry.action)}`}>
-                  {(entry.action || '').replace(/_/g, ' ')}
+                  {capitalize(getOperation(entry.action))}
                 </span>
                 <span className="audit-entity-type">
                   {capitalize(entry.entityType || entry.entity_type || '')}
