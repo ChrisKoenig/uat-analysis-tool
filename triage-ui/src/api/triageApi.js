@@ -494,10 +494,13 @@ export function getEntityAudit(entityType, entityId, limit = 50) {
 
 /** Service health check */
 export function getHealth() {
-  return request('/health', { method: 'GET' }).catch(() => ({
-    status: 'unreachable',
-    service: 'triage-api',
-  }));
+  // Health endpoint is at /health, not under /api/v1
+  return fetch('/health')
+    .then((r) => r.json())
+    .catch(() => ({
+      status: 'unreachable',
+      service: 'triage-api',
+    }));
 }
 
 
