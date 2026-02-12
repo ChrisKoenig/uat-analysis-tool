@@ -15,6 +15,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as api from '../api/triageApi';
+import { getCachedQueue, setCachedQueue, clearQueueCache } from '../api/queueCache';
 import { formatDate, truncate } from '../utils/helpers';
 import './QueuePage.css';
 
@@ -116,7 +117,20 @@ export default function QueuePage({ addToast }) {
 
   // ── Load Queue (Saved Query) ─────────────────────────────────
 
-  const loadQueue = useCallback(async () => {
+  const loadQueue = useCallback(async (forceRefresh = false) => {
+    // Check cache first (skip on explicit refresh)
+    if (!forceRefresh) {
+      const cached = getCachedQueue();
+      if (cached) {
+        setItems(cached.items);
+        setQueryName(cached.queryName);
+        setTotalAvailable(cached.totalAvailable);
+        setAnalysisMap(cached.analysisMap);
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(true);
     setSelectedIds(new Set());
     setResults(null);
@@ -126,23 +140,35 @@ export default function QueuePage({ addToast }) {
     try {
       const data = await api.getSavedQueryResults(null, 200);
       const loadedItems = data.items || [];
+      const loadedQueryName = data.queryName || '';
+      const loadedTotal = data.totalAvailable || data.count || 0;
       setItems(loadedItems);
-      setQueryName(data.queryName || '');
-      setTotalAvailable(data.totalAvailable || data.count || 0);
+      setQueryName(loadedQueryName);
+      setTotalAvailable(loadedTotal);
       if (data.failedIds?.length > 0) {
         addToast?.(`${data.failedIds.length} items failed to load`, 'warning');
       }
 
       // Batch-fetch analysis status for all work item IDs
+      let loadedAnalysisMap = {};
       if (loadedItems.length > 0) {
         try {
           const ids = loadedItems.map((i) => i.id);
           const analysisData = await api.getAnalysisBatch(ids);
-          setAnalysisMap(analysisData.results || {});
+          loadedAnalysisMap = analysisData.results || {};
+          setAnalysisMap(loadedAnalysisMap);
         } catch {
           // Non-fatal: analysis lookup can fail silently
         }
       }
+
+      // Persist to cache
+      setCachedQueue({
+        items: loadedItems,
+        queryName: loadedQueryName,
+        totalAvailable: loadedTotal,
+        analysisMap: loadedAnalysisMap,
+      });
     } catch (err) {
       addToast?.(err.message, 'error');
       setItems([]);
@@ -150,6 +176,12 @@ export default function QueuePage({ addToast }) {
       setLoading(false);
     }
   }, [addToast]);
+
+  /** Force-refresh: clears cache and reloads from ADO */
+  const refreshQueue = useCallback(() => {
+    clearQueueCache();
+    loadQueue(true);
+  }, [loadQueue]);
 
 
   useEffect(() => {
@@ -359,6 +391,7 @@ export default function QueuePage({ addToast }) {
       setAnalysisMap((prev) => ({ ...prev, ...(analysisData.results || {}) }));
     } catch { /* non-fatal */ }
 
+    clearQueueCache(); // data changed — invalidate
     setAnalyzing(false);
   };
 
@@ -389,6 +422,7 @@ export default function QueuePage({ addToast }) {
         )
       );
       setSelectedIds(new Set());
+      clearQueueCache(); // data changed — invalidate
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
@@ -444,6 +478,7 @@ export default function QueuePage({ addToast }) {
       addToast?.(err.message, 'error');
     } finally {
       setApplying(null);
+      clearQueueCache(); // ADO was written — stale cache
     }
   };
 
@@ -582,7 +617,7 @@ export default function QueuePage({ addToast }) {
           )}
           <button
             className="btn btn-secondary"
-            onClick={loadQueue}
+            onClick={refreshQueue}
             disabled={busy}
           >
             🔄 Refresh
