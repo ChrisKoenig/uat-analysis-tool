@@ -213,15 +213,15 @@ export default function AuditPage({ addToast }) {
                       <tr key={field}>
                         <td><code className="field-ref">{field}</code></td>
                         <td className="text-muted">
-                          {typeof change.before === 'object'
-                            ? JSON.stringify(change.before, null, 2)
-                            : String(change.before ?? '—')}
+                          {typeof change.from === 'object'
+                            ? JSON.stringify(change.from, null, 2)
+                            : String(change.from ?? '—')}
                         </td>
                         <td>
                           <strong>
-                            {typeof change.after === 'object'
-                              ? JSON.stringify(change.after, null, 2)
-                              : String(change.after ?? '—')}
+                            {typeof change.to === 'object'
+                              ? JSON.stringify(change.to, null, 2)
+                              : String(change.to ?? '—')}
                           </strong>
                         </td>
                       </tr>
