@@ -134,4 +134,8 @@ export const NAV_ITEMS = [
   { path: '/validation', label: 'Validation',  icon: '⚠️' },
   { path: '/audit',      label: 'Audit Log',   icon: '📜' },
   { path: '/history',    label: 'Eval History', icon: '📑' },
+  { divider: true },
+  { path: '/classify',    label: 'Classify',     icon: '🔬' },
+  { path: '/corrections', label: 'Corrections',  icon: '✏️' },
+  { path: '/health',      label: 'Health',       icon: '💚' },
 ];

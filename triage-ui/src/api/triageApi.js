@@ -512,3 +512,82 @@ export function getHealth() {
 export function getWebhookStats() {
   return get('/webhook/stats');
 }
+
+
+// =============================================================================
+// Classify API (standalone classification — no ADO coupling)
+// =============================================================================
+
+/**
+ * Classify raw text using the hybrid AI + pattern engine.
+ * Stateless — no ADO lookups or Cosmos writes.
+ *
+ * @param {Object} params
+ * @param {string} params.title - Item title (required)
+ * @param {string} [params.description] - Detailed description
+ * @param {string} [params.impact] - Business impact
+ * @param {boolean} [params.include_pattern_details] - Include full pattern evidence
+ * @returns {Promise<Object>} Classification result
+ */
+export function classify(params) {
+  return post('/classify', params);
+}
+
+/**
+ * Batch classify up to 20 items at once.
+ * @param {Array<Object>} items - Array of { title, description?, impact? }
+ */
+export function classifyBatch(items) {
+  return post('/classify/batch', { items });
+}
+
+/** Check AI classification engine status */
+export function getClassifyStatus() {
+  return get('/classify/status');
+}
+
+/** List all known classification categories */
+export function getClassifyCategories() {
+  return get('/classify/categories');
+}
+
+
+// =============================================================================
+// Corrections API (corrective learning management)
+// =============================================================================
+
+/** List all corrective learning entries */
+export function listCorrections() {
+  return get('/admin/corrections');
+}
+
+/**
+ * Add a new correction.
+ * @param {Object} correction
+ * @param {string} correction.original_category
+ * @param {string} correction.corrected_category
+ * @param {string} [correction.original_text]
+ * @param {string} [correction.corrected_intent]
+ * @param {string} [correction.correction_notes]
+ */
+export function addCorrection(correction) {
+  return post('/admin/corrections', correction);
+}
+
+/** Delete a correction by index (zero-based) */
+export function deleteCorrection(index) {
+  return del(`/admin/corrections/${index}`);
+}
+
+
+// =============================================================================
+// Health Dashboard API (comprehensive system health)
+// =============================================================================
+
+/**
+ * Get full health dashboard — checks Cosmos, OpenAI, KV, ADO, cache.
+ * Different from getHealth() which is just the lightweight /health ping.
+ */
+export function getHealthDashboard() {
+  return get('/admin/health');
+}

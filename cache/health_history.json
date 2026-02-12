@@ -286,5 +286,1121 @@
     "service": "vector-search",
     "status": "up",
     "response_time": 5.3709999999999996
+  },
+  {
+    "timestamp": "2026-02-11T18:59:14.499058",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:18.532190",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:22.550555",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:22.935184",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:26.583132",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:26.965458",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:30.619361",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:30.991155",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:34.635470",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:35.021690",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:38.669851",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T18:59:39.059316",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:00:59.405848",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:03.439632",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:07.470158",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:08.033789",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:11.506270",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:12.057734",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:15.550376",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:16.075079",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:19.570466",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:20.113602",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:23.606722",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:24.159528",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:27.652077",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:28.195998",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:32.238854",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:01:36.277136",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:31.765797",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:35.843423",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:39.903573",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:40.352928",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:43.955246",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:44.402161",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:48.007777",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:48.450525",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:52.058396",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:52.484330",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:56.114715",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:06:56.683767",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:07:00.166271",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:07:00.757228",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:07:04.795920",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:07:08.852437",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:29.199059",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:33.266503",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:37.327896",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:41.397105",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:48.487939",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:52.536705",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:08:56.582577",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:00.628313",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:18.400271",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:22.437722",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:26.494753",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:30.553925",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:34.602158",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:38.649668",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:42.672146",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:09:46.694779",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:11:27.886419",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:11:31.918583",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:11:35.965496",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:11:46.214052",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:11:50.260029",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:11:54.311539",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:00.751598",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:04.451871",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:04.952236",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:08.511875",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:09.138531",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:12.567350",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:13.383317",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:16.627211",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:17.572510",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:20.684846",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:24.734118",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:28.787015",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:12:32.846283",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:21.608393",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:25.647234",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:29.680391",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:33.705595",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:36.894611",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:37.759915",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:40.925042",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:41.806384",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:44.964735",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:45.857758",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:48.993419",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:49.907152",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:53.026564",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:17:57.070271",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:18:01.113049",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:18:05.159584",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:22:53.962253",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:22:58.014422",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:02.076055",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:06.109377",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:09.200097",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:10.155584",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:13.235056",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:14.180876",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:17.284279",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:18.212021",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:21.320748",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:22.262682",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:25.351288",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:29.380925",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:33.434476",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:23:37.469767",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:06.660979",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:10.709112",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:14.750904",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:18.800305",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:22.928037",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:27.079439",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:31.121248",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:24:35.163639",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:28:41.532854",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:28:45.601958",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:28:49.661489",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:28:53.725041",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:28:57.786627",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:01.828354",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:05.877772",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:09.941967",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:39.209640",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:43.251561",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:51.283543",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:29:55.351404",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:30:01.188127",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:30:05.768243",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:30:10.318775",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:30:14.746811",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:30:19.290063",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:30:23.988505",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:13.991534",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:18.023212",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:22.072123",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:26.115823",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:30.153664",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:34.192549",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:38.231204",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:34:42.262609",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:23.558872",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:27.620846",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:31.685191",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:38.602779",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:43.240754",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:47.807559",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:52.313590",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:35:56.896818",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:39:46.339516",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:39:50.414180",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:39:54.467228",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:39:58.517798",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:40:02.592164",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:40:06.672878",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:40:10.805615",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:40:14.888829",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:02.028272",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:06.709490",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:11.487026",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:16.225184",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:21.065805",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:25.851341",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:30.557463",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:48.628952",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:52.706033",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:41:56.780526",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:42:00.854953",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:42:04.911776",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:42:08.973151",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:42:13.021465",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:42:17.081044",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:18.955615",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:23.021712",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:27.071214",
+    "service": "search-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:31.269374",
+    "service": "enhanced-matching",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:35.319896",
+    "service": "uat-management",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:39.371033",
+    "service": "llm-classifier",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:43.442433",
+    "service": "embedding-service",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:45:47.523427",
+    "service": "vector-search",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:47:21.136731",
+    "service": "api-gateway",
+    "status": "down",
+    "response_time": null
+  },
+  {
+    "timestamp": "2026-02-11T19:47:25.179385",
+    "service": "context-analyzer",
+    "status": "down",
+    "response_time": null
   }
 ]

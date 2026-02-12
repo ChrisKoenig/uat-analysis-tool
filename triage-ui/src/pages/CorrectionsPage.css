@@ -1,0 +1,159 @@
+/**
+ * CorrectionsPage Styles
+ */
+
+.corrections-page {
+  max-width: 1100px;
+}
+
+/* ── Add form ────────────────────────────────────────────────── */
+
+.corrections-form-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--card-shadow);
+  margin-bottom: var(--space-lg);
+}
+
+.corrections-form-card h2 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+
+.corrections-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.corrections-form-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+.corrections-field label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-xs);
+}
+
+.corrections-field input,
+.corrections-field textarea,
+.corrections-field select {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  background: var(--input-bg, var(--surface-bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.corrections-field input:focus,
+.corrections-field textarea:focus,
+.corrections-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.corrections-form-actions {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+/* ── Corrections list ────────────────────────────────────────── */
+
+.corrections-list-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+}
+
+.corrections-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.corrections-list-header h2 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0;
+}
+
+.corrections-count {
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
+}
+
+.corrections-list-empty {
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-light);
+}
+
+/* Table */
+.corrections-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.corrections-table th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted-bg);
+}
+
+.corrections-table td {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.corrections-table tr:hover td {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.02));
+}
+
+.correction-arrow {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.correction-notes {
+  color: var(--text-light);
+  font-style: italic;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.correction-delete-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.correction-delete-btn:hover {
+  background: rgba(220, 53, 69, 0.1);
+}

@@ -33,6 +33,9 @@ const RoutesPage      = lazy(() => import('./pages/RoutesPage'));
 const ValidationPage  = lazy(() => import('./pages/ValidationPage'));
 const AuditPage       = lazy(() => import('./pages/AuditPage'));
 const EvalHistoryPage = lazy(() => import('./pages/EvalHistoryPage'));
+const ClassifyPage    = lazy(() => import('./pages/ClassifyPage'));
+const CorrectionsPage = lazy(() => import('./pages/CorrectionsPage'));
+const HealthPage      = lazy(() => import('./pages/HealthPage'));
 
 
 // ---------------------------------------------------------------------------
@@ -113,6 +116,9 @@ export default function App() {
             <Route path="/validation" element={<ValidationPage addToast={addToast} />} />
             <Route path="/audit"      element={<AuditPage addToast={addToast} />} />
             <Route path="/history"    element={<EvalHistoryPage addToast={addToast} />} />
+            <Route path="/classify"   element={<ClassifyPage addToast={addToast} />} />
+            <Route path="/corrections" element={<CorrectionsPage addToast={addToast} />} />
+            <Route path="/health"     element={<HealthPage addToast={addToast} />} />
           </Routes>
         </Suspense>
       </AppLayout>

@@ -213,7 +213,7 @@
     },
     "created_at": "2026-02-11T14:03:16.781203",
     "ttl_days": 7,
-    "hits": 1
+    "hits": 6
   },
   "a5cf3ed1055d4888e675df6cbfeb74ab45015f3310285f426efffeaed009240c": {
     "data": {
@@ -224,6 +224,114 @@
       "reasoning": "The customer is requesting quota approval for Azure Database for PostgreSQL Flexible Server, which is blocked due to capacity or regional offer restrictions. This aligns with the category 'capacity' and intent 'capacity_request'. The stated impact on deployment timelines indicates a high business impact."
     },
     "created_at": "2026-02-11T14:46:21.043821",
+    "ttl_days": 7,
+    "hits": 5
+  },
+  "57d585457b022e1a5526f207912994ed9d2298d76d821993c311960db9e4b488": {
+    "data": {
+      "category": "technical_support",
+      "intent": "escalation_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The inquiry describes a technical issue with an API behavior impacting a significant migration project worth $36M. The customer is upset, the issue is unresolved despite internal reproduction, and executive visibility is requested, indicating an escalation. The classification aligns with technical_support due to the API issue and escalation_request due to the need for executive ownership and visibility."
+    },
+    "created_at": "2026-02-11T19:07:40.995422",
+    "ttl_days": 7,
+    "hits": 4
+  },
+  "24427919b57b41c71bbf15205e5d9073fd2c360bd20bab9c86831c0f1bb6bd4d": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is urgently requesting a quota increase for 3,000 vCPU cores in the West US region to enable their Disaster Recovery (DR) setup. The delay in provisioning this capacity is critically impacting their business continuity and resilience posture. The inquiry is clearly about capacity and the urgency indicates a critical business impact."
+    },
+    "created_at": "2026-02-11T19:07:44.179853",
+    "ttl_days": 7,
+    "hits": 4
+  },
+  "ead7f72cdefcc7f6838018c27d3d4fb3e138f419d43c72658df269f12263b455": {
+    "data": {
+      "category": "capacity",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The inquiry describes a quota error related to Azure Reservations, which directly ties to capacity management issues. The customer is experiencing a technical problem preventing them from purchasing reserved instances, indicating troubleshooting is required. The stated impact and urgency suggest a high business impact."
+    },
+    "created_at": "2026-02-11T19:45:51.328165",
+    "ttl_days": 7,
+    "hits": 2
+  },
+  "0366fa34967c49709654b349b77aa522d516605c1635dc24ba6fa6e6c16810c0": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The inquiry describes a technical issue related to Azure VM license activation failures due to networking and security architecture constraints. The customer is seeking guidance and validation on supported activation architectures and solutions to resolve the issue. This aligns with technical_support and troubleshooting intent, as the focus is on resolving a specific technical problem impacting operations."
+    },
+    "created_at": "2026-02-11T19:52:39.208776",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "700ba458e816524e1cd3ae310b5842b1708f4c76343b719da4bc28fa08aca34a": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer is reporting issues with audio quality, pronunciation inconsistency, and unexpected changes in voice during calls, which are clear technical problems. The mention of regressions compared to the preview model further indicates troubleshooting is required to resolve these issues. The stated impact and regression concerns suggest a high business impact."
+    },
+    "created_at": "2026-02-11T19:52:42.180146",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "09b36a7a3bfcb4a1147adf660f8ba5d59f1be1baced166f53cd7653c1c9b2b83": {
+    "data": {
+      "category": "roadmap",
+      "intent": "roadmap_inquiry",
+      "business_impact": "medium",
+      "confidence": 0.85,
+      "reasoning": "The customer explicitly mentions 'ETA for PuPr is Q2,' which indicates they are asking about the timeline for the public preview release of MDSync v2. This aligns with roadmap inquiries rather than technical support or feature requests."
+    },
+    "created_at": "2026-02-11T19:52:44.774949",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "20ca98988b7ac47dc39d5d84515924fb361a9122232530ecd0aeadf5a7bf22ef": {
+    "data": {
+      "category": "support_escalation",
+      "intent": "escalation_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The inquiry describes a critical blocker related to AVS networking issues impacting a migration timeline. A support ticket is already raised, and the mention of 'critical blocker' and 'amber status' indicates the need for escalation to resolve the issue urgently. The business impact is critical due to the risk of delaying the late-March delivery timeline."
+    },
+    "created_at": "2026-02-11T19:55:24.450407",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "634920350799030a6b3eb4522f56cf460beeb566f878fc57f8359802ee71dc42": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer explicitly mentions they do not have enough capacity to ramp up, which aligns with the category 'capacity' and intent 'capacity_request'. The stated impact suggests a high business impact due to the inability to scale operations."
+    },
+    "created_at": "2026-02-11T19:55:30.377613",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "64260dc77c6b2190fde7f2811ae7656c029a3916a5ad4712a45df44cf18dfcc5": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting an increase in quota for the Anthropic claude-sonnet-4.5 model, which falls under capacity management. The urgency and pending status of the request indicate a high business impact. The details provided align strongly with a capacity request."
+    },
+    "created_at": "2026-02-11T19:55:33.514153",
     "ttl_days": 7,
     "hits": 0
   }

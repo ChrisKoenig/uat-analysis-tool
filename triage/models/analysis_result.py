@@ -144,7 +144,19 @@ class AnalysisResult:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for Cosmos DB storage"""
         from dataclasses import asdict
-        return asdict(self)
+        from enum import Enum
+
+        def _sanitize(obj):
+            """Recursively convert enums to their values for JSON serialization."""
+            if isinstance(obj, dict):
+                return {k: _sanitize(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_sanitize(v) for v in obj]
+            if isinstance(obj, Enum):
+                return obj.value
+            return obj
+
+        return _sanitize(asdict(self))
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AnalysisResult':

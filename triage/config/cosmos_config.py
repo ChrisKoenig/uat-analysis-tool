@@ -28,7 +28,14 @@ import logging
 from typing import Optional, Dict, Any
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
-from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+from azure.identity import (
+    DefaultAzureCredential,
+    ManagedIdentityCredential,
+    InteractiveBrowserCredential,
+    SharedTokenCacheCredential,
+    ChainedTokenCredential,
+    TokenCachePersistenceOptions,
+)
 
 logger = logging.getLogger("triage.config.cosmos")
 
@@ -160,6 +167,12 @@ class CosmosDBConfig:
         )
         self.use_aad = use_aad_str.lower() in ("true", "1", "yes")
         
+        # Tenant ID for AAD auth (required when user's home tenant differs from Cosmos account tenant)
+        self.tenant_id = (
+            kv_config.get_secret("COSMOS_TENANT_ID") or
+            os.environ.get("COSMOS_TENANT_ID")
+        )
+        
     def _get_client(self) -> CosmosClient:
         """
         Lazy initialization of Cosmos DB client.
@@ -195,8 +208,27 @@ class CosmosDBConfig:
                         auth_method = f"Managed Identity ({managed_identity_client_id[:8]}...)"
                     else:
                         # Development: Use default credential chain
-                        credential = DefaultAzureCredential()
-                        auth_method = "DefaultAzureCredential"
+                        if self.tenant_id:
+                            # Cross-tenant: use persistent cache so auth prompt
+                            # only appears once (survives process restarts)
+                            logger.info("  Using tenant: %s", self.tenant_id)
+                            cache_opts = TokenCachePersistenceOptions(
+                                name="gcs-cosmos-auth"
+                            )
+                            credential = ChainedTokenCredential(
+                                SharedTokenCacheCredential(
+                                    tenant_id=self.tenant_id,
+                                    cache_persistence_options=cache_opts,
+                                ),
+                                InteractiveBrowserCredential(
+                                    tenant_id=self.tenant_id,
+                                    cache_persistence_options=cache_opts,
+                                ),
+                            )
+                            auth_method = f"ChainedTokenCredential (tenant: {self.tenant_id[:8]}...)"
+                        else:
+                            credential = DefaultAzureCredential()
+                            auth_method = "DefaultAzureCredential"
                     
                     self._client = CosmosClient(
                         url=self.endpoint,

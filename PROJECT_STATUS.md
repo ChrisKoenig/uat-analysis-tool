@@ -1,15 +1,36 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 3, 2026
-**Status**: ✅ All systems operational - AI classification fully working
+**Last Updated**: February 11, 2026
+**Status**: ✅ All systems operational — Triage Management System with Cosmos DB, AI classification, desktop launcher
+
+---
+
+## System Overview
+
+The project has two major subsystems:
+
+1. **Input/Analysis System** — Flask-based web UI (port 5003) for ad-hoc ICA analysis, Teams bot, and microservices
+2. **Triage Management System** — FastAPI + React SPA for queue-based work item triage with Cosmos DB persistence
+
+Both share authentication infrastructure (Key Vault, Azure AD) and the hybrid analysis engine.
 
 ---
 
 ## Current Architecture
 
-### Main Application
+### Triage Management System (PRIMARY — active development)
+- **Backend API**: FastAPI on port 8009 (uvicorn, `triage/api/routes.py`)
+- **Frontend**: React + Vite on port 3000 (`triage-ui/`)
+- **Database**: Azure Cosmos DB (`cosmos-gcs-dev`, serverless, North Central US)
+- **Analysis Engine**: Hybrid pattern matching + LLM classification
+- **Startup**: `python launcher.py` (GUI launcher) OR manual start
+
+### Input/Analysis System (legacy)
 - **Web UI**: http://localhost:5003
 - **Teams Bot**: http://localhost:3978/api/messages
-- **Startup Script**: `.\start_app.ps1` (starts everything)
+- **Startup Script**: `.\start_app.ps1`
+
+### Admin Portal
+- **Admin Service**: port 8008 (`admin_service.py`)
 
 ### Microservices (All ports working)
 - API Gateway: 8000
@@ -20,85 +41,160 @@
 - LLM Classifier: 8005
 - Embedding Service: 8006
 - Vector Search: 8007
-- **Admin Portal: 8008** ⬅️ NEW
 
 ---
 
-## Recent Changes (Jan 28, 2026) - CRITICAL FIXES ⚡
+## Desktop Launcher (`launcher.py`)
 
-### **Azure OpenAI Authentication Overhaul** ✅
-**Issue**: AI classification stopped working after Key Vault migration on Jan 20. System showing "AI service temporarily unavailable" with pattern matching fallback.
+A tkinter GUI that starts/stops all three service groups with one click:
 
-**Root Causes Identified**:
-1. Key Vault migration didn't update `llm_classifier.py` authentication code
-2. Token from wrong tenant (corporate 72f988bf... vs resource tenant 16b3c013...)
-3. Missing Cognitive Services OpenAI User role on user account
-4. Wrong deployment name in Key Vault (gpt-4o-02 vs actual gpt-4o-standard)
-5. Wrong endpoint (.env had East, actual is North Central)
-6. .env file overriding Key Vault configuration
+| Card | What it starts | Port(s) |
+|------|---------------|---------|
+| Input Process | `app.py` (Flask) | 5003 |
+| Admin Process | `admin_service.py` | 8008 |
+| Triage Process | uvicorn + `npm.cmd run dev` | 8009 + 3000 |
+
+**Features**:
+- Key Vault access check on startup
+- `wait_for_http()` before opening browser (no premature browser opens)
+- `PYTHONIOENCODING=utf-8` for emoji characters in console output
+- Double-click guard (`_starting` set)
+- Port-already-in-use detection (shows "Running (external)" status)
+- Persistent token cache (`TokenCachePersistenceOptions(name="gcs-cosmos-auth")` — no repeated auth prompts)
+- Triage env vars injected: `COSMOS_ENDPOINT`, `COSMOS_USE_AAD=true`, `COSMOS_TENANT_ID`
+
+**To start**: `python launcher.py`
+
+---
+
+## Cosmos DB Configuration
+
+### Account Details
+- **Account**: `cosmos-gcs-dev`
+- **Type**: Serverless (no provisioned RUs)
+- **Region**: North Central US
+- **Resource Group**: `rg-gcs-dev`
+- **Subscription**: `13267e8e-b8f0-41c3-ba3e-569b3b7c8482`
+- **Database**: `triage-management` (created manually in portal — RBAC doesn't allow `create_database_if_not_exists`)
+
+### Authentication
+- **Local auth (keys)**: DISABLED by Azure Policy — cannot be enabled
+- **Auth method**: AAD only (cross-tenant)
+- **Cosmos Tenant**: `16b3c013-d300-468d-ac64-7eda0820b6d3` (Microsoft Non-Production / fdpo.onmicrosoft.com)
+- **User Tenant**: `72f988bf-86f1-41af-91ab-2d7cd011db47` (Microsoft Corp — different!)
+- **RBAC Role**: Cosmos DB Built-in Data Contributor (`00000000-0000-0000-0000-000000000002`)
+- **RBAC Principal**: `f1a846d2-dca1-4402-b526-e5b3e5643bb7` (Brad.Price@microsoft.com)
+- **Managed Identity**: `mi-gcs-dev` (client: `7846e03e-9279-4057-bdcd-4a2f7f8ebe85`) — for Azure deployment only
+
+### Cross-Tenant Credential Chain (`cosmos_config.py`)
+Because the user's corporate tenant differs from the Cosmos DB resource tenant, a custom credential chain is used:
+```python
+ChainedTokenCredential(
+    SharedTokenCacheCredential(tenant_id=COSMOS_TENANT_ID, ...),
+    InteractiveBrowserCredential(tenant_id=COSMOS_TENANT_ID, ...)
+)
+```
+Both use `TokenCachePersistenceOptions(name="gcs-cosmos-auth")` for persistent disk cache — only prompts once.
+
+### Environment Variables Required for Triage API
+```
+COSMOS_ENDPOINT=https://cosmos-gcs-dev.documents.azure.com:443/
+COSMOS_USE_AAD=true
+COSMOS_TENANT_ID=16b3c013-d300-468d-ac64-7eda0820b6d3
+```
+These are injected automatically by `launcher.py` or must be set manually.
+
+### Containers (8 total, auto-created)
+`analysis-results`, `queue-cache`, `triage-decisions`, `rules`, `routes`, `triggers`, `audit-log`, `evaluation-history`
+
+### Key Limitation
+- Azure CLI login fails locally (Conditional Access policy error 53003) — use Cloud Shell for `az` commands
+- Database/container creation requires portal or Cloud Shell (RBAC data-plane role doesn't cover control-plane)
+
+---
+
+## Recent Changes (Feb 11, 2026) — Cosmos DB + Launcher + Serialization Fix
+
+### 1. **Cosmos DB Integration** ✅
+Connected Triage Management System to real Azure Cosmos DB (was in-memory).
+- **File**: `triage/config/cosmos_config.py` — added `COSMOS_TENANT_ID` support, cross-tenant credential chain, persistent token cache, removed broken `VisualStudioCodeCredential`
+- **File**: `keyvault_config.py` — added `COSMOS_ENDPOINT` and `COSMOS_KEY` to `SECRET_MAPPINGS`
+- Health endpoint confirms: `auth_mode: "aad"`, all 8 containers ready
+
+### 2. **Desktop Launcher** ✅ (NEW FILE)
+- **File**: `launcher.py` — full tkinter GUI launcher (see section above)
+
+### 3. **IssueCategory Enum Serialization Fix** ✅
+**Issue**: "Object of type IssueCategory is not JSON serializable" when analyzing work items. All 5 items failed.
+
+**Root Cause**: `IssueCategory` and `IntentType` are Python Enums from `intelligent_context_analyzer.py`. When the hybrid analyzer falls back to pattern matching, these enum objects flow through to `AnalysisResult` fields. Cosmos SDK calls `json.dumps()` on `upsert_item()`, which can't serialize Enums.
 
 **Fixes Applied**:
-- ✅ Updated `llm_classifier.py` with Azure AD authentication (lines 100-140)
-- ✅ Added tenant-specific InteractiveBrowserCredential (tenant: 16b3c013-d300-468d-ac64-7eda0820b6d3)
-- ✅ Updated `ai_config.py` with `use_aad` field for authentication mode
-- ✅ Updated `keyvault_config.py` to include OpenAI secrets mapping
-- ✅ Assigned Cognitive Services OpenAI User role to Brad.Price@microsoft.com
-- ✅ Corrected Key Vault secrets: deployment name and endpoint
-- ✅ Removed .env file (renamed to .env.backup) to prevent override
-- ✅ Fixed `authenticate_interactive.py` with correct tenant
-- ✅ Updated `test_ai_integration.py` with tenant-specific credential
-- ✅ Fixed `start_app.ps1` to handle None values from Key Vault
+- **`triage/api/routes.py`**: Added `_enum_val()` helper in `_map_hybrid_to_analysis_result()` — wraps `category`, `intent`, `source`, `patternCategory` fields with enum-to-value conversion
+- **`triage/models/analysis_result.py`**: Added recursive `_sanitize()` in `to_dict()` — catches any remaining Enum values in the dict tree before Cosmos serialization
 
-**Result**: AI classification now working perfectly (0.95 confidence, no fallback warnings)
+**Debugging Note**: A ghost process (dead PID holding port 8009's socket) served stale code for hours, making it appear the fix didn't work. Moving to port 8010 confirmed the fix was correct. Always kill all Python processes and verify the port is free before restarting.
 
-**Documentation Created**:
-- 📄 `AZURE_OPENAI_AUTH_SETUP.md` - Comprehensive authentication guide
-- 📄 `AI_FIX_SUMMARY_2026-01-28.md` - Session summary with all changes
-- 📄 Updated `README.md` with authentication documentation references
+**Result**: 8/8 work items analyzed successfully (verified in UI)
 
-**Committed**: d4f52fd "Fix Azure OpenAI authentication and tenant configuration"
+### 4. **Previous Triage UI Fixes** (committed earlier this session)
+- `739a5c5` — Remove Quick Actions section from Dashboard
+- `c462403` — Fix health check hitting wrong URL (sidebar always showed API Offline)
+- `8d6da2c` — Fix audit change details showing dashes instead of values
+- `fc2e279` — Wire up audit log action filter, fix API param mismatch
+- `a0d469a` — Cache queue data across navigation (no reload on every visit)
+
+---
+
+## Uncommitted Changes (as of Feb 11, 2026)
+
+**Must commit these files:**
+| File | Change |
+|------|--------|
+| `triage/config/cosmos_config.py` | Cross-tenant AAD auth, COSMOS_TENANT_ID, persistent token cache |
+| `triage/models/analysis_result.py` | Recursive `_sanitize()` for Enum serialization |
+| `triage/api/routes.py` | `_enum_val()` helper, cleaned up error handler |
+| `keyvault_config.py` | COSMOS_ENDPOINT/COSMOS_KEY in SECRET_MAPPINGS |
+| `launcher.py` | NEW — desktop GUI launcher |
+
+---
+
+## Previous Changes (Jan 28, 2026) — Azure OpenAI Auth Fix
+
+### **Azure OpenAI Authentication Overhaul** ✅
+**Issue**: AI classification stopped working after Key Vault migration on Jan 20.
+
+**Fixes**: Updated `llm_classifier.py` with tenant-specific Azure AD auth, corrected deployment name (`gpt-4o-standard`), removed `.env` override, assigned Cognitive Services OpenAI User role.
+
+**Committed**: d4f52fd
+
+**Full details**: See `AI_FIX_SUMMARY_2026-01-28.md` and `AZURE_OPENAI_AUTH_SETUP.md`
 
 ---
 
 ## Previous Changes (Jan 23, 2026)
 
-### 1. **TFT Feature Search Fixes** ✅
-- **Issue**: `'NoneType' object has no attribute 'search_tft_features'`
-- **Fix**: Changed to use `get_ado_client()` for proper initialization
-- **Location**: `app.py` line ~1634
-
-### 2. **Azure OpenAI Timeout Fix** ✅
-- **Issue**: Application hanging on embedding API calls
-- **Fix**: Added 10-second timeout to AzureOpenAI client
-- **Location**: `embedding_service.py` line ~30
-
-### 3. **Dual Authentication Caching** ✅
-- **Issue**: Two auth prompts every time (not cached)
-- **Fix**: Added caching for both main + TFT credentials
-- **Locations**: 
-  - `ado_integration.py` lines 60-65 (credential variables)
-  - `ado_integration.py` lines 140-170 (TFT credential caching)
-- **Result**: Only 2 prompts on first run (expected), then cached
-
-### 4. **Admin Portal Port Change** ✅
-- **Issue**: Port 8004 conflict with UAT Management
-- **Fix**: Moved admin portal to port 8008
-- **Files Modified**: 
-  - `admin_service.py` (port change)
-  - `start_admin_service.ps1` (port + URLs)
-  - `start_app.ps1` (integrated admin portal startup)
+- TFT Feature Search fix (use `get_ado_client()`)
+- Azure OpenAI 10-second timeout in `embedding_service.py`
+- Dual authentication caching for main + TFT orgs
+- Admin portal moved to port 8008
 
 ---
 
 ## Known Working Features
 
-✅ Web UI with Quick ICA analysis
-✅ Teams Bot integration
+✅ Triage Management System — full pipeline: ADO fetch → hybrid analysis → Cosmos DB → React UI
+✅ Desktop launcher GUI (`launcher.py`)
+✅ Azure Cosmos DB with AAD cross-tenant auth
+✅ Persistent token cache (no repeated auth prompts across restarts)
+✅ Queue caching across navigation
+✅ Audit log with filters, search, change details
+✅ Health indicator in sidebar
+✅ Azure OpenAI AI classification (0.95 confidence, LLM source)
+✅ Pattern matching fallback when LLM unavailable
+✅ Web UI with Quick ICA analysis (port 5003)
 ✅ TFT Feature search for feature_request category
-✅ **Azure OpenAI AI classification (Azure AD auth)** ⬅️ FIXED Jan 28
 ✅ Dual organization authentication (main + TFT)
-✅ Embedding service with cache fallback
-✅ All 8 microservices + API Gateway
 ✅ Admin portal on port 8008
 
 ---
@@ -106,209 +202,185 @@
 ## Known Issues
 
 ⚠️ Admin portal shows "AuthorizationFailure" on blob storage access
-- Error: "This request is not authorized to perform this operation"
-- Likely needs managed identity or storage permissions fix
 - Workaround: Use local JSON files for testing
+
+⚠️ Analysis classification accuracy needs tuning
+- Some categories/intents are debatable — review corrections, adjust pattern rules and LLM prompt
+
+⚠️ Azure CLI cannot login locally (Conditional Access error 53003)
+- Use Cloud Shell for `az` commands, or portal for resource management
 
 ---
 
 ## Authentication Architecture
 
-### Azure OpenAI Authentication (UPDATED Jan 28, 2026)
-**Resource**: OpenAI-bp-NorthCentral
-**Location**: North Central US
-**Endpoint**: https://OpenAI-bp-NorthCentral.openai.azure.com/
-**Tenant**: Microsoft Non-Production (fdpo.onmicrosoft.com)
-**Tenant ID**: 16b3c013-d300-468d-ac64-7eda0820b6d3
-**Subscription**: MCAPS-Hybrid-REQ-53439-2023-bprice
-
-**Authentication Method**: Azure AD only (API keys disabled by policy)
-- **Local Development**: InteractiveBrowserCredential with tenant_id
-- **Azure Deployment**: ManagedIdentityCredential (mi-gcs-dev)
-
-**Deployments**:
-- Classification: `gpt-4o-standard` (NOT gpt-4o-02!)
-- Embeddings: `text-embedding-3-large` (3072 dimensions)
-
-**Required Role**: Cognitive Services OpenAI User
-- Assigned to: Brad.Price@microsoft.com
-- For deployment: mi-gcs-dev managed identity
-
-**Configuration Source**: Azure Key Vault (kv-gcs-dev-gg4a6y)
-- Priority: Key Vault ONLY (.env removed to prevent override)
-- Key Vault secrets: endpoint, deployment names, use_aad flag
-
-**Quick Diagnostics**:
-```powershell
-python check_token_tenant.py      # Verify token tenant
-python check_kv_config.py         # Verify Key Vault config
-python test_ai_integration.py     # Full 6-step test
-```
-
-### Azure DevOps - Two Separate Organizations
-1. **Main Org** (`unifiedactiontrackertest`)
-   - Purpose: Work item creation
-   - Method: Azure CLI or Interactive Browser
-   - Cached in: `AzureDevOpsConfig._cached_credential`
-
-2. **TFT Org** (`unifiedactiontracker/Technical Feedback`)
-   - Purpose: Feature search
-   - Method: Interactive Browser with MS tenant ID
-   - Cached in: `AzureDevOpsConfig._cached_tft_credential`
-
-Both prompt once on first use, then cached for session.
-
----
-
-## Key Configuration
-
 ### Azure OpenAI
-- **Endpoint**: https://OpenAI-bp-NorthCentral.openai.azure.com/ (Key Vault)
-- **Authentication**: Azure AD with tenant 16b3c013-d300-468d-ac64-7eda0820b6d3
-- **Models**:
-  - Classification: `gpt-4o-standard` ⬅️ CORRECTED (was gpt-4o-02)
-  - Embeddings: `text-embedding-3-large` (3072 dimensions)
-- **Timeout**: 10 seconds (prevents hanging)
-- **API Version**: 2024-08-01-preview
+- **Resource**: OpenAI-bp-NorthCentral (North Central US)
+- **Endpoint**: https://OpenAI-bp-NorthCentral.openai.azure.com/
+- **Tenant**: `16b3c013-d300-468d-ac64-7eda0820b6d3`
+- **Auth**: Azure AD only (API keys disabled by policy)
+- **Deployments**: `gpt-4o-standard` (classification), `text-embedding-3-large` (embeddings)
+- **Role**: Cognitive Services OpenAI User (assigned to Brad.Price@microsoft.com + mi-gcs-dev)
+- **Config Source**: Key Vault (`kv-gcs-dev-gg4a6y`)
 
-### Caching Strategy
-- Cache TTL: 7 days
-- Location: `cache/ai_cache/`
-- Behavior: Use cache directly if < 3 days old
+### Azure Cosmos DB
+- **Account**: `cosmos-gcs-dev` (serverless, North Central US)
+- **Tenant**: `16b3c013-d300-468d-ac64-7eda0820b6d3` (same as OpenAI)
+- **Auth**: AAD only (local auth disabled by Azure Policy)
+- **Role**: Cosmos DB Built-in Data Contributor
+- **Cross-tenant**: ChainedTokenCredential with SharedTokenCache + InteractiveBrowser
 
----
+### Key Vault
+- **Name**: `kv-gcs-dev-gg4a6y`
+- **Auth**: DefaultAzureCredential
+- **Secrets**: OpenAI endpoint/deployment, ADO PAT, etc.
+- **Note**: COSMOS_ENDPOINT and COSMOS_KEY added to mappings but secrets not yet created in KV (using env vars instead)
 
-## Recent Backups
+### Azure DevOps — Two Orgs
+1. **`unifiedactiontracker`** — READ source for work items (production ADO)
+2. **`unifiedactiontrackertest`** — WRITE target for created work items
 
-1. **backup_tft_auth_fixes_20260123_220315/** 
-   - TFT authentication fixes
-   - Timeout fixes
-   - Pre-admin portal changes
-
-2. **backup_admin_portal_8008_20260123_222155/**
-   - All TFT fixes
-   - Admin portal on 8008
-   - Integrated into start_app.ps1
-   - Full code documentation
-
-3. **backup_keyvault_complete_20260120_142955/** ⬅️ KEY VAULT MIGRATION
-   - Key Vault migration (triggered auth issues)
-
-**Latest State**: All authentication fixes committed (d4f52fd) on Jan 28, 2026
+### Key Tenant IDs
+| Tenant | ID | Used For |
+|--------|----|----------|
+| Microsoft Non-Production (fdpo) | `16b3c013-d300-468d-ac64-7eda0820b6d3` | OpenAI, Cosmos DB, Key Vault resources |
+| Microsoft Corp | `72f988bf-86f1-41af-91ab-2d7cd011db47` | User's corporate identity |
 
 ---
 
 ## Important Files
 
-### Core Application
-- `app.py` - Main Flask web application
-- `start_app.ps1` - Startup script for all services
-- `ado_integration.py` - Azure DevOps integration with dual auth
-- `embedding_service.py` - Azure OpenAI embeddings with timeout
+### Triage Management System
+| File | Purpose |
+|------|---------|
+| `triage/api/routes.py` | FastAPI endpoints — analyze, queue, triage, audit, rules, routes, triggers |
+| `triage/config/cosmos_config.py` | Cosmos DB connection, AAD auth, container management |
+| `triage/models/analysis_result.py` | AnalysisResult dataclass with `to_dict()` sanitization |
+| `triage-ui/` | React + Vite frontend (port 3000) |
+| `hybrid_context_analyzer.py` | Hybrid analysis engine (pattern + LLM) |
+| `intelligent_context_analyzer.py` | Pattern matching with IssueCategory/IntentType enums |
+| `llm_classifier.py` | Azure OpenAI GPT-4o classification |
+| `launcher.py` | Desktop GUI launcher (tkinter) |
 
 ### Configuration
-- `ai_config.py` - Azure OpenAI configuration with `use_aad` field
-- `keyvault_config.py` - Azure Key Vault integration with OpenAI secrets
-- `.env.backup` - Old local variables (DISABLED to prevent Key Vault override)
+| File | Purpose |
+|------|---------|
+| `keyvault_config.py` | Key Vault integration, secret mappings |
+| `ai_config.py` | OpenAI config with `use_aad` field |
+| `ado_integration.py` | ADO client with dual-org auth |
 
-### Authentication & Testing
-- `authenticate_interactive.py` - Manual auth testing with tenant ID
-- `test_ai_integration.py` - Comprehensive 6-step diagnostic
-- `check_token_tenant.py` - Quick token tenant verification
-- `check_kv_config.py` - Key Vault configuration check
+### Input System (legacy)
+| File | Purpose |
+|------|---------|
+| `app.py` | Main Flask app (port 5003) |
+| `admin_service.py` | Admin portal (port 8008) |
+| `start_app.ps1` | Legacy startup script |
 
-### Documentation (Jan 28, 2026)
-- `AZURE_OPENAI_AUTH_SETUP.md` - **Comprehensive authentication guide**
-- `AI_FIX_SUMMARY_2026-01-28.md` - Session summary with all fixes
-
-### Microservices
-- `api_gateway.py` - Central routing (port 8000)
-- `agents/*/service.py` - Individual microservices
-
-### Admin
-- `admin_service.py` - Admin portal (port 8008)
-- `start_admin_service.ps1` - Admin portal startup
-
----
-
-## Next Steps / TODO
-
-- [ ] ~~Fix Azure OpenAI authentication~~ ✅ COMPLETED Jan 28
-- [ ] Fix admin portal blob storage authorization
-- [ ] Test managed identity (mi-gcs-dev) authentication in Azure deployment
-- [ ] Monitor AI classification confidence levels over time
-- [ ] Consider adding credential refresh logic for long sessions
-- [ ] Monitor embedding API call patterns for optimization
-- [ ] Add more comprehensive error handling for Azure OpenAI failures
-- [ ] Document the full TFT search flow in architecture docs
+### Diagnostics
+| File | Purpose |
+|------|---------|
+| `check_token_tenant.py` | Verify token tenant |
+| `check_kv_config.py` | Verify Key Vault config |
+| `test_ai_integration.py` | Full 6-step OpenAI test |
 
 ---
 
 ## How to Start
 
+### Recommended: Desktop Launcher
 ```powershell
-# Start everything (recommended)
-.\start_app.ps1
-
-# Start admin portal only (if needed separately)
-.\start_admin_service.ps1
-
-# Start individual services
-cd agents\context-analyzer
-python service.py
+python launcher.py
 ```
+Click the cards to start Input, Admin, or Triage processes. Launcher handles env vars, port checks, and browser opening.
+
+### Manual: Triage System Only
+```powershell
+# Terminal 1 — API
+$env:COSMOS_ENDPOINT="https://cosmos-gcs-dev.documents.azure.com:443/"
+$env:COSMOS_USE_AAD="true"
+$env:COSMOS_TENANT_ID="16b3c013-d300-468d-ac64-7eda0820b6d3"
+$env:PYTHONIOENCODING="utf-8"
+python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload
+
+# Terminal 2 — Frontend
+cd triage-ui
+npm run dev
+```
+
+### Legacy: Input System
+```powershell
+.\start_app.ps1
+```
+
+---
+
+## Git Status
+
+**Branch**: `main`
+**Latest commit**: `739a5c5` — Remove Quick Actions section from Dashboard
+
+**Recent commits** (newest first):
+- `739a5c5` — Remove Quick Actions section from Dashboard
+- `c462403` — Fix: health check hitting wrong URL
+- `8d6da2c` — Fix: audit change details showing dashes instead of values
+- `fc2e279` — Fix audit log: wire up action filter, fix API param mismatch
+- `a0d469a` — Cache queue data across navigation
+
+**Uncommitted**: cosmos_config.py, analysis_result.py, routes.py, keyvault_config.py, launcher.py (NEW)
+
+---
+
+## Next Steps / TODO
+
+- [ ] Commit all uncommitted changes (Cosmos DB, serialization fix, launcher)
+- [ ] Tune analysis classification accuracy (review categories, adjust LLM prompt)
+- [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
+- [ ] Fix admin portal blob storage authorization
+- [ ] Test managed identity (mi-gcs-dev) in Azure deployment
+- [ ] Update launcher.py to also kill ghost processes on port before starting
+- [ ] Add credential refresh logic for long sessions
+- [ ] Document the full TFT search flow
 
 ---
 
 ## Troubleshooting Quick Reference
 
-### Azure OpenAI Issues (Added Jan 28, 2026)
+### Triage System Issues
 
-**"AI service temporarily unavailable" / Pattern matching fallback**
-- Issue: Azure AD authentication not configured or wrong tenant
-- Fix: See AZURE_OPENAI_AUTH_SETUP.md for complete guide
-- Quick check: `python check_token_tenant.py` (should show 16b3c013-d300-468d-ac64-7eda0820b6d3)
+**"Object of type IssueCategory is not JSON serializable"**
+- Fixed Feb 11 — `_enum_val()` in routes.py + `_sanitize()` in analysis_result.py
+- If it reappears: ensure the running process has latest code (kill all Python, clear `__pycache__`, restart)
 
-**"Token tenant does not match resource tenant"**
-- Issue: Using wrong tenant for authentication
-- Fix: Use InteractiveBrowserCredential with tenant_id="16b3c013-d300-468d-ac64-7eda0820b6d3"
-- Location: `llm_classifier.py` lines 105-107
+**Port 8009 already in use / ghost socket**
+- A dead process can hold the port. Run: `Get-Process -Name python | Stop-Process -Force`
+- Wait 30+ seconds for socket to release, or use a different port temporarily
+- Launcher detects this and shows "Running (external)"
 
-**"The principal lacks the required data action"**
-- Issue: Missing Cognitive Services OpenAI User role
-- Fix: Assign role to user account or managed identity in Azure portal
-- Resource: OpenAI-bp-NorthCentral
+**Cosmos DB "AuthenticationFailed"**
+- Ensure env vars are set: `COSMOS_ENDPOINT`, `COSMOS_USE_AAD=true`, `COSMOS_TENANT_ID`
+- Token cache may be stale — delete `~/.msal_token_cache.*` and re-authenticate
+- Verify RBAC: user must have "Cosmos DB Built-in Data Contributor" role
+
+**Cosmos DB "create_database_if_not_exists failed"**
+- RBAC data-plane role can't create databases — create manually in portal or Cloud Shell
+
+### Azure OpenAI Issues
+
+**"AI service temporarily unavailable" / pattern matching fallback**
+- See `AZURE_OPENAI_AUTH_SETUP.md`
+- Quick check: `python check_token_tenant.py` (should show `16b3c013-...`)
 
 **"DeploymentNotFound"**
-- Issue: Wrong deployment name (case-sensitive!)
-- Fix: Use `gpt-4o-standard` NOT `gpt-4o-02`
-- Check: `python check_kv_config.py`
+- Deployment name is `gpt-4o-standard` (NOT `gpt-4o-02`)
 
-**"Wrong endpoint or configuration"**
-- Issue: .env overriding Key Vault
-- Fix: Rename .env to .env.backup (configuration should only come from Key Vault)
+### General
 
-### Azure DevOps Issues
-
-**"NoneType has no attribute"**
-- Issue: ADO client not initialized
-- Fix: Use `get_ado_client()` instead of global `ado_client`
-
-**Application Hanging**
-- Issue: Azure OpenAI timeout not set
-- Fix: Already fixed - 10 second timeout in embedding_service.py
-
-### Multiple Auth Prompts
-- Issue: Credentials not cached
-- Fix: Already fixed - both credentials now cached
-
-### Port Conflicts
-- Issue: Service already running on port
-- Solution: Check port assignments in start_app.ps1
-- Admin portal: 8008 (moved from 8004)
+**Azure CLI login fails locally**
+- Error 53003 (Conditional Access) — use Cloud Shell instead
+- App still works — it uses InteractiveBrowserCredential, not Azure CLI
 
 ---
 
-**STATUS**: System is stable and working. AI classification fully operational after Jan 28 authentication fixes. All major issues resolved and comprehensively documented.
+**STATUS**: System is fully operational. Triage pipeline works end-to-end (ADO → analysis → Cosmos DB → React UI). Cosmos DB connected with AAD cross-tenant auth. Desktop launcher available. Uncommitted changes need to be committed.
 
-**CRITICAL REFERENCE**: For any Azure OpenAI authentication issues, see `AZURE_OPENAI_AUTH_SETUP.md` first!
+**CRITICAL FILES FOR NEW SESSIONS**: Read this file + `AZURE_OPENAI_AUTH_SETUP.md` + `TRIAGE_SYSTEM_DESIGN.md`

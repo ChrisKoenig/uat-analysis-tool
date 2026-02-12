@@ -87,6 +87,17 @@ app.add_middleware(
 
 
 # =============================================================================
+# Mount sub-routers (new platform endpoints)
+# =============================================================================
+
+from .classify_routes import router as classify_router
+from .admin_routes import router as admin_router
+
+app.include_router(classify_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
+
+
+# =============================================================================
 # Service Singletons (initialized on first request)
 # =============================================================================
 
@@ -748,7 +759,15 @@ def _map_hybrid_to_analysis_result(
 ) -> AnalysisResult:
     """Map HybridAnalysisResult → AnalysisResult for Cosmos storage."""
     from ..models.base import utc_now
+    from enum import Enum
     import datetime
+
+    def _enum_val(v):
+        """Extract .value from enums, otherwise str()."""
+        if isinstance(v, Enum):
+            return v.value
+        return v if isinstance(v, str) else str(v) if v else ""
+
     ts = utc_now()
     date_str = datetime.datetime.utcnow().strftime("%Y%m%d")
     return AnalysisResult(
@@ -757,10 +776,10 @@ def _map_hybrid_to_analysis_result(
         timestamp=ts,
         originalTitle=title,
         originalDescription=description[:500] if description else "",
-        category=getattr(hybrid_result, "category", ""),
-        intent=getattr(hybrid_result, "intent", ""),
+        category=_enum_val(getattr(hybrid_result, "category", "")),
+        intent=_enum_val(getattr(hybrid_result, "intent", "")),
         confidence=getattr(hybrid_result, "confidence", 0.0),
-        source=getattr(hybrid_result, "source", "pattern"),
+        source=_enum_val(getattr(hybrid_result, "source", "pattern")),
         agreement=getattr(hybrid_result, "agreement", False),
         businessImpact=getattr(hybrid_result, "business_impact", ""),
         technicalComplexity=getattr(hybrid_result, "technical_complexity", "") or "",
@@ -774,7 +793,7 @@ def _map_hybrid_to_analysis_result(
         semanticKeywords=getattr(hybrid_result, "semantic_keywords", None) or [],
         contextSummary=getattr(hybrid_result, "context_summary", "") or "",
         reasoning=str(getattr(hybrid_result, "reasoning", "")),
-        patternCategory=getattr(hybrid_result, "pattern_category", ""),
+        patternCategory=_enum_val(getattr(hybrid_result, "pattern_category", "")),
         patternConfidence=getattr(hybrid_result, "pattern_confidence", 0.0),
         aiAvailable=getattr(hybrid_result, "ai_available", True),
         aiError=getattr(hybrid_result, "ai_error", None),
@@ -873,7 +892,9 @@ async def run_analysis(body: AnalyzeRequest):
                 "success": True,
             })
         except Exception as e:
-            logger.error("Analysis failed for %s: %s", wid, e)
+            import traceback
+            tb_str = traceback.format_exc()
+            logger.error("Analysis failed for %s: %s\n%s", wid, e, tb_str)
             errors.append(f"Analysis failed for #{wid}: {str(e)}")
             results.append({
                 "workItemId": wid,
