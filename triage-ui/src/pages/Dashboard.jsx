@@ -182,16 +182,6 @@ export default function Dashboard({ addToast }) {
           )}
         </div>
       </div>
-
-      {/* Quick Actions */}
-      <div className="dashboard-quick-actions">
-        <h2>Quick Actions</h2>
-        <div className="dashboard-quick-links">
-          <Link to="/evaluate" className="btn btn-primary">⚡ Evaluate Work Items</Link>
-          <Link to="/rules" className="btn btn-secondary">+ New Rule</Link>
-          <Link to="/triggers" className="btn btn-secondary">+ New Trigger</Link>
-        </div>
-      </div>
     </div>
   );
 }
