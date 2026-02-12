@@ -1,17 +1,122 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 11, 2026
-**Status**: ✅ All systems operational — Triage Management System with Cosmos DB, AI classification, desktop launcher
+**Last Updated**: February 12, 2026
+**Status**: ✅ All systems operational — Triage Management + Field Submission Portal + Cosmos DB + AI classification
+
+---
+
+## ⚠️ CRITICAL CONTEXT FOR NEW SESSIONS — READ FIRST
+
+### Two Completely Different Audiences — Two Separate UIs
+
+This platform serves **two distinct personas** that must NEVER be combined into one UI:
+
+| | **Field Personnel** (submit issues) | **Corporate Triage Team** (review & route) |
+|---|---|---|
+| **Who** | Field CSMs, account managers, support engineers | Central triage/operations team |
+| **Purpose** | Enter issues they need help with, get AI guidance | Review incoming items, apply rules, route to teams |
+| **Current UI** | Flask app `:5003` (`app.py`, 2369 lines) | React SPA `:3000` (`triage-ui/`) |
+| **Future UI** | New React SPA (separate URL/project) | Current React SPA (`:3000`) |
+| **API Backend** | Microservices via API Gateway `:8000` | FastAPI Triage API `:8009` |
+
+**The Flask app is NOT "legacy to replace"** — it is the active field submission portal. The React triage UI is a separate system for the corporate triage team. They share the Analysis Engine but nothing else.
+
+### Field Submission Flow (9-Step Process — DO NOT BREAK)
+
+This flow was refined over several weeks and works correctly. The correction step (Step 4) is **integrated into the submission journey**, not a separate admin page:
+
+```
+Step 1: Issue Submission (/)
+  └─ Title + Description/Customer Scenario + Business Impact form
+  └─ Template: issue_submission.html
+
+Step 2: Quality Review (/submit)
+  └─ AI completeness scoring (score < 50 blocks, < 80 warns)
+  └─ Options: Update Input (back to Step 1), Continue to Analysis, Cancel
+  └─ Template: input_quality_review.html
+
+Step 3: Context Analysis (/start_processing → /context_summary)
+  └─ HybridContextAnalyzer runs: pattern matching + GPT-4o + vectors + corrections
+  └─ Shows: Category, Intent, Confidence%, Business Impact, Technical Complexity
+  └─ AI reasoning displayed to user
+  └─ Template: context_summary.html
+
+Step 4: User Review & Correction (/context_summary or /evaluate_context)
+  └─ "Looks Good - Continue" → proceed to Step 5
+  └─ "Modify Classification" → /evaluate_context (detailed view)
+      └─ Correction form: correct_category, correct_intent, correct_business_impact
+      └─ "Reanalyze with Corrections" → re-runs analysis with hints → back to summary
+      └─ "Save Corrections Only" → saves to corrections.json for learning
+  *** CORRECTION IS PART OF THE USER JOURNEY, NOT A SEPARATE ADMIN FUNCTION ***
+  └─ Template: context_evaluation.html (885 lines)
+
+Step 5: Resource Search (/search_resources → /perform_search → /search_results)
+  └─ Searches: Microsoft Learn, similar products, regional availability
+  └─ Retirement info, capacity guidance
+  └─ TFT Features (for feature_request category — checkbox selection)
+  └─ Category-specific guidance:
+      - technical_support → CSS Compass/Escalation links
+      - cost_billing → Out of scope, redirect to GetHelp
+      - aoai_capacity → aka.ms/aicapacityhub
+      - capacity → AI vs Non-AI capacity instructions
+  └─ Template: search_results.html
+
+Step 6: UAT Input (/uat_input)
+  └─ Opportunity ID + Milestone ID (recommended, not required)
+  └─ Template: uat_input.html
+
+Step 7: Similar UAT Search (/select_related_uats)
+  └─ Searches ADO for similar UATs from last 180 days
+  └─ Sorted by similarity score (highest first)
+  └─ Template: select_related_uats.html
+
+Step 8: UAT Selection
+  └─ Checkboxes (max 5), saved via AJAX POST /save_selected_uat
+  └─ Template: select_related_uats.html (same page)
+
+Step 9: UAT Created (/create_uat)
+  └─ Creates work item in ADO (unifiedactiontrackertest org)
+  └─ Fields: Title, Description, Impact, Category, Intent, Reasoning
+  └─ Custom fields: AssigntoCorp=True, StatusUpdate=WizardAuto
+  └─ Links selected TFT Features and related UATs
+  └─ Template: uat_created.html
+```
+
+### Key Code Files for Field Submission Flow
+| File | Lines | Purpose |
+|------|-------|---------|
+| `app.py` | 2369 | Flask app — all 20+ routes for the field submission flow |
+| `enhanced_matching.py` | 2646 | EnhancedMatcher, AzureDevOpsSearcher, analyze_context_for_evaluation() |
+| `microservices_client.py` | 396 | HTTP client wrappers for calling microservices via API Gateway |
+| `ado_integration.py` | 1088 | ADO client — create_work_item_from_issue(), search_tft_features() |
+| `hybrid_context_analyzer.py` | ~730 | Orchestrator: pattern + LLM + vectors + corrective learning |
+| `intelligent_context_analyzer.py` | ~1800 | IssueCategory/IntentType enums, pattern rules, product detection |
+| `templates/` | 21 files | Jinja2 templates for entire field flow |
+
+### Templates (Field Submission Flow Order)
+```
+issue_submission.html → input_quality_review.html → context_summary.html →
+context_evaluation.html → searching_resources.html → search_results.html →
+uat_input.html → searching_uats.html → select_related_uats.html → uat_created.html
+```
+
+### What Was Built Feb 11 (Triage UI — Separate from Field Flow)
+These are triage team tools, NOT field submission replacements:
+- `triage/api/classify_routes.py` — Standalone classify API (POST /api/v1/classify, /classify/batch)
+- `triage/api/admin_routes.py` — Corrections CRUD + health dashboard API
+- `triage-ui/src/pages/ClassifyPage.jsx` — Triage team can test classifications
+- `triage-ui/src/pages/CorrectionsPage.jsx` — Admin CRUD for corrections.json (NOT field correction flow)
+- `triage-ui/src/pages/HealthPage.jsx` — Component-level health dashboard
 
 ---
 
 ## System Overview
 
-The project has two major subsystems:
+The project has two major subsystems with **different audiences**:
 
-1. **Input/Analysis System** — Flask-based web UI (port 5003) for ad-hoc ICA analysis, Teams bot, and microservices
-2. **Triage Management System** — FastAPI + React SPA for queue-based work item triage with Cosmos DB persistence
+1. **Field Submission Portal** — Flask web UI (port 5003) where field personnel submit issues, review AI analysis, correct classifications inline, search for resources, and create UAT work items
+2. **Triage Management System** — FastAPI + React SPA for the corporate triage team to review queued work items, apply rules/triggers/routes, and route to teams
 
-Both share authentication infrastructure (Key Vault, Azure AD) and the hybrid analysis engine.
+Both share the Hybrid Analysis Engine and authentication infrastructure (Key Vault, Azure AD).
 
 ---
 
@@ -113,7 +218,30 @@ These are injected automatically by `launcher.py` or must be set manually.
 
 ---
 
-## Recent Changes (Feb 11, 2026) — Cosmos DB + Launcher + Serialization Fix
+## Recent Changes (Feb 11-12, 2026) — New Platform Build + Architecture Analysis
+
+### Feb 12: Architecture Analysis ✅
+**Key Finding**: The Flask field submission portal (`:5003`) and the React triage UI (`:3000`) serve completely different audiences and must remain separate. The Classify/Corrections/Health pages built on Feb 11 belong in the triage team's React UI (diagnostic tools), NOT as replacements for the field submission flow.
+
+The field submission's correction step (Step 4 above) is integrated inline — the user reviews AI classification, corrects if needed, and the corrected data flows through to search and UAT creation. This is fundamentally different from the triage team's corrections.json admin CRUD.
+
+### Feb 11: Triage Platform Features ✅ (committed: `4fc1f9f`)
+Built new triage team features without touching the field submission code:
+
+**Backend** (FastAPI APIRouter modules):
+- `triage/api/classify_routes.py` — Standalone classify API: POST /classify, /classify/batch, GET /classify/status, /classify/categories
+- `triage/api/admin_routes.py` — Corrections CRUD + comprehensive health dashboard (checks Cosmos, OpenAI, KV, ADO, cache, corrections)
+- Both mounted in `routes.py` via `app.include_router()`
+
+**Frontend** (React pages + CSS):
+- `ClassifyPage.jsx/css` — Test classifications with confidence bars, source badges, semantic tags
+- `CorrectionsPage.jsx/css` — Admin CRUD for corrections.json entries
+- `HealthPage.jsx/css` — Component-by-component health dashboard
+- `triageApi.js` — Added classify/corrections/health API client functions
+- `App.jsx` — Added 3 lazy routes: /classify, /corrections, /health
+- `constants.js` — Added 3 nav items with divider
+
+**Docs**: `SYSTEM_ARCHITECTURE.md` updated with all new components
 
 ### 1. **Cosmos DB Integration** ✅
 Connected Triage Management System to real Azure Cosmos DB (was in-memory).
@@ -146,16 +274,9 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 
 ---
 
-## Uncommitted Changes (as of Feb 11, 2026)
+## Uncommitted Changes (as of Feb 12, 2026)
 
-**Must commit these files:**
-| File | Change |
-|------|--------|
-| `triage/config/cosmos_config.py` | Cross-tenant AAD auth, COSMOS_TENANT_ID, persistent token cache |
-| `triage/models/analysis_result.py` | Recursive `_sanitize()` for Enum serialization |
-| `triage/api/routes.py` | `_enum_val()` helper, cleaned up error handler |
-| `keyvault_config.py` | COSMOS_ENDPOINT/COSMOS_KEY in SECRET_MAPPINGS |
-| `launcher.py` | NEW — desktop GUI launcher |
+**None** — All changes committed in `4fc1f9f` on Feb 11.
 
 ---
 
@@ -317,29 +438,46 @@ npm run dev
 ## Git Status
 
 **Branch**: `main`
-**Latest commit**: `739a5c5` — Remove Quick Actions section from Dashboard
+**Latest commit**: `4fc1f9f` — Add standalone classify API, corrections mgmt, health dashboard, 3 new React pages, launcher GUI, Cosmos AAD auth, architecture docs
 
-**Recent commits** (newest first):
-- `739a5c5` — Remove Quick Actions section from Dashboard
-- `c462403` — Fix: health check hitting wrong URL
-- `8d6da2c` — Fix: audit change details showing dashes instead of values
-- `fc2e279` — Fix audit log: wire up action filter, fix API param mismatch
-- `a0d469a` — Cache queue data across navigation
-
-**Uncommitted**: cosmos_config.py, analysis_result.py, routes.py, keyvault_config.py, launcher.py (NEW)
+**All changes committed** — clean working tree.
 
 ---
 
 ## Next Steps / TODO
 
-- [ ] Commit all uncommitted changes (Cosmos DB, serialization fix, launcher)
-- [ ] Tune analysis classification accuracy (review categories, adjust LLM prompt)
+### Decision Needed (Discuss with Brad)
+- [ ] **Field Submission Portal**: Keep Flask or rebuild as new React SPA? Either way, it must be a separate URL from the triage UI
+- [ ] **Priority**: Build the new field submission React SPA first? Or focus on completing triage features?
+
+### Field Submission Portal (separate from triage)
+- [ ] Build new React SPA for field personnel (separate project/port from triage-ui)
+- [ ] Replicate complete 9-step field flow (submit → quality → analysis → correction → search → UAT)
+- [ ] Inline correction UI integrated into the flow (not a separate page)
+- [ ] Category-specific guidance display (tech support, cost/billing, capacity, etc.)
+- [ ] TFT Feature search + selection for feature_request category
+- [ ] Similar UAT search + selection (last 180 days)
+- [ ] UAT creation with all context (features, related UATs, opportunity/milestone IDs)
+
+### Triage Management System
+- [ ] Live test the 3 new React pages (ClassifyPage, CorrectionsPage, HealthPage)
+- [ ] Classification tuning — review accuracy, refine LLM prompt, add corrections
+- [ ] Webhook receiver — ADO pushes events → auto-analyze new items
+- [ ] Analytics dashboard — trends, accuracy, volume metrics
+- [ ] Full automation mode — trigger → route → ADO write without human review
+
+### Infrastructure
+- [ ] Commit all changes (currently clean ✅)
 - [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
-- [ ] Fix admin portal blob storage authorization
-- [ ] Test managed identity (mi-gcs-dev) in Azure deployment
-- [ ] Update launcher.py to also kill ghost processes on port before starting
-- [ ] Add credential refresh logic for long sessions
-- [ ] Document the full TFT search flow
+- [ ] Copilot API plugin — expose classify/search as Copilot agent skills (OpenAPI spec)
+- [ ] Container deployment — Dockerize services for Azure
+- [ ] Managed Identity — switch from interactive auth to `mi-gcs-dev` in production
+- [ ] Legacy Flask UI retirement — migrate field portal to React, then retire `:5003`
+
+### Existing Issues
+- [ ] Admin portal shows "AuthorizationFailure" on blob storage access
+- [ ] Analysis classification accuracy needs tuning
+- [ ] Azure CLI cannot login locally (Conditional Access error 53003) — use Cloud Shell
 
 ---
 
@@ -381,6 +519,6 @@ npm run dev
 
 ---
 
-**STATUS**: System is fully operational. Triage pipeline works end-to-end (ADO → analysis → Cosmos DB → React UI). Cosmos DB connected with AAD cross-tenant auth. Desktop launcher available. Uncommitted changes need to be committed.
+**STATUS**: System is fully operational. Two separate UIs: Field Submission Portal (Flask :5003, 9-step flow) and Triage Management (FastAPI :8009 + React :3000, 13 pages). Both share the Hybrid Analysis Engine. Cosmos DB connected with AAD cross-tenant auth. Desktop launcher available. All changes committed.
 
-**CRITICAL FILES FOR NEW SESSIONS**: Read this file + `AZURE_OPENAI_AUTH_SETUP.md` + `TRIAGE_SYSTEM_DESIGN.md`
+**CRITICAL FILES FOR NEW SESSIONS**: Read this file first (especially the "CRITICAL CONTEXT" section at the top). Then `SYSTEM_ARCHITECTURE.md` for component inventory. Then `TRIAGE_SYSTEM_DESIGN.md` for the four-layer triage model. Then `AZURE_OPENAI_AUTH_SETUP.md` for auth details. To understand the field submission flow, read `app.py` routes in order: `/` → `/submit` → `/start_processing` → `/context_summary` → `/submit_evaluation_summary` → `/search_resources` → `/perform_search` → `/search_results` → `/uat_input` → `/process_uat_input` → `/select_related_uats` → `/create_uat`.
