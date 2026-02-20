@@ -14,6 +14,38 @@ from typing import Optional
 # Key Vault URI
 KEY_VAULT_URI = "https://kv-gcs-dev-gg4a6y.vault.azure.net/"
 
+
+# ── TODO: REMOVE before pre-prod deployment ──────────────────────────────
+# This check exists because corporate policy disables KeyVault network
+# access after 6 hours of inactivity in the dev environment.  In pre-prod
+# the vault is always reachable via private endpoint / managed identity,
+# so this function (and the startup call in main.py) can be deleted.
+# ──────────────────────────────────────────────────────────────────────────
+def check_reachable(timeout_seconds: float = 3.0) -> tuple[bool, str]:
+    """
+    Quick TCP probe to see if the Key Vault HTTPS endpoint is reachable.
+    Returns (is_reachable, message).
+    """
+    import socket
+    from urllib.parse import urlparse
+    host = urlparse(KEY_VAULT_URI).hostname  # e.g. kv-gcs-dev-gg4a6y.vault.azure.net
+    try:
+        sock = socket.create_connection((host, 443), timeout=timeout_seconds)
+        sock.close()
+        return True, f"Key Vault reachable ({host}:443)"
+    except OSError as e:
+        return False, (
+            f"\n{'='*64}\n"
+            f"  ⚠️  KEY VAULT UNREACHABLE  ({host}:443)\n"
+            f"  {e}\n\n"
+            f"  Your company policy may have disabled network access.\n"
+            f"  Re-enable it in the Azure Portal → Key Vault →\n"
+            f"  Networking → Firewalls and virtual networks.\n"
+            f"  (Secrets will fall back to .env / environment variables)\n"
+            f"{'='*64}"
+        )
+
+
 # Secret name mappings (Key Vault doesn't allow underscores, using hyphens)
 SECRET_MAPPINGS = {
     "AZURE_STORAGE_ACCOUNT_NAME": "azure-storage-account-name",
@@ -44,10 +76,15 @@ class KeyVaultConfig:
         Lazy initialization of Key Vault client
         
         Uses ManagedIdentityCredential if AZURE_CLIENT_ID is set (production),
-        otherwise uses DefaultAzureCredential (local development)
+        otherwise uses DefaultAzureCredential (local development).
+        
+        Excludes AzureCliCredential and AzurePowerShellCredential in dev mode
+        to avoid ~20s of timeouts when az/pwsh are not logged in.
         """
         if self._client is None:
             try:
+                import time as _t
+                _t0 = _t.time()
                 # Check if managed identity is configured
                 managed_identity_client_id = os.environ.get('AZURE_CLIENT_ID')
                 
@@ -56,12 +93,16 @@ class KeyVaultConfig:
                     self._credential = ManagedIdentityCredential(client_id=managed_identity_client_id)
                     auth_method = f"Managed Identity (client_id: {managed_identity_client_id[:8]}...)"
                 else:
-                    # Development: Use default credential (tries multiple methods)
-                    self._credential = DefaultAzureCredential()
-                    auth_method = "DefaultAzureCredential (user/service principal)"
+                    # Development: Exclude slow-failing CLI/PowerShell credentials
+                    # (saves ~20s when az/pwsh are not logged in)
+                    self._credential = DefaultAzureCredential(
+                        exclude_cli_credential=True,
+                        exclude_powershell_credential=True,
+                    )
+                    auth_method = "DefaultAzureCredential (excl CLI/PowerShell)"
                 
                 self._client = SecretClient(vault_url=KEY_VAULT_URI, credential=self._credential)
-                print(f"[OK] Connected to Key Vault: {KEY_VAULT_URI}")
+                print(f"[OK] Connected to Key Vault: {KEY_VAULT_URI} ({_t.time()-_t0:.1f}s)")
                 print(f"  Authentication: {auth_method}")
             except Exception as e:
                 print(f"[WARNING] Could not connect to Key Vault: {e}")

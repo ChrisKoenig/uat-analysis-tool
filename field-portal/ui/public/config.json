@@ -1,0 +1,7 @@
+{
+  "msal": {
+    "clientId": "2e7ef202-d148-4388-be40-651321742402",
+    "tenantId": "16b3c013-d300-468d-ac64-7eda0820b6d3",
+    "redirectUri": ""
+  }
+}

@@ -252,6 +252,7 @@ class HybridContextAnalyzer:
         
         # AI configuration
         self.use_ai = use_ai
+        self._init_error = None  # Track init errors for propagation to results
         print("[DEBUG HYBRID 4] Getting AI config...", flush=True)
         self.config = get_config()
         print("[DEBUG HYBRID 5] AI config loaded.", flush=True)
@@ -284,6 +285,7 @@ class HybridContextAnalyzer:
                 print(f"[HybridAnalyzer] AI initialization failed: {e}")
                 print("[HybridAnalyzer] Falling back to pattern matching only")
                 self.use_ai = False
+                self._init_error = str(e)  # Store init error so it reaches the result
                 print("[DEBUG HYBRID 15] Fell back to pattern-only mode.", flush=True)
         else:
             print("[HybridAnalyzer] Mode: Pattern matching only (AI disabled)")
@@ -338,7 +340,10 @@ class HybridContextAnalyzer:
                   Empty dict with empty list if file doesn't exist
         """
         try:
-            corrections_file = Path('corrections.json')
+            # Resolve relative to this module's directory (project root),
+            # not the cwd (which may be field-portal/).
+            module_dir = Path(__file__).resolve().parent
+            corrections_file = module_dir / 'corrections.json'
             if corrections_file.exists():
                 with open(corrections_file, 'r') as f:
                     return json.load(f)
@@ -600,6 +605,10 @@ class HybridContextAnalyzer:
         
         # STEP 4: Fallback to pattern matching
         print("\n📋 Using Pattern Matching Results...")
+        
+        # If AI was disabled at init time (not during classify), include that error
+        if ai_error_message is None and self._init_error:
+            ai_error_message = f"AI init failed: {self._init_error}"
         
         # Use pattern analyzer's full reasoning if available
         pattern_reasoning = pattern_result.reasoning if hasattr(pattern_result, 'reasoning') else {}

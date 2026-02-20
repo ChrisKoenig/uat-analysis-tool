@@ -174,7 +174,20 @@ class EnhancedMatchingConfig:
         
         print("[DEBUG AUTH 3] No cached credential found. Creating new credential...", flush=True)
         try:
-            # Use Interactive Browser first for proper cross-org permissions
+            # Try Azure CLI first (no prompts if 'az login' was run)
+            print("🔐 [UAT Auth] Trying Azure CLI credential (no prompts)...", flush=True)
+            from azure.identity import AzureCliCredential
+            credential = AzureCliCredential()
+            token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+            print("✅ [UAT Auth] Azure CLI authentication successful (cached for session)", flush=True)
+            EnhancedMatchingConfig._uat_credential = credential
+            EnhancedMatchingConfig._uat_token = token.token
+            return credential, token.token
+        except Exception as cli_error:
+            print(f"[WARNING] Azure CLI credential failed: {cli_error}")
+        
+        try:
+            # Fallback to Interactive Browser
             print("🔐 [UAT Auth] Using Interactive Browser credential (one-time login)...", flush=True)
             print("[DEBUG AUTH 4] Creating InteractiveBrowserCredential object...", flush=True)
             credential = InteractiveBrowserCredential()
@@ -188,22 +201,12 @@ class EnhancedMatchingConfig:
             return credential, token.token
         except Exception as e:
             print(f"[WARNING] Interactive Browser credential failed: {e}")
-            print("[INFO] Trying Azure CLI credential...")
-            try:
-                credential = AzureCliCredential()
-                token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-                print("✅ [UAT Auth] Authentication successful")
-                EnhancedMatchingConfig._uat_credential = credential
-                EnhancedMatchingConfig._uat_token = token.token
-                return credential, token.token
-            except Exception as cli_error:
-                print(f"⚠️  Azure CLI credential failed: {cli_error}")
-                print("[INFO] Trying default credential...")
-                credential = DefaultAzureCredential()
-                token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-                EnhancedMatchingConfig._uat_credential = credential
-                EnhancedMatchingConfig._uat_token = token.token
-                return credential, token.token
+            print("[INFO] Trying default credential...")
+            credential = DefaultAzureCredential()
+            token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+            EnhancedMatchingConfig._uat_credential = credential
+            EnhancedMatchingConfig._uat_token = token.token
+            return credential, token.token
     
     @staticmethod
     def get_tft_credential():
@@ -224,31 +227,36 @@ class EnhancedMatchingConfig:
             return EnhancedMatchingConfig._tft_credential, EnhancedMatchingConfig._tft_token
         
         # Check if we can reuse the UAT credential (same account)
-        # NOTE: This might not work if organizations are in different tenants
         if EnhancedMatchingConfig._uat_credential is not None:
             print("🔐 [TFT Auth] Checking if UAT credential works for TFT org...")
             try:
                 token = EnhancedMatchingConfig._uat_credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-                print("✅ [TFT Auth] Token obtained from UAT credential")
-                # Test if this token actually works by checking if it's for the right tenant
-                # If the credential was initialized without tenant_id, it might prompt again later
-                # Cache it as TFT credential too
+                print("✅ [TFT Auth] UAT credential reused successfully")
                 EnhancedMatchingConfig._tft_credential = EnhancedMatchingConfig._uat_credential
                 EnhancedMatchingConfig._tft_token = token.token
-                print("✅ [TFT Auth] UAT credential reused successfully")
                 return EnhancedMatchingConfig._uat_credential, token.token
             except Exception as e:
                 print(f"⚠️  [TFT Auth] Cannot reuse UAT credential for TFT: {e}")
-                print("    This is normal if orgs are in different tenants")
-                # Fall through to create new credential
         
-        # Create new credential with Microsoft tenant ID (for acrblockers org)
-        print("🔐 [TFT Auth] Using Interactive Browser credential...")
+        # Try Azure CLI (no prompts)
+        try:
+            from azure.identity import AzureCliCredential
+            print("🔐 [TFT Auth] Trying Azure CLI credential...")
+            credential = AzureCliCredential()
+            token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+            print("✅ [TFT Auth] Azure CLI works for TFT org")
+            EnhancedMatchingConfig._tft_credential = credential
+            EnhancedMatchingConfig._tft_token = token.token
+            return credential, token.token
+        except Exception:
+            pass
+        
+        # Fallback: Interactive Browser with Microsoft tenant ID
+        print("🔐 [TFT Auth] Using Interactive Browser credential (one-time)...")
         tenant_id = "72f988bf-86f1-41af-91ab-2d7cd011db47"  # Microsoft tenant
         credential = InteractiveBrowserCredential(tenant_id=tenant_id)
         token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
         print("✅ [TFT Auth] Authentication successful (cached for session)")
-        # Cache the credential
         EnhancedMatchingConfig._tft_credential = credential
         EnhancedMatchingConfig._tft_token = token.token
         return credential, token.token

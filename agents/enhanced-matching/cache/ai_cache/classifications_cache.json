@@ -142,5 +142,77 @@
     "created_at": "2026-02-11T14:31:30.671644",
     "ttl_days": 7,
     "hits": 0
+  },
+  "52a7a4c19e247e4bb6abdf6c9036546e48c81784f52bda6c8f82e2b15bb3da84": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.85,
+      "reasoning": "The customer is reporting login issues for external users with SharePoint Online and mentions SSO not being configured. This indicates a technical problem requiring troubleshooting. The stated impact of 180 tickets in 6 months suggests a high business impact."
+    },
+    "created_at": "2026-02-12T09:39:12.788563",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "842adf34f19cfb1d345d69ac0561e96b641e2fc0844542f8055e3b775ff956c0": {
+    "data": {
+      "category": "feature_request",
+      "intent": "requesting_feature",
+      "business_impact": "high",
+      "confidence": 0.85,
+      "reasoning": "The customer is requesting specific capabilities to address login issues for external users, including bypassing the second login screen and clarifying UPN/email confusion. They explicitly mention the need for a feature ticket for PG consideration, indicating a feature request rather than a roadmap inquiry. The stated impact of ~180 tickets and direct involvement of their executive director elevates the business impact to high."
+    },
+    "created_at": "2026-02-12T09:41:11.598233",
+    "ttl_days": 7,
+    "hits": 7
+  },
+  "f09112b98205089526a7f1498f7f773ec5396b71d77140f8ad395df511736081": {
+    "data": {
+      "category": "feature_request",
+      "intent": "requesting_feature",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting a specific capability to bypass the second login screen for external users without SSO enabled. This aligns with the feature_request category and requesting_feature intent. The stated impact of 180 tickets in 6 months and executive director involvement indicates high business impact."
+    },
+    "created_at": "2026-02-12T10:08:51.839937",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "4fc5fd0590529696b545238534fbf1ab4d3c116584ca5461d9c1b5d50b094b21": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.85,
+      "reasoning": "The inquiry describes login issues with SharePoint Online SSO for external users, which is a technical problem requiring troubleshooting. The stated impact includes high executive involvement, indicating significant urgency. The pattern analysis also supports technical_support as the top match."
+    },
+    "created_at": "2026-02-12T10:11:36.547303",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "e3628e0c54d39da990b09ec273ab81f5a2da66c63b7b2c1756d82ec9fa6b5869": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The inquiry describes external users facing login issues, which indicates a technical problem requiring troubleshooting. The stated impact is high due to the number of tickets (~180), and the pattern analysis also aligns with technical_support as the top match."
+    },
+    "created_at": "2026-02-12T10:12:13.595665",
+    "ttl_days": 7,
+    "hits": 0
+  },
+  "37b7c1de3f40c6154d5767986c78e8a7ff2199779817158a4bef7331cf75deec": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.85,
+      "reasoning": "The inquiry describes login issues faced by external users with SharePoint Online, which indicates a technical problem requiring troubleshooting. The stated impact of 180 tickets suggests a high business impact due to the scale of the issue."
+    },
+    "created_at": "2026-02-12T10:13:13.993137",
+    "ttl_days": 7,
+    "hits": 0
   }
 }

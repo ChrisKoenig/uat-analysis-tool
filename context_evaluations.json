@@ -7754,11 +7754,174 @@
       },
       "user_corrections": null,
       "comments": "User approved AI classification and continued to search"
+    },
+    {
+      "id": "05e16ec5-0a78-4658-af48-f812c3c86215",
+      "timestamp": "2026-02-12T10:49:57.278726",
+      "evaluation_result": "approve",
+      "action": "user_approved_and_continued",
+      "original_issue": {
+        "title": "Customer wants Entra External ID to provide them options for bypassing second login screen when SSO not configured - UAT 500973 revisit",
+        "description": "As per customer \"the external users are facing while trying to login to SharePoint Online. Many of the external users don’t have SSO enabled which causes them to go the ADP login screen. This throws them off where they don’t want to provide their official email addresses and passwords to get into the system. The data related to client login issues that we have for the last 6 months is about ~180 tickets were created. Additional concerns from clients that I got from our support – - Email and UPN confusion – we need to explicitly let user know if they need to login via UPN or email as per their tenant settings. - When any change happens in the email profile of the user, then the invitation needs to be redeemed again. \"",
+        "impact": "last 6 months is about ~180 tickets were created. Customer executive director personally requested me to create this feature ticket for PG consideration or any workaround if possible. Their director asked to check any status of the product enhancement"
+      },
+      "context_analysis": {
+        "category": "feature_request",
+        "intent": "requesting_feature",
+        "confidence": 0.85,
+        "business_impact": "high",
+        "technical_complexity": "low",
+        "urgency_level": "low",
+        "key_concepts": [
+          "sharepoint",
+          "modern_work",
+          "create this feature"
+        ],
+        "semantic_keywords": [
+          "enhancement",
+          "functionality",
+          "improvement",
+          "capability"
+        ],
+        "domain_entities": {
+          "azure_services": [
+            "sharepoint"
+          ],
+          "compliance_frameworks": [],
+          "technologies": [],
+          "business_domains": [],
+          "technical_areas": [
+            "modern_work"
+          ],
+          "regions": [],
+          "discovered_services": []
+        },
+        "recommended_search_strategy": {
+          "search_retirements": false,
+          "prioritize_uats": false,
+          "prioritize_features": true,
+          "use_semantic_matching": true,
+          "expand_search_terms": true
+        },
+        "context_summary": "The customer is requesting specific capabilities to address login issues for external users, including bypassing the second login screen and clarifying UPN/email confusion. They explicitly mention the need for a feature ticket for PG consideration, indicating a feature request rather than a roadmap inquiry. The stated impact of ~180 tickets and direct involvement of their executive director elevates the business impact to high.",
+        "reasoning": "The customer is requesting specific capabilities to address login issues for external users, including bypassing the second login screen and clarifying UPN/email confusion. They explicitly mention the need for a feature ticket for PG consideration, indicating a feature request rather than a roadmap inquiry. The stated impact of ~180 tickets and direct involvement of their executive director elevates the business impact to high.",
+        "pattern_features": {
+          "category_scores": {
+            "IssueCategory.FEATURE_REQUEST": 0.6
+          },
+          "detected_products": [],
+          "technical_indicators": [],
+          "relevant_corrections": []
+        },
+        "pattern_reasoning": {
+          "step_by_step": [
+            "[STEP 1] External Data Source Consultation",
+            "[STEP 2] Microsoft Product Detection",
+            "   [OK] Detected Microsoft products: ['sharepoint', 'entra']",
+            "   [CONF] Confidence: 0.7",
+            "[STEP 3] Corrective Learning Application",
+            "   [INFO] No applicable corrections found in learning database",
+            "[STEP 4] Domain Entity Extraction",
+            "   [INFO] Extracted entities: 2 total",
+            "   [INFO] Categories: ['azure_services', 'compliance_frameworks', 'technologies', 'business_domains', 'technical_areas', 'regions', 'discovered_services']",
+            "[STEP 5] Category Classification",
+            "   [RESULT] Classified as: IssueCategory.FEATURE_REQUEST (confidence: 1.00)",
+            "[STEP 6] Intent Determination",
+            "   [RESULT] Primary intent: IntentType.REPORTING_ISSUE (confidence: 0.20)",
+            "[STEP 7] Key Concept and Keyword Analysis",
+            "   [INFO] Key concepts identified: 3",
+            "   [INFO] Semantic keywords generated: 4",
+            "[STEP 8] Business Impact and Complexity Assessment",
+            "   [INFO] Business impact: low",
+            "   [INFO] Technical complexity: low",
+            "[STEP 9] Search Strategy Optimization",
+            "Step 10: Context Summary Generation"
+          ],
+          "data_sources_used": [
+            {
+              "source": "Azure Services Database (.cache/azure_services.json)",
+              "status": "USED",
+              "reason": "Text contains Azure/Microsoft service references",
+              "matches_found": [
+                "entra",
+                "sharepoint"
+              ]
+            },
+            {
+              "source": "Regional Service Availability (.cache/regional_service_availability.json)",
+              "status": "USED",
+              "reason": "Available for region-specific service queries",
+              "data_size": "11 services mapped"
+            },
+            {
+              "source": "Microsoft Learn Documentation API",
+              "status": "AVAILABLE",
+              "reason": "External knowledge source for Microsoft product information",
+              "note": "Used for product disambiguation and context"
+            }
+          ],
+          "data_sources_skipped": [
+            {
+              "source": "Azure Regions Database",
+              "status": "SKIPPED",
+              "reason": "No geographic region keywords detected"
+            },
+            {
+              "source": "Compliance Frameworks Database",
+              "status": "SKIPPED",
+              "reason": "No compliance/regulatory/government keywords detected"
+            },
+            {
+              "source": "Service Retirements Database",
+              "status": "SKIPPED",
+              "reason": "No retirement/deprecation keywords detected"
+            }
+          ],
+          "confidence_breakdown": [
+            "Category confidence: 1.00",
+            "Intent confidence: 0.20",
+            "Overall confidence: 0.60"
+          ],
+          "microsoft_products": [
+            {
+              "name": "sharepoint",
+              "title": "Microsoft Sharepoint",
+              "description": "Web-based collaborative platform integrating with Microsoft Office",
+              "url": "https://learn.microsoft.com/sharepoint/",
+              "is_microsoft_product": true,
+              "category": "collaboration"
+            },
+            {
+              "name": "entra",
+              "title": "Microsoft Entra",
+              "description": "Identity and access management service (formerly Azure Active Directory)",
+              "url": "https://learn.microsoft.com/entra/",
+              "is_microsoft_product": true,
+              "category": "security"
+            }
+          ],
+          "corrections_applied": [],
+          "final_analysis": {
+            "category_reason": "feature_request indicators found with 100% confidence",
+            "intent_reason": "reporting_issue patterns detected with 20% confidence",
+            "data_source_summary": "Consulted 3 data sources, skipped 3"
+          },
+          "decision_factors": []
+        },
+        "source": "llm",
+        "ai_available": true,
+        "ai_error": null,
+        "category_display": "Feature Request",
+        "intent_display": "Requesting Feature",
+        "business_impact_display": "High"
+      },
+      "user_corrections": null,
+      "comments": "User approved AI classification and continued to search"
     }
   ],
   "statistics": {
-    "total": 52,
-    "approved": 26,
+    "total": 53,
+    "approved": 27,
     "rejected": 26
   }
 }

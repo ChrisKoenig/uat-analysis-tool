@@ -74,34 +74,38 @@ class AzureDevOpsConfig:
     def get_credential():
         """
         Get Azure credential for authentication.
-        
+
         Uses InteractiveBrowserCredential for proper permissions, with caching
         so authentication only happens once. Attempts to reuse credential from
         EnhancedMatchingConfig if already authenticated.
-        
+
+        NOTE: This credential is intentionally SEPARATE from shared_auth.py.
+        shared_auth forces tenant 16b3c013-... (for Azure OpenAI), but the
+        unifiedactiontrackertest ADO org needs the user's home tenant.
+        Using the wrong tenant causes 403 "identity not materialized".
+
         Returns:
             Azure credential object
         """
-        from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
-        
+        from azure.identity import AzureCliCredential, InteractiveBrowserCredential
+
         # Try to reuse credential from EnhancedMatchingConfig (if already authenticated)
         try:
             from enhanced_matching import EnhancedMatchingConfig
             if EnhancedMatchingConfig._uat_credential is not None:
                 print("[AUTH] Reusing cached credential from UAT search...")
-                # Test it still works
                 EnhancedMatchingConfig._uat_credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
                 print("[SUCCESS] Authentication successful (cached)")
                 AzureDevOpsConfig._cached_credential = EnhancedMatchingConfig._uat_credential
                 return EnhancedMatchingConfig._uat_credential
         except Exception as reuse_error:
             print(f"[WARNING] Could not reuse cached credential: {reuse_error}")
-            pass  # Fall through to create new credential
-        
+            pass
+
         # Return our own cached credential if available
         if AzureDevOpsConfig._cached_credential is not None:
             return AzureDevOpsConfig._cached_credential
-        
+
         # Try Azure CLI first (works if user ran 'az login', no prompts)
         print("[AUTH] Trying Azure CLI credential...")
         try:
@@ -109,32 +113,33 @@ class AzureDevOpsConfig:
             token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
             print("[SUCCESS] Azure CLI authentication successful")
             AzureDevOpsConfig._cached_credential = credential
-            
+
             # Cache in EnhancedMatchingConfig for search services
             from enhanced_matching import EnhancedMatchingConfig
             EnhancedMatchingConfig._uat_credential = credential
             EnhancedMatchingConfig._uat_token = token.token
             print("[Auth] Credential shared with search services")
-            
+
             return credential
         except Exception as cli_error:
             print(f"[WARNING] Azure CLI credential failed: {cli_error}")
             print("[INFO] Falling back to Interactive Browser authentication...")
-        
-        # Fallback to Interactive Browser (one-time prompt)
+
+        # Fallback to Interactive Browser — NO tenant_id so the user's
+        # home tenant is used (required for unifiedactiontrackertest org)
         try:
             print("[AUTH] Using Interactive Browser credential (one-time login)...")
             credential = InteractiveBrowserCredential()
             token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
             print("[SUCCESS] Interactive Browser authentication successful")
             AzureDevOpsConfig._cached_credential = credential
-            
+
             # Cache in EnhancedMatchingConfig for search services
             from enhanced_matching import EnhancedMatchingConfig
             EnhancedMatchingConfig._uat_credential = credential
             EnhancedMatchingConfig._uat_token = token.token
             print("[Auth] Credential shared with search services")
-            
+
             return credential
         except Exception as browser_error:
             print(f"[ERROR] Interactive Browser authentication failed: {browser_error}")
@@ -145,33 +150,52 @@ class AzureDevOpsConfig:
     def get_tft_credential():
         """
         Get Azure credential for Technical Feedback organization access.
-        
-        IMPORTANT: This is separate from the main credential because:
-        - Different Azure DevOps organization (unifiedactiontracker vs unifiedactiontrackertest)
-        - Requires cross-organization access via InteractiveBrowserCredential
-        - Browser authentication materializes the user's identity for the TFT org
-        
-        Caching Strategy:
-        - First call: Prompts for browser authentication (expected)
-        - Subsequent calls: Reuses cached credential (no prompt)
-        - Cache persists for the application session
+        The TFT org (unifiedactiontracker) lives in the Microsoft tenant,
+        so we need a credential scoped to that tenant — NOT the shared
+        credential which targets the OpenAI tenant.
         
         Returns:
-            Azure credential object configured for browser authentication
+            Azure credential object configured for TFT org access
         """
-        # Return cached credential if available (avoids repeat authentication)
+        # Return cached credential if available
         if AzureDevOpsConfig._cached_tft_credential is not None:
             print("[AUTH] Reusing cached TFT credential...")
             return AzureDevOpsConfig._cached_tft_credential
-            
-        # First-time setup: Create new credential with Microsoft tenant ID
-        print("[AUTH] Creating new TFT credential (first time)...")
-        tenant_id = "72f988bf-86f1-41af-91ab-2d7cd011db47"  # Microsoft tenant
-        credential = InteractiveBrowserCredential(tenant_id=tenant_id)
-        
-        # Cache for future use within this session
+
+        # The TFT org requires Microsoft tenant — the shared credential
+        # uses a different tenant (OpenAI) and gets 403 on WIQL queries.
+        # Try Azure CLI first (if logged into Microsoft tenant), then browser.
+        import subprocess
+
+        # Quick check: is Azure CLI logged in?
+        try:
+            result = subprocess.run(
+                ["az", "account", "show", "--query", "tenantId", "-o", "tsv"],
+                capture_output=True, text=True, timeout=2,
+            )
+            if result.returncode == 0:
+                cli_tenant = result.stdout.strip()
+                MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+                if cli_tenant == MICROSOFT_TENANT:
+                    from azure.identity import AzureCliCredential
+                    credential = AzureCliCredential()
+                    credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
+                    AzureDevOpsConfig._cached_tft_credential = credential
+                    print("[AUTH] Using Azure CLI credential for TFT (Microsoft tenant)")
+                    return credential
+                else:
+                    print(f"[AUTH] CLI tenant {cli_tenant} != Microsoft tenant, using browser")
+        except Exception:
+            pass
+
+        # Interactive Browser with Microsoft tenant ID
+        from azure.identity import InteractiveBrowserCredential
+        MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+        print("[AUTH] Creating TFT credential via browser (Microsoft tenant)...")
+        credential = InteractiveBrowserCredential(tenant_id=MICROSOFT_TENANT)
+        credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
         AzureDevOpsConfig._cached_tft_credential = credential
-        print("[AUTH] TFT credential cached for reuse")
+        print("[AUTH] TFT credential cached for reuse (Microsoft tenant)")
         
         return credential
 
@@ -813,7 +837,7 @@ class AzureDevOpsClient:
                 'error': f"Request failed: {str(e)}"
             }
     
-    def search_tft_features(self, title: str, description: str, threshold: float = 0.7) -> List[Dict]:
+    def search_tft_features(self, title: str, description: str, threshold: float = 0.7, azure_services: list = None) -> List[Dict]:
         """
         Search Technical Feedback ADO for similar Features.
         
@@ -824,6 +848,7 @@ class AzureDevOpsClient:
             title: Issue title to search for
             description: Issue description for matching
             threshold: Similarity threshold (0.0-1.0), default 0.7
+            azure_services: List of Azure service names from AI analysis (preferred over regex)
             
         Returns:
             List of matching features with metadata and similarity scores
@@ -849,37 +874,107 @@ class AzureDevOpsClient:
             cutoff_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
             
             # SMART SERVICE NAME EXTRACTION & PROGRESSIVE SEARCH
-            # Step 1: Extract base service name from title
+            # Step 1: Prefer AI-detected azure_services from domain_entities
             import re
             import json
             import os
             
-            # Try to extract the actual Azure service name (skip Azure/Microsoft prefix)
-            # Pattern 1: "Azure ServiceName" or "Microsoft ServiceName" - extract just ServiceName
-            azure_service_pattern = r'(?:Azure|Microsoft)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'
-            azure_match = re.search(azure_service_pattern, title)
+            base_service_name = None
             
-            if azure_match:
-                # Found "Azure Route Server" → extract "Route Server"
-                base_service_name = azure_match.group(1).strip()
-                print(f"[TFT Search] Extracted service name (with Azure prefix): {base_service_name}")
-            else:
-                # Pattern 2: Just find 2-word capitalized phrases
-                service_pattern = r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b'
-                potential_services = re.findall(service_pattern, title)
+            # Priority 1: Use azure_services from AI analysis (most reliable)
+            if azure_services:
+                # Use the first detected Azure service name
+                base_service_name = azure_services[0].strip()
+                print(f"[TFT Search] Using AI-detected service name: {base_service_name}")
+            
+            # Priority 2: Try to extract "Azure ServiceName" or "Microsoft ServiceName"
+            if not base_service_name:
+                azure_service_pattern = r'(?:Azure|Microsoft)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'
+                azure_match = re.search(azure_service_pattern, title)
                 
-                if not potential_services:
-                    print("[TFT Search] No service name pattern found in title, searching all features")
-                    product_filter = ""
-                    base_service_name = None
-                else:
-                    # Use the LAST found service name
-                    base_service_name = potential_services[-1].strip()
+                if azure_match:
+                    base_service_name = azure_match.group(1).strip()
+                    print(f"[TFT Search] Extracted service name (with Azure prefix): {base_service_name}")
+            
+            # Priority 3: Find 2-word capitalized phrases (use FIRST, not last)
+            if not base_service_name:
+                service_pattern = r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b'
+                # Filter out common non-service phrases
+                noise_words = {'Blocked Sale', 'Kelly Services', 'Session Windows',
+                               'New Feature', 'Feature Request', 'Support Request',
+                               'Please Help', 'Need Help', 'High Priority'}
+                potential_services = [
+                    m for m in re.findall(service_pattern, title)
+                    if m not in noise_words
+                ]
+                
+                if potential_services:
+                    # Use the FIRST found service name (most likely to be the actual service)
+                    base_service_name = potential_services[0].strip()
                     print(f"[TFT Search] Extracted service name: {base_service_name}")
             
+            # Priority 4: Look for known TFT product keywords in title
             if not base_service_name:
-                print("[TFT Search] No service name found, searching all features")
-                product_filter = ""
+                _known_tft_products = {
+                    'cycle cloud': 'Cycle Cloud', 'cyclecloud': 'CycleCloud',
+                    'redhat': 'Redhat', 'red hat': 'Red Hat',
+                    'openshift': 'OpenShift', 'rhel': 'RHEL',
+                    'kubernetes': 'Kubernetes', 'aks': 'AKS',
+                    'databricks': 'Databricks', 'fabric': 'Fabric',
+                    'synapse': 'Synapse', 'purview': 'Purview',
+                    'sentinel': 'Sentinel', 'defender': 'Defender',
+                    'intune': 'Intune', 'autopilot': 'Autopilot',
+                    'devops': 'DevOps', 'cosmos': 'Cosmos',
+                    'postgresql': 'PostgreSQL', 'mysql': 'MySQL',
+                    'sql server': 'SQL Server', 'sql managed': 'SQL Managed',
+                    'virtual desktop': 'Virtual Desktop', 'avd': 'AVD',
+                    'private access': 'Private Access',
+                    'global secure access': 'Global Secure Access',
+                    'entra': 'Entra', 'active directory': 'Active Directory',
+                    'key vault': 'Key Vault', 'keyvault': 'KeyVault',
+                    'storage account': 'Storage', 'blob storage': 'Blob',
+                    'app service': 'App Service', 'functions': 'Functions',
+                    'logic apps': 'Logic Apps', 'event grid': 'Event Grid',
+                    'service bus': 'Service Bus', 'iot hub': 'IoT Hub',
+                    'iot edge': 'IoT Edge', 'iot central': 'IoT Central',
+                    'machine learning': 'Machine Learning',
+                    'cognitive': 'Cognitive', 'openai': 'OpenAI',
+                    'power bi': 'Power BI', 'power automate': 'Power Automate',
+                    'sharepoint': 'SharePoint', 'teams': 'Teams',
+                    'copilot': 'Copilot', 'windows 365': 'Windows 365',
+                    'hpc': 'HPC', 'batch': 'Batch',
+                    'marketplace': 'Marketplace', 'monitor': 'Monitor',
+                    'load balancer': 'Load Balancer', 'firewall': 'Firewall',
+                    'front door': 'Front Door', 'cdn': 'CDN',
+                    'route server': 'Route Server', 'expressroute': 'ExpressRoute',
+                    'vpn gateway': 'VPN Gateway', 'bastion': 'Bastion',
+                    'arc': 'Arc', 'stack hci': 'Stack HCI',
+                    'vmware': 'VMware', 'sap': 'SAP', 'oracle': 'Oracle',
+                }
+                title_lower = title.lower()
+                for keyword, display_name in sorted(_known_tft_products.items(), key=lambda x: len(x[0]), reverse=True):
+                    if keyword in title_lower:
+                        base_service_name = display_name
+                        print(f"[TFT Search] Matched known product: {base_service_name}")
+                        break
+
+            if not base_service_name:
+                print("[TFT Search] No service name found, using broad keyword search from title")
+                # Use the most meaningful words from the title as a search filter
+                import re as _re2
+                title_words = _re2.findall(r'\b[A-Za-z]{4,}\b', title)
+                noise = {'support', 'request', 'feature', 'provide', 'need', 'customer',
+                         'blocked', 'sale', 'seats', 'services', 'service', 'azure',
+                         'microsoft', 'please', 'help', 'want', 'would', 'could',
+                         'should', 'with', 'from', 'that', 'this', 'have', 'been'}
+                meaningful = [w for w in title_words if w.lower() not in noise]
+                if meaningful:
+                    # Use first two meaningful words as keyword filter
+                    search_term = meaningful[0]
+                    print(f"[TFT Search] Using title keyword filter: CONTAINS '{search_term}'")
+                    product_filter = f"AND [System.Title] CONTAINS '{search_term}'"
+                else:
+                    product_filter = ""
             else:
                 # Step 2: Use the base service name directly - CONTAINS will match all variations
                 # "Route Server" matches: "Route Server", "Azure Route Server", "Route Server - IPv6", etc.
@@ -901,7 +996,7 @@ class AzureDevOpsClient:
             
             print(f"[TFT Search] WIQL Query:\n{wiql_query}")
             
-            wiql_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
+            wiql_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/wiql?api-version={self.config.API_VERSION}&$top=200"
             wiql_response = requests.post(
                 wiql_url,
                 headers=tft_headers,
@@ -909,7 +1004,11 @@ class AzureDevOpsClient:
             )
             
             if wiql_response.status_code != 200:
-                print(f"[TFT Search] WIQL query failed: {wiql_response.status_code}")
+                try:
+                    err_body = wiql_response.json()
+                except Exception:
+                    err_body = wiql_response.text[:500]
+                print(f"[TFT Search] WIQL query failed: {wiql_response.status_code} — {err_body}")
                 return []
             
             work_items = wiql_response.json().get('workItems', [])
@@ -936,7 +1035,41 @@ class AzureDevOpsClient:
                 print(f"[TFT Search] Batch request failed: {batch_response.status_code}")
                 return []
             
-            # Use AI semantic search for better matching
+            # Parse all items first (shared by both AI and fallback paths)
+            all_items = batch_response.json().get('value', [])
+            print(f"[TFT Search] Processing {len(all_items)} product-filtered features...")
+            
+            # Limit to 100 items max
+            if len(all_items) > 100:
+                print(f"[TFT Search] Limiting from {len(all_items)} to 100 features")
+                all_items = all_items[:100]
+            
+            parsed_items = []
+            for item in all_items:
+                fields = item.get('fields', {})
+                item_id = fields.get('System.Id')
+                item_title = fields.get('System.Title', '')
+                item_desc = fields.get('System.Description', '')
+                
+                # Strip HTML tags from description
+                if item_desc:
+                    from html import unescape
+                    import re as _re
+                    item_desc = _re.sub(r'<[^>]+>', '', item_desc)
+                    item_desc = unescape(item_desc)
+                    item_desc = ' '.join(item_desc.split())
+                
+                parsed_items.append({
+                    'id': item_id,
+                    'title': item_title,
+                    'description': item_desc,
+                    'state': fields.get('System.State', 'Unknown'),
+                    'created_date': fields.get('System.CreatedDate', ''),
+                    'url': f"{tft_base_url}/{quote(tft_project)}/_workitems/edit/{item_id}",
+                    'source': 'Technical Feedback'
+                })
+            
+            # Try AI semantic search first, fall back to keyword matching
             print("[TFT Search] Using AI semantic search for similarity matching...")
             try:
                 from embedding_service import EmbeddingService
@@ -948,92 +1081,81 @@ class AzureDevOpsClient:
                 search_text = f"{title} {description}"
                 search_embedding = embedding_service.embed(search_text)
                 
-                items = batch_response.json().get('value', [])
-                print(f"[TFT Search] Processing {len(items)} product-filtered features with AI embeddings")
-                
-                # Limit to 100 items max to avoid excessive processing
-                if len(items) > 100:
-                    print(f"[TFT Search] Limiting from {len(items)} to 100 features")
-                    items = items[:100]
+                print(f"[TFT Search] Running AI embeddings on {len(parsed_items)} features")
                 
                 matches = []
                 
                 # Process in smaller batches to avoid rate limits
                 batch_size = 10
-                for i in range(0, len(items), batch_size):
-                    batch_items = items[i:i+batch_size]
+                for i in range(0, len(parsed_items), batch_size):
+                    batch_items = parsed_items[i:i+batch_size]
                     
-                    for item in batch_items:
+                    for p_item in batch_items:
                         try:
-                            fields = item.get('fields', {})
-                            item_id = fields.get('System.Id')
-                            item_title = fields.get('System.Title', '')
-                            item_desc = fields.get('System.Description', '')
-                            
-                            # Strip HTML tags from description
-                            if item_desc:
-                                from html import unescape
-                                import re
-                                # Remove HTML tags
-                                item_desc = re.sub(r'<[^>]+>', '', item_desc)
-                                # Unescape HTML entities (&nbsp;, etc.)
-                                item_desc = unescape(item_desc)
-                                # Clean up extra whitespace
-                                item_desc = ' '.join(item_desc.split())
-                            
-                            # Generate embedding for TFT feature
-                            feature_text = f"{item_title} {item_desc}" if item_desc else item_title
+                            feature_text = f"{p_item['title']} {p_item['description']}" if p_item['description'] else p_item['title']
                             feature_embedding = embedding_service.embed(feature_text)
                             
-                            # Calculate cosine similarity
                             similarity = embedding_service.cosine_similarity(search_embedding, feature_embedding)
                             
                             if similarity >= threshold:
                                 matches.append({
-                                    'id': item_id,
-                                    'title': item_title,
-                                    'description': item_desc,
-                                    'state': fields.get('System.State', 'Unknown'),
-                                    'created_date': fields.get('System.CreatedDate', ''),
+                                    **p_item,
                                     'similarity': round(similarity, 2),
-                                    'url': f"{tft_base_url}/{quote(tft_project)}/_workitems/edit/{item_id}",
-                                    'source': 'Technical Feedback'
                                 })
                         except Exception as e:
-                            # Rate limit or other error on individual item - skip it
                             if '429' in str(e) or 'RateLimitReached' in str(e):
                                 print(f"[TFT Search] Rate limit hit, stopping AI search early")
-                                raise  # Raise to trigger fallback
+                                raise
                             continue
                     
-                    # Small delay between batches to avoid rate limits
-                    if i + batch_size < len(items):
+                    if i + batch_size < len(parsed_items):
                         time.sleep(0.5)
                 
-                # Sort by similarity
                 matches.sort(key=lambda x: x['similarity'], reverse=True)
                 
                 print(f"[TFT Search] AI semantic search found {len(matches)} Features above threshold {threshold}")
-                return matches[:10]  # Return top 10 matches
+                return matches[:10]
                 
             except Exception as e:
-                error_msg = str(e)
                 print(f"[TFT Search] AI semantic search failed: {e}")
+                print(f"[TFT Search] Falling back to keyword matching for {len(parsed_items)} features...")
                 
-                # Return error information instead of using inaccurate text matching fallback
-                if '429' in error_msg or 'RateLimitReached' in error_msg:
-                    return {
-                        'error': 'rate_limit',
-                        'message': 'AI search capacity exceeded. The embedding service is temporarily at capacity.',
-                        'retry_after': 60,
-                        'details': 'Please wait a moment and try Deep Search to search again with AI semantic matching.'
-                    }
-                else:
-                    return {
-                        'error': 'ai_failure',
-                        'message': f'AI semantic search is temporarily unavailable: {error_msg}',
-                        'details': 'Cannot perform accurate TFT Feature matching without AI embeddings.'
-                    }
+                # FALLBACK: Simple keyword matching
+                # WIQL already filtered by service name, so these features are relevant.
+                # Score by word overlap with the search query.
+                import re as _re
+                
+                search_words = set(_re.findall(r'\b[a-z]{3,}\b', f"{title} {description}".lower()))
+                stop_words = {'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was',
+                              'will', 'has', 'have', 'been', 'not', 'but', 'they', 'their',
+                              'them', 'which', 'when', 'what', 'where', 'who', 'how', 'all',
+                              'can', 'would', 'could', 'should', 'into', 'also', 'than',
+                              'customer', 'services', 'service', 'support', 'request', 'feature',
+                              'new', 'need', 'sale', 'seats', 'blocked', 'related', 'requires'}
+                search_words -= stop_words
+                
+                matches = []
+                for p_item in parsed_items:
+                    feature_words = set(_re.findall(r'\b[a-z]{3,}\b',
+                                                     f"{p_item['title']} {p_item['description']}".lower()))
+                    feature_words -= stop_words
+                    
+                    if not search_words or not feature_words:
+                        overlap = 0.0
+                    else:
+                        common = search_words & feature_words
+                        overlap = len(common) / min(len(search_words), len(feature_words))
+                    
+                    # Low threshold since WIQL already pre-filtered by service name
+                    if overlap >= 0.15 or len(parsed_items) <= 10:
+                        matches.append({
+                            **p_item,
+                            'similarity': round(min(overlap + 0.1, 0.99), 2),
+                        })
+                
+                matches.sort(key=lambda x: x['similarity'], reverse=True)
+                print(f"[TFT Search] Keyword fallback found {len(matches)} Features")
+                return matches[:10]
             
         except Exception as e:
             print(f"[TFT Search] Error: {e}")

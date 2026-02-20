@@ -10,12 +10,15 @@ from dataclasses import dataclass, field
 
 # Helper function to get config from Key Vault first, then environment
 def _get_config_value(key: str, default: str = "") -> str:
-    """Get configuration value from Key Vault first, then environment variables"""
+    """Get configuration value from Key Vault first, then environment variables.
+    
+    Calls get_secret(key) directly instead of rebuilding the full config dict
+    every time — avoids 10 unnecessary get_secret calls per field.
+    """
     try:
         from keyvault_config import get_keyvault_config
         kv = get_keyvault_config()
-        kv_config = kv.get_config()
-        value = kv_config.get(key)
+        value = kv.get_secret(key)
         if value:
             return value
     except Exception as e:
@@ -32,7 +35,7 @@ class AzureOpenAIConfig:
     endpoint: str = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_ENDPOINT", ""))
     api_key: str = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_API_KEY", ""))
     api_version: str = "2024-08-01-preview"  # Working API version for gpt-4o deployments
-    use_aad: bool = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_USE_AAD", "false").lower() == "true")
+    use_aad: bool = field(default_factory=lambda: _get_config_value("AZURE_OPENAI_USE_AAD", "true").lower() == "true")
     
     # Model deployments
     embedding_model: str = "text-embedding-3-large"  # High-quality embeddings
@@ -135,8 +138,14 @@ class AIConfig:
             os.makedirs(self.caching.cache_dir, exist_ok=True)
         
         # Validate corrections file exists for fine-tuning
-        if not os.path.exists(self.fine_tuning.corrections_file):
-            errors.append(f"Corrections file not found: {self.fine_tuning.corrections_file}")
+        # Resolve relative to ai_config.py's directory (project root),
+        # not the current working directory (which may be field-portal/).
+        corrections_path = self.fine_tuning.corrections_file
+        if not os.path.isabs(corrections_path):
+            config_dir = os.path.dirname(os.path.abspath(__file__))
+            corrections_path = os.path.join(config_dir, corrections_path)
+        if not os.path.exists(corrections_path):
+            errors.append(f"Corrections file not found: {corrections_path}")
         
         return len(errors) == 0, errors
     

@@ -6,6 +6,7 @@ Checks Key Vault access, then provides one-click launch for:
   - Input Process (Flask app on port 5003)
   - Admin Process (Admin service on port 8008)
   - Triage Process (FastAPI + React on ports 8009/3000)
+  - Field Portal (FastAPI + React on ports 8010/3001)
 """
 
 import os
@@ -66,6 +67,30 @@ SERVICES = {
                 "label": "Triage UI",
                 "cmd": ["npm.cmd", "run", "dev"],
                 "cwd": os.path.join(PROJECT_DIR, "triage-ui"),
+                "env_extra": {},
+            },
+        ],
+    },
+    "field": {
+        "label": "Field Portal",
+        "description": "Field Issue Submission — React SPA + FastAPI Orchestrator",
+        "url": "http://localhost:3001",
+        "ports": [8010, 3001],
+        "commands": [
+            {
+                "label": "Field API",
+                "cmd": [
+                    sys.executable, "-m", "uvicorn",
+                    "field-portal.api.main:app",
+                    "--host", "0.0.0.0", "--port", "8010", "--reload"
+                ],
+                "cwd": PROJECT_DIR,
+                "env_extra": {},
+            },
+            {
+                "label": "Field UI",
+                "cmd": ["npm.cmd", "run", "dev"],
+                "cwd": os.path.join(PROJECT_DIR, "field-portal", "ui"),
                 "env_extra": {},
             },
         ],
@@ -134,7 +159,7 @@ class LauncherApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("GCS Launcher")
-        self.root.geometry("620x520")
+        self.root.geometry("620x620")
         self.root.resizable(False, False)
         self.root.configure(bg="#1e1e1e")
 
@@ -375,6 +400,9 @@ class LauncherApp:
                     # Wait for API first, then UI
                     wait_for_http("http://localhost:8009/health", timeout_secs=45)
                     wait_for_http("http://localhost:3000", timeout_secs=45)
+                elif svc_id == "field":
+                    wait_for_http("http://localhost:8010/api/field/health", timeout_secs=45)
+                    wait_for_http("http://localhost:3001", timeout_secs=45)
                 else:
                     wait_for_http(url, timeout_secs=45)
 

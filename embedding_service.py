@@ -30,15 +30,36 @@ class EmbeddingService:
         self.caching_config = self.config.caching
         
         # Initialize Azure OpenAI client with timeout
-        # CRITICAL FIX: Added 10-second timeout to prevent indefinite hanging
-        # when network issues occur. Previously, connection errors would cause
-        # the application to hang indefinitely during TFT feature search.
-        self.client = AzureOpenAI(
-            azure_endpoint=self.azure_config.endpoint,
-            api_key=self.azure_config.api_key,
-            api_version=self.azure_config.api_version,
-            timeout=10.0  # 10 second timeout prevents hanging on connection errors
-        )
+        # Supports both Azure AD (managed identity / browser) and API key auth.
+        # Azure AD is the default for Azure deployments (no API keys allowed).
+        use_aad = self.azure_config.use_aad if hasattr(self.azure_config, 'use_aad') else False
+        
+        if use_aad:
+            # Use shared credential (single auth for all services)
+            print(f"[EmbeddingService] 🔐 Using Azure AD authentication (shared credential)...")
+            from shared_auth import get_credential, get_credential_type
+            from azure.identity import get_bearer_token_provider
+            credential = get_credential()
+            print(f"[EmbeddingService] Using shared credential (type: {get_credential_type()})")
+            token_provider = get_bearer_token_provider(
+                credential,
+                "https://cognitiveservices.azure.com/.default"
+            )
+            self.client = AzureOpenAI(
+                azure_endpoint=self.azure_config.endpoint,
+                azure_ad_token_provider=token_provider,
+                api_version=self.azure_config.api_version,
+                timeout=10.0  # 10 second timeout prevents hanging on connection errors
+            )
+        else:
+            # Fallback to API key authentication
+            print(f"[EmbeddingService] 🔑 Using API key authentication...")
+            self.client = AzureOpenAI(
+                azure_endpoint=self.azure_config.endpoint,
+                api_key=self.azure_config.api_key,
+                api_version=self.azure_config.api_version,
+                timeout=10.0  # 10 second timeout prevents hanging on connection errors
+            )
         
         # Get service-specific configuration
         service_config = self.config.get_service_config("embedding_service")

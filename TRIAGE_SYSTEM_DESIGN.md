@@ -3,7 +3,7 @@
 **Created**: February 10, 2026  
 **Updated**: February 11, 2026  
 **Status**: Phases 1–5 Complete (Foundation through Hardening)  
-**Author**: GitHub Copilot + Brad Price
+**Author**: Brad Price
 
 ---
 

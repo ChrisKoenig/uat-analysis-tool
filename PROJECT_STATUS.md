@@ -1,5 +1,5 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 12, 2026
+**Last Updated**: February 19, 2026
 **Status**: ✅ All systems operational — Triage Management + Field Submission Portal + Cosmos DB + AI classification
 
 ---
@@ -113,10 +113,11 @@ These are triage team tools, NOT field submission replacements:
 
 The project has two major subsystems with **different audiences**:
 
-1. **Field Submission Portal** — Flask web UI (port 5003) where field personnel submit issues, review AI analysis, correct classifications inline, search for resources, and create UAT work items
-2. **Triage Management System** — FastAPI + React SPA for the corporate triage team to review queued work items, apply rules/triggers/routes, and route to teams
+1. **Field Portal** — React SPA + FastAPI orchestrator (ports 3001/8010) where field personnel submit issues through a 9-step wizard: submit → quality review → AI analysis → correction → resource search → TFT features → UAT input → related UATs → UAT creation
+2. **Triage Management System** — FastAPI + React SPA (ports 3000/8009) for the corporate triage team to review queued work items, apply rules/triggers/routes, and route to teams
+3. **Legacy Input System** — Flask web UI (port 5003) — original field submission portal, still operational
 
-Both share the Hybrid Analysis Engine and authentication infrastructure (Key Vault, Azure AD).
+All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007) and authentication infrastructure (Key Vault, Azure AD).
 
 ---
 
@@ -129,7 +130,18 @@ Both share the Hybrid Analysis Engine and authentication infrastructure (Key Vau
 - **Analysis Engine**: Hybrid pattern matching + LLM classification
 - **Startup**: `python launcher.py` (GUI launcher) OR manual start
 
-### Input/Analysis System (legacy)
+### Field Portal (NEW — Feb 12, actively improved through Feb 19)
+- **Backend API**: FastAPI on port 8010 (uvicorn, `field-portal/api/main.py`)
+- **Frontend**: React 18 + Vite on port 3001 (`field-portal/ui/`)
+- **Pattern**: Calls analysis engines DIRECTLY (no gateway/microservice dependency). Gateway is fallback only.
+  - Quality scoring: `AIAnalyzer.analyze_completeness()` called directly from `enhanced_matching.py`
+  - Context analysis: `HybridContextAnalyzer.analyze()` called directly from `hybrid_context_analyzer.py`
+  - This means the field portal works independently — no need to start the old system or microservices
+- **Auth**: AzureCliCredential-first with cached singletons across all 4 key files (no repeated auth prompts)
+- **OpenAPI**: Full Swagger docs at http://localhost:8010/docs (Copilot-plugin ready)
+- **Startup**: `python launcher.py` → "Field Portal" card, or manual start
+
+### Input/Analysis System (legacy — still operational)
 - **Web UI**: http://localhost:5003
 - **Teams Bot**: http://localhost:3978/api/messages
 - **Startup Script**: `.\start_app.ps1`
@@ -158,6 +170,7 @@ A tkinter GUI that starts/stops all three service groups with one click:
 | Input Process | `app.py` (Flask) | 5003 |
 | Admin Process | `admin_service.py` | 8008 |
 | Triage Process | uvicorn + `npm.cmd run dev` | 8009 + 3000 |
+| Field Portal | uvicorn + `npm.cmd run dev` | 8010 + 3001 |
 
 **Features**:
 - Key Vault access check on startup
@@ -218,7 +231,83 @@ These are injected automatically by `launcher.py` or must be set manually.
 
 ---
 
+## Recent Changes (Feb 17-19, 2026) — Field Portal Independence + Auth + UI Fixes
+
+### Feb 19: Analysis AI Fix — corrections.json Path Resolution ✅
+**Problem**: Analysis AI always fell back to pattern matching (`source: pattern, ai_available: false`) even though Quality AI worked fine. The Analysis Detail page showed `Source: pattern, AI Available: false, Error: N/A`.
+
+**Root Cause**: `validate_config()` in `ai_config.py` checked `os.path.exists("corrections.json")` — a relative path. The uvicorn server runs from `C:\Projects\Hack\field-portal\` but `corrections.json` lives at `C:\Projects\Hack\corrections.json`. This caused validation to fail with `"Corrections file not found: corrections.json"`, which threw a `ValueError` caught by `HybridContextAnalyzer.__init__()`, permanently disabling AI (`use_ai = False`). Quality evaluator was unaffected because it never calls `validate_config()`.
+
+**Why Quality AI worked but Analysis didn't**: The quality evaluator (`ai_quality_evaluator.py`) only calls `get_config()` to get connection details and creates a fresh `AzureOpenAI` client per call. The analysis path (`hybrid_context_analyzer.py`) calls `validate_config()` during `__init__()` which checks the corrections file path — and that check failed due to the cwd mismatch.
+
+**Fix Applied** (2 files):
+1. **`ai_config.py`** (line ~142): `validate()` now resolves `corrections.json` relative to `ai_config.py`'s directory (`os.path.dirname(os.path.abspath(__file__))`) instead of cwd.
+2. **`hybrid_context_analyzer.py`** (line ~345): `_load_corrections()` now resolves via `Path(__file__).resolve().parent / 'corrections.json'` instead of relative `Path('corrections.json')`.
+3. **`field-portal/api/routes.py`**: Added retry logic — if cached `_hybrid_analyzer` has `use_ai=False` and `_init_error`, reinitialize on next request.
+
+**Verified**: Both Quality AI (`ai_evaluation: True`) and Analysis AI (`source=llm, ai_available=True`) now work on port 8010.
+
+### Feb 19: Field Portal Works Without Old System ✅ (CRITICAL FIX)
+**Problem**: The new React field portal's quality engine always returned 100% score unless the old Flask system (:5003) + microservices (:8000-8008) were running. The `submit_issue` endpoint called the API Gateway → enhanced-matching microservice (:8003). When those weren't running, a `GatewayError` catch block fell back to a trivial check: `100 if len(description.split()) >= 5 else 40` — always returning 100% for any reasonable description. The correct score should be ~82% for typical incomplete input.
+
+**Root Cause**: Gateway dependency in `field-portal/api/routes.py` — the field portal API was designed as a thin orchestrator that called everything through the API Gateway, but the gateway and microservices are part of the old system.
+
+**Fix Applied** (3 changes to `field-portal/api/routes.py`):
+1. **Quality Scoring** (`submit_issue` endpoint): Now calls `AIAnalyzer.analyze_completeness()` directly — the same static method the microservice wraps, imported from `enhanced_matching.py`. Gateway + trivial fallback only used if the direct call fails.
+2. **Context Analysis** (`_local_pattern_analysis` helper): Now tries `HybridContextAnalyzer.analyze()` first (full AI: pattern matching + GPT-4o + vector search + corrective learning from corrections.json), then falls back to `IntelligentContextAnalyzer` (pattern-only) if hybrid fails.
+3. **Context Endpoint** (`analyze_context` endpoint): Calls `_local_pattern_analysis()` directly as primary path. Only falls back to the API Gateway when the direct analysis returns a "fallback_minimal" source.
+4. **Singleton**: Added `_hybrid_analyzer = None` as module-level cached singleton alongside `_ado_client` and `_ado_searcher`.
+
+**Verified**: 
+- Short/incomplete input → Score: 80%, Issues: `["impact_lacks_detail"]`, with helpful suggestion
+- Complete well-formed input → Score: 100%, Issues: `[]`
+- Matches the old system's behavior (~82% for typical input)
+
+### Feb 17-18: Auth Fix — Reduced 6x Login Prompts to 1 ✅
+**Problem**: Opening the field portal triggered 6 separate browser auth prompts because each Python module created its own credential independently.
+
+**Fix Applied** (4 files):
+1. **`llm_classifier.py`**: Class-level cached `_credential` with `AzureCliCredential` tried first (no prompt), then `DefaultAzureCredential` as fallback.
+2. **`enhanced_matching.py`**: Auth reordered to `AzureCliCredential` first in credential chain for both main and TFT orgs.
+3. **`ado_integration.py`**: `get_tft_credential()` tries main cached credential → AzureCli → InteractiveBrowser. Persistent token cache.
+4. **`field-portal/api/routes.py`**: Cached `_ado_client` and `_ado_searcher` as module-level singletons (initialized once on first call).
+
+### Feb 17: Field Portal UI Fixes ✅
+1. **Blank Detail Page**: `AnalysisDetailPage.jsx` — `data_sources` field contained objects, React can't render objects as children. Fixed to render structured JSX (source name + confidence badge + details list).
+2. **Visual Hierarchy**: Improved CSS for analysis results display, card layouts, confidence indicators.
+3. **Capitalization**: Fixed inconsistent casing in category/intent display values.
+4. **Debug Scaffolding**: Removed console.log statements and debug borders from production components.
+
+---
+
 ## Recent Changes (Feb 11-12, 2026) — New Platform Build + Architecture Analysis
+
+### Feb 12: Field Portal Rebuild ✅
+Built a completely new React SPA + FastAPI orchestrator for field personnel, replacing the legacy Flask UI without touching any existing code.
+
+**Architecture**: UI (:3001) → Orchestrator API (:8010) → API Gateway (:8000) → Agents (:8001-8007)
+
+**Backend** (`field-portal/api/` — 7 Python files):
+- `main.py` — FastAPI entry point with lifespan, CORS
+- `routes.py` — 11 endpoints for the full 9-step flow (submit, analyze, correct, search, features, UAT input, related UATs, create UAT, session, health)
+- `models.py` — 43 Pydantic models (OpenAPI spec / Copilot-plugin ready)
+- `gateway_client.py` — Async httpx client to API Gateway
+- `session_manager.py` — In-memory wizard state with TTL
+- `guidance.py` — Category-specific rules (tech support, capacity, billing)
+- `config.py` — Ports, thresholds, CORS config
+
+**Frontend** (`field-portal/ui/` — 18 source files):
+- 10 wizard pages: Submit → QualityReview → Analyzing → Analysis → Searching → SearchResults → UATInput → SearchingUATs → RelatedUATs → CreateUAT
+- 4 shared components: ProgressStepper, GuidanceBanner, ConfidenceBar, LoadingSpinner
+- Typed API client (`fieldApi.js`), full CSS design system (`global.css`)
+- React Router with lazy-loaded routes, Vite dev proxy to :8010
+
+**Launcher**: Added 4th card "Field Portal" to `launcher.py` (starts both API + UI)
+
+**Key Design Decisions**:
+- Calls existing API Gateway — does NOT re-wrap agent engines
+- OpenAPI spec auto-generated — maps directly to Copilot agent plugin
+- Zero changes to existing code (`app.py`, `triage-ui/`, agents all untouched)
 
 ### Feb 12: Architecture Analysis ✅
 **Key Finding**: The Flask field submission portal (`:5003`) and the React triage UI (`:3000`) serve completely different audiences and must remain separate. The Classify/Corrections/Health pages built on Feb 11 belong in the triage team's React UI (diagnostic tools), NOT as replacements for the field submission flow.
@@ -274,9 +363,22 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 
 ---
 
-## Uncommitted Changes (as of Feb 12, 2026)
+## Uncommitted Changes (as of Feb 19, 2026)
 
-**None** — All changes committed in `4fc1f9f` on Feb 11.
+**New files** (field portal rebuild — Feb 12):
+- `field-portal/api/` — 7 Python files (FastAPI orchestrator on :8010)
+- `field-portal/ui/` — 18 source files (React SPA on :3001)
+- `launcher.py` — modified: added 4th "Field Portal" card
+
+**Modified files** (Feb 17-19 fixes):
+- `field-portal/api/routes.py` — Direct analysis engine calls (no gateway dependency), cached singletons, quality scoring fix, analyzer retry logic
+- `field-portal/ui/src/pages/AnalysisDetailPage.jsx` — Fixed data_sources object rendering, visual hierarchy
+- `ai_config.py` — corrections.json path resolution fix (resolve relative to module dir, not cwd)
+- `hybrid_context_analyzer.py` — corrections.json load path fix + init error propagation
+- `llm_classifier.py` — Cached credential, AzureCliCredential-first auth
+- `enhanced_matching.py` — Auth reordering (AzureCliCredential first in credential chain)
+- `ado_integration.py` — get_tft_credential() tries cached → CLI → browser, persistent token cache
+- `PROJECT_STATUS.md` — This file
 
 ---
 
@@ -321,6 +423,13 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ---
 
 ## Known Issues
+
+⚠️ **Field Portal: MSAL re-prompts for login during quality submission AND UAT search** (HIGH PRIORITY)
+- After initial login, the user is re-prompted to authenticate when submitting for quality review **and** when searching for matching UATs
+- Multiple fixes attempted: removed `useMsalAuthentication(Silent)` hook, removed `acquireTokenPopup` fallback, disabled `acquireTokenSilent` entirely, added `inProgress` guard — none resolved the issue
+- Root cause suspected: MSAL redirect-based login flow may be interfering with the SPA navigation to `/quality` — the redirect back from AAD lands on the app without the `location.state` that carries quality data, causing a blank page or re-auth loop
+- `getToken()` currently returns `null` (token acquisition fully disabled) — backend does not validate tokens
+- **TODO**: Investigate MSAL `handleRedirectPromise()` timing, consider switching to popup-based login (not token acquisition) or using `ssoSilent()` to restore sessions after redirect. May need to persist quality submission data to sessionStorage before the redirect.
 
 ⚠️ Admin portal shows "AuthorizationFailure" on blob storage access
 - Workaround: Use local JSON files for testing
@@ -390,6 +499,17 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 | `ai_config.py` | OpenAI config with `use_aad` field |
 | `ado_integration.py` | ADO client with dual-org auth |
 
+### Field Portal (NEW)
+| File | Purpose |
+|------|---------|
+| `field-portal/api/main.py` | FastAPI entry point (port 8010) |
+| `field-portal/api/routes.py` | 11 endpoints for 9-step flow |
+| `field-portal/api/models.py` | 43 Pydantic models (OpenAPI/Copilot ready) |
+| `field-portal/api/gateway_client.py` | Async httpx client to API Gateway |
+| `field-portal/api/session_manager.py` | In-memory wizard state with TTL |
+| `field-portal/api/guidance.py` | Category-specific rules |
+| `field-portal/ui/` | React 18 + Vite frontend (port 3001) |
+
 ### Input System (legacy)
 | File | Purpose |
 |------|---------|
@@ -428,6 +548,17 @@ cd triage-ui
 npm run dev
 ```
 
+### Manual: Field Portal
+```powershell
+# Terminal 1 — API
+python -m uvicorn "field-portal.api.main:app" --host 0.0.0.0 --port 8010 --reload
+
+# Terminal 2 — UI
+cd field-portal/ui
+npm run dev
+```
+API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
+
 ### Legacy: Input System
 ```powershell
 .\start_app.ps1
@@ -450,14 +581,21 @@ npm run dev
 - [ ] **Field Submission Portal**: Keep Flask or rebuild as new React SPA? Either way, it must be a separate URL from the triage UI
 - [ ] **Priority**: Build the new field submission React SPA first? Or focus on completing triage features?
 
-### Field Submission Portal (separate from triage)
-- [ ] Build new React SPA for field personnel (separate project/port from triage-ui)
-- [ ] Replicate complete 9-step field flow (submit → quality → analysis → correction → search → UAT)
-- [ ] Inline correction UI integrated into the flow (not a separate page)
-- [ ] Category-specific guidance display (tech support, cost/billing, capacity, etc.)
-- [ ] TFT Feature search + selection for feature_request category
-- [ ] Similar UAT search + selection (last 180 days)
-- [ ] UAT creation with all context (features, related UATs, opportunity/milestone IDs)
+### Field Submission Portal ✅ (Built Feb 12, Independent Feb 19)
+- [x] Build new React SPA for field personnel (separate project/port from triage-ui) — `field-portal/ui/` on :3001
+- [x] Replicate complete 9-step field flow (submit → quality → analysis → correction → search → UAT)
+- [x] Inline correction UI integrated into the flow (not a separate page)
+- [x] Category-specific guidance display (tech support, cost/billing, capacity, etc.)
+- [x] TFT Feature search + selection for feature_request category
+- [x] Similar UAT search + selection (last 180 days)
+- [x] UAT creation with all context (features, related UATs, opportunity/milestone IDs)
+- [x] Quality scoring works independently (direct AIAnalyzer call, no gateway needed)
+- [x] Context analysis works independently (direct HybridContextAnalyzer call, no gateway needed)
+- [x] Auth reduced from 6 prompts to 1 (AzureCliCredential-first, cached singletons)
+- [x] UI bug fixes (blank detail page, visual hierarchy, capitalization)
+- [ ] End-to-end live testing of full 9-step flow (submit through UAT creation)
+- [ ] Add FastAPI bearer-token validation middleware and restore MSAL token flow (redirect-based, not popup)
+- [ ] Retire legacy Flask UI (`:5003`) once field portal is fully validated
 
 ### Triage Management System
 - [ ] Live test the 3 new React pages (ClassifyPage, CorrectionsPage, HealthPage)
@@ -467,15 +605,16 @@ npm run dev
 - [ ] Full automation mode — trigger → route → ADO write without human review
 
 ### Infrastructure
-- [ ] Commit all changes (currently clean ✅)
+- [ ] Commit all field-portal changes
 - [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
-- [ ] Copilot API plugin — expose classify/search as Copilot agent skills (OpenAPI spec)
+- [ ] Copilot API plugin — field portal API already has OpenAPI spec at :8010/docs
 - [ ] Container deployment — Dockerize services for Azure
 - [ ] Managed Identity — switch from interactive auth to `mi-gcs-dev` in production
-- [ ] Legacy Flask UI retirement — migrate field portal to React, then retire `:5003`
+- [ ] Legacy Flask UI retirement — retire `:5003` after field portal validation
 
 ### Existing Issues
 - [ ] Admin portal shows "AuthorizationFailure" on blob storage access
+- [x] Analysis AI now works (corrections.json path fix — Feb 19)
 - [ ] Analysis classification accuracy needs tuning
 - [ ] Azure CLI cannot login locally (Conditional Access error 53003) — use Cloud Shell
 
@@ -519,6 +658,28 @@ npm run dev
 
 ---
 
-**STATUS**: System is fully operational. Two separate UIs: Field Submission Portal (Flask :5003, 9-step flow) and Triage Management (FastAPI :8009 + React :3000, 13 pages). Both share the Hybrid Analysis Engine. Cosmos DB connected with AAD cross-tenant auth. Desktop launcher available. All changes committed.
+**STATUS** (Feb 19, 2026): System is fully operational. Three UIs: **Field Portal** (React :3001 + FastAPI :8010, 9-step wizard), **Triage Management** (FastAPI :8009 + React :3000, 13 pages), and **Legacy Input** (Flask :5003). 
 
-**CRITICAL FILES FOR NEW SESSIONS**: Read this file first (especially the "CRITICAL CONTEXT" section at the top). Then `SYSTEM_ARCHITECTURE.md` for component inventory. Then `TRIAGE_SYSTEM_DESIGN.md` for the four-layer triage model. Then `AZURE_OPENAI_AUTH_SETUP.md` for auth details. To understand the field submission flow, read `app.py` routes in order: `/` → `/submit` → `/start_processing` → `/context_summary` → `/submit_evaluation_summary` → `/search_resources` → `/perform_search` → `/search_results` → `/uat_input` → `/process_uat_input` → `/select_related_uats` → `/create_uat`.
+**KEY CHANGE**: The Field Portal now works INDEPENDENTLY — it calls the analysis engines directly (AIAnalyzer, HybridContextAnalyzer, IntelligentContextAnalyzer) without needing the API Gateway (:8000) or microservices (:8001-8008). The old system (start_app.ps1) is only needed for the legacy Flask UI on :5003. Auth is AzureCliCredential-first with cached singletons — only 1 browser prompt instead of 6.
+
+**HOW TO START** (for new sessions):
+- **Field Portal only** (recommended): `cd field-portal; python -m uvicorn api.main:app --host 0.0.0.0 --port 8010 --reload` + `cd field-portal/ui; npm run dev` → UI at http://localhost:3001
+- **Triage System**: `python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload` + `cd triage-ui; npm run dev` → UI at http://localhost:3000
+- **Legacy Input + All microservices**: `.\start_app.ps1` → Flask UI at http://localhost:5003
+- **All at once**: `python launcher.py` (GUI with 4 cards)
+
+**⚠️ WARNING**: `start_app.ps1` kills ALL Python processes at startup (line 33: `Get-Process python | Stop-Process`). If you have the field portal API running on :8010, starting the old system will kill it. Start the old system first if you need both.
+
+**CRITICAL FILES FOR NEW SESSIONS**: Read this file first (especially the "CRITICAL CONTEXT" section at the top). Key code files:
+- `field-portal/api/routes.py` — Field portal API with direct analysis engine calls (quality scoring + context analysis)
+- `field-portal/ui/src/pages/` — React wizard pages (10 steps)
+- `enhanced_matching.py` — AIAnalyzer.analyze_completeness() static method (quality engine)
+- `hybrid_context_analyzer.py` — HybridContextAnalyzer.analyze() (full AI: pattern + LLM + vectors + corrections)
+- `intelligent_context_analyzer.py` — IntelligentContextAnalyzer (pattern-only fallback)
+- `llm_classifier.py` — Azure OpenAI GPT-4o classification with cached credentials
+- `ado_integration.py` — ADO client with dual-org auth (main + TFT)
+- `SYSTEM_ARCHITECTURE.md` — Component inventory
+- `TRIAGE_SYSTEM_DESIGN.md` — Four-layer triage model
+- `AZURE_OPENAI_AUTH_SETUP.md` — Auth details
+
+All field portal changes are UNCOMMITTED as of Feb 19.

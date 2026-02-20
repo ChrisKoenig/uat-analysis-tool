@@ -334,5 +334,77 @@
     "created_at": "2026-02-11T19:55:33.514153",
     "ttl_days": 7,
     "hits": 0
+  },
+  "c8bf8067106f291199191b74fe09bfdfc79850f7715796e6fcc86b518650c04f": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "medium",
+      "confidence": 0.75,
+      "reasoning": "The description is unclear, but the legacy system pattern analysis indicates a match with technical_support. Given the lack of specific details, troubleshooting is the most likely intent. Business impact is set to medium due to insufficient information to determine criticality."
+    },
+    "created_at": "2026-02-12T07:14:19.479276",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "b983c9267cc57c3c28b86ccd3fd1f39027063c7ef301f2e052f2e31918253993": {
+    "data": {
+      "category": "service_availability",
+      "intent": "reporting_issue",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is reporting a production rollout being blocked due to the unavailability of AI Search in East US 2. This aligns with service_availability and reporting_issue as the intent. The stated impact is critical because it is stopping a production deployment."
+    },
+    "created_at": "2026-02-12T12:18:10.444744",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "4813aad14257c580523c20639d114b6ae41287cc14bed6e1c7a6442f7ce9524e": {
+    "data": {
+      "category": "feature_request",
+      "intent": "requesting_feature",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is requesting specific capabilities (Foundry Agents runtime, FoundryIQ tools integration, memory and control plane components) to be made available in Germany West Central region. This is a feature request as they are asking for parity across regions and identifying a gap in product capabilities. The stated impact is critical due to the blocking nature of the issue for their dual-region deployment model."
+    },
+    "created_at": "2026-02-12T12:18:14.200114",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "824eda444b28c6d6ffaef65875f2e09aa18cadc06bafc379a7ebe4a7c6b4656c": {
+    "data": {
+      "category": "capacity",
+      "intent": "capacity_request",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The inquiry explicitly mentions capacity constraints as a blocker for the OAI to AOAI migration and the renewal of a significant contract ($20M/3 YRs). The customer is requesting additional capacity to proceed with the migration, which is critical for their business operations. The preferred region (US) is also specified, reinforcing the capacity-related nature of the request."
+    },
+    "created_at": "2026-02-12T12:18:19.590604",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "13792b269dfef7fd8b27cb96b9cd99eea8e648c3d3fb997452b2b3c8172676cc": {
+    "data": {
+      "category": "technical_support",
+      "intent": "troubleshooting",
+      "business_impact": "high",
+      "confidence": 0.95,
+      "reasoning": "The customer is reporting issues related to external user login behavior, confusion between UPN and email, and invitation redemption problems. These are technical problems requiring troubleshooting and support. The stated impact of ~180 tickets over 6 months indicates a high business impact due to recurring issues affecting external users."
+    },
+    "created_at": "2026-02-12T12:40:29.687243",
+    "ttl_days": 7,
+    "hits": 1
+  },
+  "3dad10f76b318759cc902dc345096a40513032a1506d8f73c52c52f352adfcb8": {
+    "data": {
+      "category": "technical_support",
+      "intent": "reporting_issue",
+      "business_impact": "critical",
+      "confidence": 0.95,
+      "reasoning": "The customer is reporting showstopping vulnerabilities in the Translator image that are severely impacting their planned Go Live date, which is CEO-visible. This indicates a technical issue requiring immediate support. The mention of vulnerabilities and the urgency of the Go Live date make this a critical business impact."
+    },
+    "created_at": "2026-02-13T08:17:34.201374",
+    "ttl_days": 7,
+    "hits": 0
   }
 }

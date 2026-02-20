@@ -113,14 +113,12 @@ class LLMClassifier:
         print(f"[LLMClassifier]   Use AAD: {use_aad}")
         
         if use_aad:
-            # Use Azure AD authentication
-            # Tenant: Microsoft Non-Production (16b3c013-d300-468d-ac64-7eda0820b6d3)
-            print(f"[LLMClassifier] 🔐 Setting up Azure AD authentication...")
-            print(f"[LLMClassifier]   Tenant ID: 16b3c013-d300-468d-ac64-7eda0820b6d3")
-            from azure.identity import InteractiveBrowserCredential, get_bearer_token_provider
-            credential = InteractiveBrowserCredential(
-                tenant_id="16b3c013-d300-468d-ac64-7eda0820b6d3"
-            )
+            # Use shared credential (single auth for all services)
+            print(f"[LLMClassifier] 🔐 Setting up Azure AD authentication (shared credential)...")
+            from shared_auth import get_credential, get_credential_type
+            from azure.identity import get_bearer_token_provider
+            credential = get_credential()
+            print(f"[LLMClassifier] Using shared credential (type: {get_credential_type()})")
             token_provider = get_bearer_token_provider(
                 credential,
                 "https://cognitiveservices.azure.com/.default"
