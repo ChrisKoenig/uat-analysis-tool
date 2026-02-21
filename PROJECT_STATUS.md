@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 19, 2026
-**Status**: ✅ All systems operational — Triage Management + Field Submission Portal + Cosmos DB + AI classification
+**Last Updated**: February 20, 2026
+**Status**: ✅ All systems operational — Triage Management + Field Submission Portal + Cosmos DB (shared evaluations & corrections) + AI classification
 
 ---
 
@@ -113,11 +113,11 @@ These are triage team tools, NOT field submission replacements:
 
 The project has two major subsystems with **different audiences**:
 
-1. **Field Portal** — React SPA + FastAPI orchestrator (ports 3001/8010) where field personnel submit issues through a 9-step wizard: submit → quality review → AI analysis → correction → resource search → TFT features → UAT input → related UATs → UAT creation
+1. **Field Portal** — React SPA + FastAPI orchestrator (ports 3001/8010) where field personnel submit issues through a 9-step wizard: submit → quality review → AI analysis → correction → resource search → TFT features → UAT input → related UATs → UAT creation. **Now stores evaluations and corrections to Cosmos DB** for triage dedup and fine-tuning.
 2. **Triage Management System** — FastAPI + React SPA (ports 3000/8009) for the corporate triage team to review queued work items, apply rules/triggers/routes, and route to teams
 3. **Legacy Input System** — Flask web UI (port 5003) — original field submission portal, still operational
 
-All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007) and authentication infrastructure (Key Vault, Azure AD).
+All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), Cosmos DB (`triage-management` database), and authentication infrastructure (Key Vault, Azure AD).
 
 ---
 
@@ -222,12 +222,39 @@ COSMOS_TENANT_ID=16b3c013-d300-468d-ac64-7eda0820b6d3
 ```
 These are injected automatically by `launcher.py` or must be set manually.
 
-### Containers (8 total, auto-created)
-`analysis-results`, `queue-cache`, `triage-decisions`, `rules`, `routes`, `triggers`, `audit-log`, `evaluation-history`
+### Containers (9 total, auto-created)
+`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`
+
+**Shared containers:**
+- `evaluations` — Written by both triage (`source: "triage"`) and field portal (`source: "field-portal"`); partition key `/workItemId`
+- `corrections` — Written by field portal at Step 4; consumed by fine-tuning engine; partition key `/workItemId`
 
 ### Key Limitation
 - Azure CLI login fails locally (Conditional Access policy error 53003) — use Cloud Shell for `az` commands
 - Database/container creation requires portal or Cloud Shell (RBAC data-plane role doesn't cover control-plane)
+
+---
+
+## Recent Changes (Feb 20, 2026) — Cosmos DB Integration for Field Portal
+
+### Feb 20: Field Portal → Cosmos DB Evaluations & Corrections ✅
+**Goal**: Persist field portal AI analysis in the same Cosmos DB `evaluations` container so the triage system can detect existing evaluations and skip re-analysis. Store user corrections in a new `corrections` container for fine-tuning.
+
+**New file** — `field-portal/api/cosmos_client.py` (~280 lines):
+- `store_field_portal_evaluation()` — Writes to `evaluations` container with `source: "field-portal"` discriminator after Step 9 (UAT creation). Document is compatible with triage `Evaluation` model; triage-specific fields left empty.
+- `store_correction()` — Writes to `corrections` container with `consumed: false` flag for fine-tuning engine pickup.
+- `get_existing_evaluation()` — Query helper for triage dedup.
+- `get_corrections_for_work_item()` — Query helper.
+- Reuses triage `CosmosDBConfig` singleton (shared connection pool).
+
+**Modified files:**
+1. **`field-portal/api/routes.py`** — Step 9 (`create_uat`) now generates evaluation summary HTML via `_build_evaluation_summary_html()`, passes it to ADO creation as `evaluation_summary_html`, then stores a full evaluation document in Cosmos after getting the work item ID. Step 4 (`correct_classification`) now calls `store_correction()` to Cosmos before the legacy local JSON backup.
+2. **`triage/config/cosmos_config.py`** — Added `corrections` container definition with partition key `/workItemId` and description for fine-tuning.
+3. **`ado_integration.py`** — After creating the ADO work item, writes the evaluation summary HTML to `custom.ChallengeDetails` field.
+4. **`field-portal/README.md`** — Added Cosmos DB integration section, updated architecture diagram, project structure, prerequisites.
+5. **`SYSTEM_ARCHITECTURE.md`** — Added corrections container to data models table, noted shared container architecture.
+
+**Committed**: `0ba2dea` — pushed to `origin main`
 
 ---
 
@@ -363,22 +390,13 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 
 ---
 
-## Uncommitted Changes (as of Feb 19, 2026)
+## Recent Commits
 
-**New files** (field portal rebuild — Feb 12):
-- `field-portal/api/` — 7 Python files (FastAPI orchestrator on :8010)
-- `field-portal/ui/` — 18 source files (React SPA on :3001)
-- `launcher.py` — modified: added 4th "Field Portal" card
-
-**Modified files** (Feb 17-19 fixes):
-- `field-portal/api/routes.py` — Direct analysis engine calls (no gateway dependency), cached singletons, quality scoring fix, analyzer retry logic
-- `field-portal/ui/src/pages/AnalysisDetailPage.jsx` — Fixed data_sources object rendering, visual hierarchy
-- `ai_config.py` — corrections.json path resolution fix (resolve relative to module dir, not cwd)
-- `hybrid_context_analyzer.py` — corrections.json load path fix + init error propagation
-- `llm_classifier.py` — Cached credential, AzureCliCredential-first auth
-- `enhanced_matching.py` — Auth reordering (AzureCliCredential first in credential chain)
-- `ado_integration.py` — get_tft_credential() tries cached → CLI → browser, persistent token cache
-- `PROJECT_STATUS.md` — This file
+| Commit | Date | Description |
+|--------|------|-------------|
+| `0ba2dea` | Feb 20 | Cosmos DB integration — evaluations + corrections storage, ADO ChallengeDetails, new cosmos_client.py |
+| `0fe9c49` | Feb 19 | Field portal cleanup, archiving old Flask UI, documentation updates |
+| `4fc1f9f` | Feb 11 | Classify API, corrections mgmt, health dashboard, 3 React pages, launcher, Cosmos AAD auth |
 
 ---
 
@@ -499,12 +517,13 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 | `ai_config.py` | OpenAI config with `use_aad` field |
 | `ado_integration.py` | ADO client with dual-org auth |
 
-### Field Portal (NEW)
+### Field Portal
 | File | Purpose |
-|------|---------|
+|------|--------|
 | `field-portal/api/main.py` | FastAPI entry point (port 8010) |
-| `field-portal/api/routes.py` | 11 endpoints for 9-step flow |
+| `field-portal/api/routes.py` | 11 endpoints for 9-step flow + evaluation summary HTML helper |
 | `field-portal/api/models.py` | 43 Pydantic models (OpenAPI/Copilot ready) |
+| `field-portal/api/cosmos_client.py` | Cosmos DB helpers — store evaluations & corrections, query helpers |
 | `field-portal/api/gateway_client.py` | Async httpx client to API Gateway |
 | `field-portal/api/session_manager.py` | In-memory wizard state with TTL |
 | `field-portal/api/guidance.py` | Category-specific rules |
@@ -569,7 +588,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 ## Git Status
 
 **Branch**: `main`
-**Latest commit**: `4fc1f9f` — Add standalone classify API, corrections mgmt, health dashboard, 3 new React pages, launcher GUI, Cosmos AAD auth, architecture docs
+**Latest commit**: `0ba2dea` — Cosmos DB integration for field portal evaluations and corrections
 
 **All changes committed** — clean working tree.
 
@@ -581,7 +600,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [ ] **Field Submission Portal**: Keep Flask or rebuild as new React SPA? Either way, it must be a separate URL from the triage UI
 - [ ] **Priority**: Build the new field submission React SPA first? Or focus on completing triage features?
 
-### Field Submission Portal ✅ (Built Feb 12, Independent Feb 19)
+### Field Submission Portal ✅ (Built Feb 12, Independent Feb 19, Cosmos Feb 20)
 - [x] Build new React SPA for field personnel (separate project/port from triage-ui) — `field-portal/ui/` on :3001
 - [x] Replicate complete 9-step field flow (submit → quality → analysis → correction → search → UAT)
 - [x] Inline correction UI integrated into the flow (not a separate page)
@@ -593,6 +612,9 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [x] Context analysis works independently (direct HybridContextAnalyzer call, no gateway needed)
 - [x] Auth reduced from 6 prompts to 1 (AzureCliCredential-first, cached singletons)
 - [x] UI bug fixes (blank detail page, visual hierarchy, capitalization)
+- [x] Cosmos DB integration — evaluations stored at Step 9, corrections stored at Step 4
+- [x] ADO ChallengeDetails field — evaluation summary HTML written to work items
+- [x] Corrections container for fine-tuning engine consumption
 - [ ] End-to-end live testing of full 9-step flow (submit through UAT creation)
 - [ ] Add FastAPI bearer-token validation middleware and restore MSAL token flow (redirect-based, not popup)
 - [ ] Retire legacy Flask UI (`:5003`) once field portal is fully validated
@@ -605,7 +627,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [ ] Full automation mode — trigger → route → ADO write without human review
 
 ### Infrastructure
-- [ ] Commit all field-portal changes
+- [x] Commit all field-portal changes (pushed `0ba2dea` — Feb 20)
 - [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
 - [ ] Copilot API plugin — field portal API already has OpenAPI spec at :8010/docs
 - [ ] Container deployment — Dockerize services for Azure
@@ -658,9 +680,12 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Feb 19, 2026): System is fully operational. Three UIs: **Field Portal** (React :3001 + FastAPI :8010, 9-step wizard), **Triage Management** (FastAPI :8009 + React :3000, 13 pages), and **Legacy Input** (Flask :5003). 
+**STATUS** (Feb 20, 2026): System is fully operational. Three UIs: **Field Portal** (React :3001 + FastAPI :8010, 9-step wizard), **Triage Management** (FastAPI :8009 + React :3000, 13 pages), and **Legacy Input** (Flask :5003). All changes committed and pushed.
 
-**KEY CHANGE**: The Field Portal now works INDEPENDENTLY — it calls the analysis engines directly (AIAnalyzer, HybridContextAnalyzer, IntelligentContextAnalyzer) without needing the API Gateway (:8000) or microservices (:8001-8008). The old system (start_app.ps1) is only needed for the legacy Flask UI on :5003. Auth is AzureCliCredential-first with cached singletons — only 1 browser prompt instead of 6.
+**KEY CHANGES**:
+1. The Field Portal works INDEPENDENTLY — calls analysis engines directly (no gateway/microservices needed)
+2. **Cosmos DB integration** — evaluations stored at Step 9, corrections at Step 4, summary HTML written to ADO ChallengeDetails
+3. Field portal and triage share the `evaluations` container (`source` discriminator); new `corrections` container feeds fine-tuning
 
 **HOW TO START** (for new sessions):
 - **Field Portal only** (recommended): `cd field-portal; python -m uvicorn api.main:app --host 0.0.0.0 --port 8010 --reload` + `cd field-portal/ui; npm run dev` → UI at http://localhost:3001
@@ -671,15 +696,17 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 **⚠️ WARNING**: `start_app.ps1` kills ALL Python processes at startup (line 33: `Get-Process python | Stop-Process`). If you have the field portal API running on :8010, starting the old system will kill it. Start the old system first if you need both.
 
 **CRITICAL FILES FOR NEW SESSIONS**: Read this file first (especially the "CRITICAL CONTEXT" section at the top). Key code files:
-- `field-portal/api/routes.py` — Field portal API with direct analysis engine calls (quality scoring + context analysis)
+- `field-portal/api/routes.py` — Field portal API with direct analysis engine calls + Cosmos storage
+- `field-portal/api/cosmos_client.py` — Cosmos DB helpers (evaluations + corrections storage & queries)
 - `field-portal/ui/src/pages/` — React wizard pages (10 steps)
+- `triage/config/cosmos_config.py` — Cosmos DB connection, 9 containers, AAD auth
 - `enhanced_matching.py` — AIAnalyzer.analyze_completeness() static method (quality engine)
 - `hybrid_context_analyzer.py` — HybridContextAnalyzer.analyze() (full AI: pattern + LLM + vectors + corrections)
 - `intelligent_context_analyzer.py` — IntelligentContextAnalyzer (pattern-only fallback)
 - `llm_classifier.py` — Azure OpenAI GPT-4o classification with cached credentials
-- `ado_integration.py` — ADO client with dual-org auth (main + TFT)
+- `ado_integration.py` — ADO client with dual-org auth (main + TFT) + ChallengeDetails HTML
 - `SYSTEM_ARCHITECTURE.md` — Component inventory
 - `TRIAGE_SYSTEM_DESIGN.md` — Four-layer triage model
 - `AZURE_OPENAI_AUTH_SETUP.md` — Auth details
 
-All field portal changes are UNCOMMITTED as of Feb 19.
+**Git**: All changes committed and pushed. Latest: `0ba2dea` on `main`.
