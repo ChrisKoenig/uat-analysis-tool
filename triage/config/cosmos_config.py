@@ -18,6 +18,7 @@ Cosmos DB Structure:
         - analysis-results: Structured analysis output
         - field-schema:     Field definitions and metadata
         - audit-log:        Change tracking for all entities
+        - corrections:      User corrections to AI classifications (fine-tuning)
 
 Configuration is loaded from Azure Key Vault with environment variable fallback.
 """
@@ -82,6 +83,10 @@ CONTAINER_DEFINITIONS = {
     "audit-log": {
         "partition_key": "/entityType",
         "description": "Change history for all entities (who/when/what)"
+    },
+    "corrections": {
+        "partition_key": "/workItemId",
+        "description": "User corrections to AI classifications, fed back into fine-tuning"
     }
 }
 

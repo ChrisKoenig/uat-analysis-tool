@@ -561,6 +561,18 @@ class AzureDevOpsClient:
                 "path": "/fields/custom.StatusUpdate",
                 "value": "WizardAuto"
             })
+
+            # Custom field: ChallengeDetails (AI evaluation summary HTML)
+            # Written by the field portal wizard with a structured summary of
+            # the AI classification.  Same field is updated by the triage
+            # system after its own evaluation.
+            evaluation_html = issue_data.get('evaluation_summary_html', '')
+            if evaluation_html:
+                operations.append({
+                    "op": "add",
+                    "path": "/fields/custom.ChallengeDetails",
+                    "value": evaluation_html
+                })
             
             # Add source tag to identify work items created by this app
             operations.append({

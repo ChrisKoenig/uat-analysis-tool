@@ -7,13 +7,13 @@ items — all from a single-page React application backed by FastAPI.
 ## Architecture
 
 ```
-┌─────────────────────┐        ┌─────────────────────┐
-│  React SPA (Vite)   │  HTTP  │  FastAPI Backend     │
-│  localhost:3001      ├───────►│  localhost:8010      │
-│                     │        │                      │
-│  MSAL auth (Entra)  │        │  Session state       │
-│  9-step wizard      │        │  ADO integration     │
-│  Lazy-loaded pages  │        │  Guidance rules      │
+┌─────────────────────┐        ┌─────────────────────┐       ┌──────────────────┐
+│  React SPA (Vite)   │  HTTP  │  FastAPI Backend     │       │  Azure Cosmos DB │
+│  localhost:3001      ├───────►│  localhost:8010      ├──────►│  triage-mgmt DB  │
+│                     │        │                      │       │                  │
+│  MSAL auth (Entra)  │        │  Session state       │       │  evaluations     │
+│  9-step wizard      │        │  ADO integration     │       │  corrections     │
+│  Lazy-loaded pages  │        │  Cosmos DB client    │       └──────────────────┘
 └─────────────────────┘        └──────────┬───────────┘
                                           │ HTTP
                                 ┌─────────▼──────────┐
@@ -42,13 +42,13 @@ items — all from a single-page React application backed by FastAPI.
 | 1    | `SubmitPage`             | `POST /api/submit`        | User enters title, description, impact           |
 | 2    | `QualityReviewPage`      | `POST /api/quality`       | AI scores input quality; user may revise          |
 | 3    | `AnalyzingPage`          | `POST /api/analyze`       | AI context analysis (spinner page)                |
-| 4    | `AnalysisPage`           | (reads session data)      | Review analysis results; apply corrections        |
+| 4    | `AnalysisPage`           | `POST /api/correct`       | Review analysis results; store corrections to Cosmos |
 | 5    | `SearchingPage`          | `POST /api/search`        | Search ADO for matching features (spinner page)   |
 | 6    | `SearchResultsPage`      | (reads session data)      | Review search results; enter UAT IDs              |
 | 7    | `UATInputPage`           | —                         | Enter specific UAT work-item IDs                  |
 | 8    | `SearchingUATsPage`      | `POST /api/search-uats`   | Look up related UATs (spinner page)               |
 | 8b   | `RelatedUATsPage`        | (reads session data)      | Select related UATs to link                        |
-| 9    | `CreateUATPage`          | `POST /api/create-uat`    | Final confirmation & UAT work-item creation       |
+| 9    | `CreateUATPage`          | `POST /api/create-uat`    | Create UAT + store evaluation in Cosmos DB        |
 
 Additional analysis detail is available via `AnalysisDetailPage`.
 
@@ -63,6 +63,7 @@ field-portal/
 │   ├── models.py                # Pydantic request/response models (~350 lines)
 │   ├── session_manager.py       # Thread-safe in-memory session store w/ TTL
 │   ├── gateway_client.py        # Async HTTP client for gateway (:8000)
+│   ├── cosmos_client.py         # Cosmos DB helpers (evaluations & corrections)
 │   ├── guidance.py              # Category-specific guidance rules
 │   └── ai_quality_evaluator.py  # AI quality evaluation helpers
 │
@@ -101,12 +102,53 @@ field-portal/
 └── cache/                       # Runtime cache (gitignored)
 ```
 
+## Cosmos DB Integration
+
+The field portal shares a Cosmos DB database (`triage-management`) with the
+triage system so both systems can see each other's evaluations and corrections.
+
+### Data Flow
+
+| Event | Container | Purpose |
+|-------|-----------|---------|
+| Step 4 — user corrects AI classification | `corrections` | Stored for fine-tuning engine consumption |
+| Step 9 — UAT work item created | `evaluations` | Triage system detects existing evaluation, skips re-analysis |
+| Step 9 — ADO creation | ADO `ChallengeDetails` field | HTML summary of the AI evaluation written to the work item |
+
+### Schema Compatibility
+
+Field portal evaluations carry `source: "field-portal"` while triage evaluations
+use `source: "triage"`. Both use `workItemId` as the partition key.
+
+Triage-specific fields (`ruleResults`, `matchedTrigger`, `appliedRoute`, etc.)
+are left empty in field portal documents — they are only populated by the triage
+pipeline.
+
+### Corrections & Fine-Tuning
+
+The `corrections` container (partition key `/workItemId`) stores every user
+correction made at Step 4. Each document includes:
+
+- Original AI prediction (category, intent, confidence, etc.)
+- User-supplied corrected values
+- A `consumed: false` flag that the fine-tuning engine sets to `true` once processed
+
+A legacy local `corrections.json` file is also written as a backup.
+
+### Connection
+
+The field portal reuses the triage system's `CosmosDBConfig` singleton
+(`triage/config/cosmos_config.py`) via the helper module `api/cosmos_client.py`.
+AAD authentication (Entra ID) is used with the same tenant as the rest of the
+system (`16b3c013-d300-468d-ac64-7eda0820b6d3`).
+
 ## Prerequisites
 
 - **Python 3.10+** with `pip`
 - **Node.js 18+** with `npm`
 - Azure DevOps PAT tokens for UAT and TFT organizations
 - Azure OpenAI endpoint + credentials (via KeyVault or env vars)
+- Azure Cosmos DB access (AAD credentials with read/write on `triage-management` DB)
 - Microservice gateway running on port 8000 (for quality/context/search)
 
 ## Quick Start
@@ -114,7 +156,7 @@ field-portal/
 ### 1. Install Python dependencies (from repo root)
 
 ```powershell
-pip install fastapi uvicorn httpx pydantic azure-identity azure-keyvault-secrets
+pip install fastapi uvicorn httpx pydantic azure-identity azure-keyvault-secrets azure-cosmos
 ```
 
 ### 2. Install UI dependencies

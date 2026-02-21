@@ -244,6 +244,12 @@ the results back to ADO — with human review at the decision point.
 | AnalysisResult | `triage/models/analysis_result.py` | `analysis-results` |
 | AuditEntry | `triage/models/audit_entry.py` | `audit-log` |
 | FieldSchema | `triage/models/field_schema.py` | `field-schema` |
+| Correction | *(schema in cosmos_client.py)* | `corrections` |
+
+> **Shared containers:** The `evaluations` container is written by both the
+> triage system (`source: "triage"`) and the field portal (`source: "field-portal"`).
+> The `corrections` container is written by the field portal and consumed by
+> the fine-tuning engine.
 
 ### Frontend Pages (React)
 
@@ -376,6 +382,27 @@ Results displayed in web UI:
         ├── Technical Support → CSS guidance
         ├── Capacity → Capacity guidelines
         └── Cost/Billing → Out of scope message
+```
+
+### Flow 4: Field Portal Wizard → Cosmos + ADO
+
+```
+User completes 9-step wizard (React SPA :3001 → FastAPI :8010)
+         │
+Step 1-3 │ Submit → Quality check → AI analysis via gateway (:8000)
+         │
+Step 4   ▼ User reviews analysis, optionally corrects classification
+         ├── store_correction() → Cosmos "corrections" container
+         │   (consumed=false; fine-tuning engine reads these later)
+         └── Legacy backup → corrections.json (local file)
+         │
+Step 5-8 │ Search ADO, select features/UATs
+         │
+Step 9   ▼ Create UAT work item in ADO
+         ├── _build_evaluation_summary_html() → HTML summary
+         ├── create_work_item_from_issue() → ADO (+ ChallengeDetails field)
+         └── store_field_portal_evaluation() → Cosmos "evaluations" container
+              └── source: "field-portal" (triage can detect & skip re-analysis)
 ```
 
 ---

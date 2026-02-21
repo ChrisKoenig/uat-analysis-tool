@@ -52,6 +52,10 @@ from .models import (
 from .session_manager import get_session_manager
 from .gateway_client import get_gateway, GatewayError
 from .guidance import get_category_guidance
+from .cosmos_client import (
+    store_field_portal_evaluation,
+    store_correction,
+)
 from .config import (
     QUALITY_BLOCK_THRESHOLD, QUALITY_WARN_THRESHOLD,
     UAT_SEARCH_DAYS, UAT_MAX_SELECTED, TFT_SIMILARITY_THRESHOLD,
@@ -686,7 +690,24 @@ async def correct_classification(req: CorrectionRequest):
         )
 
     if req.action == "save_corrections":
-        # Save corrections for learning (write to corrections.json)
+        # Save corrections to Cosmos DB for fine-tuning consumption
+        original_analysis = (
+            state.analysis if isinstance(state.analysis, dict)
+            else (state.analysis.model_dump() if state.analysis else {})
+        )
+        original_title = (
+            state.original_input.get("title", "") if isinstance(state.original_input, dict)
+            else (state.original_input.title if state.original_input else "")
+        )
+        store_correction(
+            work_item_id=state.work_item_id or 0,
+            original_title=original_title,
+            original_analysis=original_analysis,
+            corrections=corrections,
+            notes=req.correction_notes or "",
+            source="field-portal",
+        )
+        # Also keep local backup (legacy)
         _save_correction_feedback(state, corrections, req.correction_notes)
         # Apply corrections to session state
         updated = _apply_corrections_to_analysis(state, corrections)
@@ -808,6 +829,100 @@ def _save_correction_feedback(state: SessionState, corrections: Dict[str, str], 
         json.dump(data, f, indent=2)
 
     logger.info(f"Saved correction feedback: {corrections}")
+
+
+def _build_evaluation_summary_html(
+    analysis: Dict[str, Any],
+    title: str,
+    state: SessionState,
+) -> str:
+    """
+    Generate an HTML summary of the field portal AI evaluation.
+
+    This HTML is written to the ADO work item's Challenge Details field
+    and also persisted in the Cosmos evaluation document. It mirrors the
+    format used by the triage system's ``_generate_summary_html``.
+
+    Args:
+        analysis:  AI classification dict (category, intent, confidence, etc.)
+        title:     Work item title
+        state:     Session state (for corrections and features)
+
+    Returns:
+        HTML string suitable for ADO rich-text fields
+    """
+    category = analysis.get("category", "Unknown")
+    intent = analysis.get("intent", "Unknown")
+    confidence = analysis.get("confidence", 0)
+    business_impact = analysis.get("business_impact", "")
+    technical_complexity = analysis.get("technical_complexity", "")
+    urgency_level = analysis.get("urgency_level", "")
+    reasoning = analysis.get("reasoning", "")
+
+    # Confidence as percentage
+    conf_pct = f"{confidence:.0%}" if isinstance(confidence, float) else f"{confidence}%"
+
+    sections = []
+
+    # Classification summary
+    sections.append(f"""
+    <h3>AI Classification</h3>
+    <table>
+        <tr><td><b>Category:</b></td><td>{category.replace('_', ' ').title()}</td></tr>
+        <tr><td><b>Intent:</b></td><td>{intent.replace('_', ' ').title()}</td></tr>
+        <tr><td><b>Confidence:</b></td><td>{conf_pct}</td></tr>
+        <tr><td><b>Business Impact:</b></td><td>{business_impact}</td></tr>
+        <tr><td><b>Technical Complexity:</b></td><td>{technical_complexity}</td></tr>
+        <tr><td><b>Urgency:</b></td><td>{urgency_level}</td></tr>
+    </table>
+    """)
+
+    # Reasoning
+    if reasoning:
+        sections.append(f"""
+        <h3>Classification Reasoning</h3>
+        <p>{reasoning}</p>
+        """)
+
+    # Domain entities
+    domain_entities = analysis.get("domain_entities", {})
+    if domain_entities:
+        services = domain_entities.get("azure_services", [])
+        techs = domain_entities.get("technologies", [])
+        if services or techs:
+            sections.append(f"""
+            <h3>Detected Entities</h3>
+            <p><b>Azure Services:</b> {', '.join(services) if services else 'None'}</p>
+            <p><b>Technologies:</b> {', '.join(techs) if techs else 'None'}</p>
+            """)
+
+    # Corrections
+    if state.corrections_applied:
+        rows = ""
+        for field_name, new_val in state.corrections_applied.items():
+            rows += f"<tr><td>{field_name}</td><td>{new_val}</td></tr>"
+        sections.append(f"""
+        <h3>User Corrections Applied</h3>
+        <table border="1">
+            <tr><th>Field</th><th>Corrected Value</th></tr>
+            {rows}
+        </table>
+        """)
+
+    # Metadata
+    sections.append(f"""
+    <h3>Evaluation Metadata</h3>
+    <p><b>Source:</b> Field Portal (wizard submission)</p>
+    <p><b>Date:</b> {datetime.utcnow().isoformat()}</p>
+    """)
+
+    body = "\n".join(sections)
+    return f"""
+    <div style="font-family: Segoe UI, sans-serif; font-size: 12px;">
+        <h2>Field Portal Evaluation Summary</h2>
+        {body}
+    </div>
+    """
 
 
 # ============================================================================
@@ -1102,6 +1217,10 @@ async def create_uat(req: UATCreateRequest):
 
     analysis = state.analysis if isinstance(state.analysis, dict) else (state.analysis.model_dump() if state.analysis else {})
 
+    # Generate evaluation summary HTML before ADO creation so it's
+    # included in the work item and also stored in Cosmos.
+    summary_html = _build_evaluation_summary_html(analysis, title, state)
+
     wizard_data = {
         "title": title,
         "description": description,
@@ -1111,6 +1230,7 @@ async def create_uat(req: UATCreateRequest):
         "selected_uats": state.selected_uats,
         "opportunity_id": state.opportunity_id,
         "milestone_id": state.milestone_id,
+        "evaluation_summary_html": summary_html,
     }
 
     try:
@@ -1136,6 +1256,22 @@ async def create_uat(req: UATCreateRequest):
                     work_item_id=work_item_id,
                     work_item_url=work_item_url,
                     current_step=FlowStep.uat_created)
+
+    # ── Store evaluation in Cosmos DB ──
+    # Now that we have the work item ID, persist the AI analysis so the
+    # triage system can detect it and skip re-analysis.
+    corrections_dict = dict(state.corrections_applied) if state.corrections_applied else None
+    eval_id = store_field_portal_evaluation(
+        work_item_id=work_item_id,
+        analysis=analysis,
+        original_input={"title": title, "description": description, "impact": impact},
+        corrections=corrections_dict,
+        summary_html=summary_html,
+    )
+    if eval_id:
+        logger.info(f"Cosmos evaluation stored: {eval_id}")
+    else:
+        logger.warning(f"Failed to store Cosmos evaluation for work item {work_item_id}")
 
     # Get UAT details for response (like features)
     raw_uats = sm.get_extra(req.session_id, "raw_related_uats") or []
