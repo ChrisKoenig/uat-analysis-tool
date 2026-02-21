@@ -146,7 +146,7 @@ async def evaluate_quality(title: str, description: str, impact: str) -> Dict[st
         logger.info(f"[TIMING] OpenAI API call: {_t2-_t1:.1f}s  (total: {_t2-_t0:.1f}s)")
 
         raw = response.choices[0].message.content
-        result = json.loads(raw)
+        result = json.loads(raw or "{}")
         logger.info(f"AI quality evaluation: score={result.get('overall_score')}")
 
         return _format_result(result)
