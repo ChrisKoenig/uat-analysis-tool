@@ -1030,7 +1030,7 @@ export default function QueuePage({ addToast }) {
             onClick={clearAllFilters}
             title="Remove all column filters"
           >
-            \u2715 Clear {activeFilterCount} Filter{activeFilterCount !== 1 ? 's' : ''}
+            {'\u2715'} Clear {activeFilterCount} Filter{activeFilterCount !== 1 ? 's' : ''}
           </button>
         )}
         <div className="queue-action-buttons">
