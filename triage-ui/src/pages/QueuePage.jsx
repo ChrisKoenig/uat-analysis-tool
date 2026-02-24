@@ -156,7 +156,7 @@ export default function QueuePage({ addToast }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [settingState, setSettingState] = useState(false);
   const [results, setResults] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(new Set());
   const [applying, setApplying] = useState(null);
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -631,7 +631,7 @@ export default function QueuePage({ addToast }) {
     setActiveTab(tab);
     setSelectedIds(new Set());
     setResults(null);
-    setExpandedId(null);
+    setExpandedIds(new Set());
     setCurrentPage(1);
     setFilters({});
     setFilterOpen(null);
@@ -831,6 +831,11 @@ export default function QueuePage({ addToast }) {
         : await api.evaluate(ids, false);
 
       setResults(data);
+
+      // Auto-expand all rows that received results
+      const evalIds = new Set((data.evaluations || []).map((e) => e.workItemId));
+      setExpandedIds(evalIds);
+
       addToast?.(
         `Evaluated ${data.evaluations?.length || 0} item(s)${dryRun ? ' (dry run)' : ''}`,
         'success'
@@ -1328,11 +1333,23 @@ export default function QueuePage({ addToast }) {
             ) : (
               paginatedItems.map((item) => {
                 const evalResult = getResultForItem(item.id);
+                const isExpanded = expandedIds.has(item.id);
                 return (
                   <React.Fragment key={item.id}>
                     <tr
-                      className={`queue-row ${selectedIds.has(item.id) ? 'selected' : ''} ${evalResult ? 'has-result' : ''}`}
-                      onClick={() => toggleSelect(item.id)}
+                      className={`queue-row ${selectedIds.has(item.id) ? 'selected' : ''} ${evalResult ? 'has-result' : ''} ${isExpanded ? 'expanded' : ''}`}
+                      onClick={() => {
+                        if (evalResult) {
+                          // When results exist, row click toggles expansion
+                          setExpandedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                            return next;
+                          });
+                        } else {
+                          toggleSelect(item.id);
+                        }
+                      }}
                     >
                       <td className="queue-col-analysis" onClick={(e) => e.stopPropagation()}>
                         {(() => {
@@ -1370,11 +1387,13 @@ export default function QueuePage({ addToast }) {
                         {evalResult && (
                           <button
                             className="btn btn-ghost btn-sm"
-                            onClick={() => setExpandedId(
-                              expandedId === item.id ? null : item.id
-                            )}
+                            onClick={() => setExpandedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                              return next;
+                            })}
                           >
-                            {expandedId === item.id ? '\u25BC' : '\u25B6'} Results
+                            {expandedIds.has(item.id) ? '\u25BC' : '\u25B6'} Results
                           </button>
                         )}
                         <a
@@ -1389,7 +1408,7 @@ export default function QueuePage({ addToast }) {
                     </tr>
 
                     {/* Inline Evaluation Result (expandable) */}
-                    {evalResult && expandedId === item.id && (
+                    {evalResult && expandedIds.has(item.id) && (
                       <tr className="queue-result-row">
                         <td colSpan={colCount}>
                           <div className="queue-result-detail">
@@ -1411,8 +1430,9 @@ export default function QueuePage({ addToast }) {
                                 <span
                                   key={ruleId}
                                   className={`queue-rule-chip ${passed ? 'rule-true' : 'rule-false'}`}
+                                  title={ruleId}
                                 >
-                                  {passed ? '\u2713' : '\u2717'} {ruleId}
+                                  {passed ? '\u2713' : '\u2717'} {evalResult.ruleNames?.[ruleId] || ruleId}
                                 </span>
                               ))}
                             </div>
@@ -1657,12 +1677,25 @@ export default function QueuePage({ addToast }) {
       {/* Bulk Results Summary */}
       {results && (
         <div className="queue-bulk-summary">
-          <h3>
-            Evaluation Complete — {results.evaluations?.length || 0} items
-            {results.evaluations?.[0]?.isDryRun && (
-              <span className="queue-dryrun-badge">DRY RUN</span>
-            )}
-          </h3>
+          <div className="queue-bulk-summary-header">
+            <h3>
+              Evaluation Complete — {results.evaluations?.length || 0} items
+              {results.evaluations?.[0]?.isDryRun && (
+                <span className="queue-dryrun-badge">DRY RUN</span>
+              )}
+            </h3>
+            <div className="queue-bulk-summary-actions">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  const allIds = new Set((results.evaluations || []).map((e) => e.workItemId));
+                  setExpandedIds((prev) => prev.size === allIds.size ? new Set() : allIds);
+                }}
+              >
+                {expandedIds.size === (results.evaluations?.length || 0) ? '▲ Collapse All' : '▼ Expand All'}
+              </button>
+            </div>
+          </div>
           {results.errors?.length > 0 && (
             <div className="queue-bulk-errors">
               {results.errors.map((err, i) => (
@@ -1671,7 +1704,7 @@ export default function QueuePage({ addToast }) {
             </div>
           )}
           <p className="text-muted">
-            Expand individual rows above to see details and apply changes.
+            Click any row or its Results button to toggle evaluation details.
           </p>
         </div>
       )}

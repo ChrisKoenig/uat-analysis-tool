@@ -474,6 +474,16 @@
 
 .queue-row.has-result {
   border-left: 3px solid var(--primary);
+  cursor: pointer;
+}
+
+.queue-row.has-result:hover {
+  background: rgba(0, 120, 212, 0.04);
+}
+
+.queue-row.has-result.expanded {
+  background: rgba(0, 120, 212, 0.06);
+  border-left-color: var(--success, #107c10);
 }
 
 /* Column sizing */
@@ -1209,12 +1219,24 @@
   border-radius: var(--radius-md);
 }
 
-.queue-bulk-summary h3 {
+.queue-bulk-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.queue-bulk-summary-header h3 {
   font-size: var(--font-size-md);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  margin: 0;
+}
+
+.queue-bulk-summary-actions {
+  display: flex;
+  gap: var(--space-sm);
 }
 
 .queue-dryrun-badge {
