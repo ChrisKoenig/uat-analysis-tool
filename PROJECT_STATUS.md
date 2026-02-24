@@ -250,7 +250,10 @@ These are injected automatically by `launcher.py` or must be set manually.
 - Added full edit/update capability — new `PUT /admin/corrections/{index}` backend endpoint
 - Form fields display human-readable values ("Business Engagement" not `business_engagement`), converts back to snake_case on save
 - Full CRUD: create, read, update, delete corrections
-- EntityTable with columns: Original Category, Corrected Category, Intent, Notes
+- Category dropdowns now use grouped CATEGORY_OPTIONS (22 values in 6 groups: Core, Service, Capacity, Business, Support, Specialized) matching the Evaluate page exactly
+- Renamed "Pattern" field to "Original Intent" — both intent fields are grouped INTENT_OPTIONS dropdowns (15 values in 4 groups) matching the Evaluate page
+- Table columns: Original Category, Corrected Category, Original Intent, Corrected Intent, Notes
+- `categoryLabel()` and `intentLabel()` helpers for accurate display (e.g., "AOAI Capacity", "Business Engagement")
 
 **Classify Page Removed**:
 - Removed entirely — dead feature, nav item, route, and source file deleted
@@ -453,6 +456,9 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `6f4e634` | Feb 23 | Rename Pattern → Original Intent, intent dropdowns matching Evaluate page |
+| `cb92bb1` | Feb 23 | Corrections categories now match Evaluate page (22 grouped options) |
+| `80eb7c8` | Feb 23 | Docs: updated PROJECT_STATUS, README, QUICKSTART for Feb 23 changes |
 | `6b5088f` | Feb 23 | Corrections display fix — human-readable Pattern/Intent fields |
 | `52179c2` | Feb 23 | Dashboard merge, corrections CRUD, teams, containers, cleanup (63 files) |
 | `0ba2dea` | Feb 20 | Cosmos DB integration — evaluations + corrections storage, ADO ChallengeDetails, new cosmos_client.py |
@@ -750,7 +756,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Feb 23, 2026): System is fully operational locally AND deployed to Azure Container Apps. Four container apps live with Cosmos DB, ADO dual-org PAT auth, and AI-Powered analysis. Triage UI has 11 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections. ClassifyPage removed, HealthPage merged into Dashboard.
+**STATUS** (Feb 23, 2026): System is fully operational locally AND deployed to Azure Container Apps. Four container apps live with Cosmos DB, ADO dual-org PAT auth, and AI-Powered analysis. Triage UI has 11 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections. Corrections page uses same category/intent dropdowns as Evaluate page. ClassifyPage removed, HealthPage merged into Dashboard. Latest commit: `6f4e634`.
 
 ---
 
