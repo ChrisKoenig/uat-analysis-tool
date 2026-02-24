@@ -16,11 +16,13 @@ import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { NAV_ITEMS } from '../../utils/constants';
 import { getHealth } from '../../api/triageApi';
+import { useAuth } from '../../auth/AuthContext';
 import './Sidebar.css';
 
 
 export default function Sidebar() {
   const [health, setHealth] = useState(null);
+  const { account, logout } = useAuth();
 
   // Poll health every 30 seconds
   useEffect(() => {
@@ -64,6 +66,19 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User info + sign out */}
+      {account && (
+        <div className="sidebar-user">
+          <div className="sidebar-user-info">
+            <span className="sidebar-user-name">{account.name || 'User'}</span>
+            <span className="sidebar-user-email">{account.username}</span>
+          </div>
+          <button className="sidebar-signout-btn" onClick={logout} title="Sign out">
+            ↩
+          </button>
+        </div>
+      )}
 
       {/* Health indicator at bottom */}
       <div className="sidebar-footer">

@@ -17,7 +17,25 @@
 
 import React, { Suspense, lazy, useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { PublicClientApplication } from '@azure/msal-browser';
+import { MsalProvider } from '@azure/msal-react';
 import AppLayout from './components/layout/AppLayout';
+import { getMsalConfig } from './auth/authConfig';
+import AuthGate from './auth/AuthGate';
+import NoAuthProvider from './auth/NoAuthProvider';
+
+// ---------------------------------------------------------------------------
+// Auth disabled flag — set VITE_AUTH_DISABLED=true for container / offline
+// ---------------------------------------------------------------------------
+const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === 'true';
+
+// ---------------------------------------------------------------------------
+// MSAL instance (singleton — created once at module scope)
+// ---------------------------------------------------------------------------
+let msalInstance = null;
+if (!AUTH_DISABLED) {
+  msalInstance = new PublicClientApplication(getMsalConfig());
+}
 
 // ---------------------------------------------------------------------------
 // Lazy-loaded page components (code-split per route)
@@ -87,7 +105,7 @@ function useToasts() {
 export default function App() {
   const [toasts, addToast] = useToasts();
 
-  return (
+  const appContent = (
     <BrowserRouter>
       <AppLayout>
         {/* Toast notifications */}
@@ -120,5 +138,18 @@ export default function App() {
         </Suspense>
       </AppLayout>
     </BrowserRouter>
+  );
+
+  // -----------------------------------------------------------------------
+  // Auth wrapper — MSAL + AuthGate when enabled, NoAuthProvider when disabled
+  // -----------------------------------------------------------------------
+  if (AUTH_DISABLED) {
+    return <NoAuthProvider>{appContent}</NoAuthProvider>;
+  }
+
+  return (
+    <MsalProvider instance={msalInstance}>
+      <AuthGate>{appContent}</AuthGate>
+    </MsalProvider>
   );
 }
