@@ -13,24 +13,58 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import './CorrectionsPage.css';
 
 
-const CATEGORIES = [
-  'technical_support',
-  'feature_request',
-  'service_availability',
-  'capacity_management',
-  'cost_billing',
-  'training_documentation',
-  'seeking_guidance',
-  'product_retirement',
-  'security_compliance',
-  'migration',
-  'performance',
+/* ── Category Options (must match EvaluatePage CATEGORY_OPTIONS) ── */
+const CATEGORY_OPTIONS = [
+  { group: 'Core', items: [
+    { value: 'technical_support', label: 'Technical Support' },
+    { value: 'feature_request', label: 'Feature Request' },
+    { value: 'compliance_regulatory', label: 'Compliance/Regulatory' },
+    { value: 'security_governance', label: 'Security/Governance' },
+  ]},
+  { group: 'Service', items: [
+    { value: 'service_availability', label: 'Service Availability' },
+    { value: 'service_retirement', label: 'Service Retirement' },
+    { value: 'retirements', label: 'Retirements' },
+  ]},
+  { group: 'Capacity', items: [
+    { value: 'aoai_capacity', label: 'AOAI Capacity' },
+    { value: 'capacity', label: 'Capacity' },
+  ]},
+  { group: 'Business', items: [
+    { value: 'business_desk', label: 'Business Desk' },
+    { value: 'roadmap', label: 'Roadmap' },
+    { value: 'product_roadmap', label: 'Product Roadmap' },
+  ]},
+  { group: 'Support', items: [
+    { value: 'support', label: 'Support' },
+    { value: 'support_escalation', label: 'Support Escalation' },
+  ]},
+  { group: 'Specialized', items: [
+    { value: 'data_sovereignty', label: 'Data Sovereignty' },
+    { value: 'sustainability', label: 'Sustainability' },
+    { value: 'migration_modernization', label: 'Migration/Modernization' },
+    { value: 'performance_optimization', label: 'Performance Issue' },
+    { value: 'integration_connectivity', label: 'Integration Issue' },
+    { value: 'cost_billing', label: 'Cost/Billing' },
+    { value: 'training_documentation', label: 'Training/Documentation' },
+    { value: 'other', label: 'Other' },
+  ]},
 ];
 
 function formatCategory(cat) {
   return (cat || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+/* Look up the display label from CATEGORY_OPTIONS; fall back to formatCategory */
+function categoryLabel(val) {
+  for (const g of CATEGORY_OPTIONS) {
+    for (const item of g.items) {
+      if (item.value === val) return item.label;
+    }
+  }
+  return formatCategory(val);
 }
 
 function toSnakeCase(str) {
@@ -166,13 +200,13 @@ export default function CorrectionsPage({ addToast }) {
       key: 'original_category',
       label: 'Original Category',
       width: '22%',
-      render: (val) => formatCategory(val),
+      render: (val) => categoryLabel(val),
     },
     {
       key: 'corrected_category',
       label: 'Corrected Category',
       width: '22%',
-      render: (val) => <strong>{formatCategory(val)}</strong>,
+      render: (val) => <strong>{categoryLabel(val)}</strong>,
     },
     {
       key: 'corrected_intent',
@@ -227,7 +261,7 @@ export default function CorrectionsPage({ addToast }) {
         {formMode && (
           <div className="corrections-detail-panel card">
             <div className="card-header">
-              <h2>{formMode === 'create' ? 'New Correction' : `Edit: ${formatCategory(selected?.original_category)} → ${formatCategory(selected?.corrected_category)}`}</h2>
+              <h2>{formMode === 'create' ? 'New Correction' : `Edit: ${categoryLabel(selected?.original_category)} → ${categoryLabel(selected?.corrected_category)}`}</h2>
               <button className="btn-icon" onClick={handleClosePanel} title="Close">
                 ✕
               </button>
@@ -252,8 +286,12 @@ export default function CorrectionsPage({ addToast }) {
                       onChange={(e) => updateForm('original_category', e.target.value)}
                     >
                       <option value="">Select...</option>
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{formatCategory(c)}</option>
+                      {CATEGORY_OPTIONS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.items.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </div>
@@ -265,8 +303,12 @@ export default function CorrectionsPage({ addToast }) {
                       onChange={(e) => updateForm('corrected_category', e.target.value)}
                     >
                       <option value="">Select...</option>
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{formatCategory(c)}</option>
+                      {CATEGORY_OPTIONS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.items.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </div>
