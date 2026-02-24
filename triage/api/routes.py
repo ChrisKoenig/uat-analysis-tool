@@ -27,11 +27,24 @@ All endpoints follow REST conventions:
 
 from typing import Optional
 import logging
+import os
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger("triage.api")
+
+# ---------------------------------------------------------------------------
+# Application Insights telemetry (opt-in via APPLICATIONINSIGHTS_CONNECTION_STRING)
+# ---------------------------------------------------------------------------
+try:
+    _ai_conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
+    if _ai_conn:
+        from azure.monitor.opentelemetry import configure_azure_monitor
+        configure_azure_monitor(connection_string=_ai_conn)
+        logger.info("Application Insights enabled for Triage API")
+except Exception as _ai_err:
+    logger.warning("App Insights init skipped: %s", _ai_err)
 
 from .schemas import (
     RuleCreate, RuleUpdate,

@@ -11,6 +11,7 @@ Or via the desktop launcher (launcher.py).
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -26,6 +27,16 @@ logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
 logger = logging.getLogger("field-portal")
+
+# ── Application Insights telemetry ──
+try:
+    _ai_conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
+    if _ai_conn:
+        from azure.monitor.opentelemetry import configure_azure_monitor
+        configure_azure_monitor(connection_string=_ai_conn)
+        logger.info("Application Insights enabled for Field Portal API")
+except Exception as _ai_err:
+    logger.warning("App Insights init skipped: %s", _ai_err)
 
 
 # ── Lifespan (startup / shutdown) ──

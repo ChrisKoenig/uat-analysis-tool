@@ -80,8 +80,19 @@ $env:COSMOS_TENANT_ID   = "16b3c013-d300-468d-ac64-7eda0820b6d3"
 $env:PYTHONIOENCODING   = "utf-8"
 $env:PYTHONPATH         = $Root
 
+# Azure OpenAI (workaround while Key Vault public access is disabled)
+$env:AZURE_OPENAI_ENDPOINT = "https://openai-bp-northcentral.openai.azure.com/"
+$env:AZURE_OPENAI_USE_AAD  = "true"
+
+# Application Insights (telemetry for both APIs)
+# TODO: Replace with real connection string from appi-gcs-dev (stored in KV as azure-app-insights-connection-string)
+# Leave blank to skip telemetry; both APIs handle missing value gracefully.
+$env:APPLICATIONINSIGHTS_CONNECTION_STRING = ""
+
 Write-Host "  COSMOS_ENDPOINT  = $env:COSMOS_ENDPOINT" -ForegroundColor Gray
 Write-Host "  COSMOS_USE_AAD   = $env:COSMOS_USE_AAD" -ForegroundColor Gray
+Write-Host "  AZURE_OPENAI     = $env:AZURE_OPENAI_ENDPOINT" -ForegroundColor Gray
+Write-Host "  APP_INSIGHTS     = (configured)" -ForegroundColor Gray
 Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 
 # -- Step 3: Start APIs --------------------------------------------------------
