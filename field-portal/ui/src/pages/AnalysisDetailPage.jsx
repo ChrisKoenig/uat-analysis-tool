@@ -19,6 +19,78 @@ import ProgressStepper from '../components/ProgressStepper';
 import ConfidenceBar from '../components/ConfidenceBar';
 import { getAnalysisDetail, submitCorrection, analyzeContext } from '../api/fieldApi';
 
+/* ── Category / Intent Options (match Flask UI reference) ───── */
+
+const CATEGORY_OPTIONS = [
+  { group: 'Core', items: [
+    { value: 'technical_support', label: 'Technical Support' },
+    { value: 'feature_request', label: 'Feature Request' },
+    { value: 'compliance_regulatory', label: 'Compliance/Regulatory' },
+    { value: 'security_governance', label: 'Security/Governance' },
+  ]},
+  { group: 'Service', items: [
+    { value: 'service_availability', label: 'Service Availability' },
+    { value: 'service_retirement', label: 'Service Retirement' },
+    { value: 'retirements', label: 'Retirements' },
+  ]},
+  { group: 'Capacity', items: [
+    { value: 'aoai_capacity', label: 'AOAI Capacity' },
+    { value: 'capacity', label: 'Capacity' },
+  ]},
+  { group: 'Business', items: [
+    { value: 'business_desk', label: 'Business Desk' },
+    { value: 'roadmap', label: 'Roadmap' },
+    { value: 'product_roadmap', label: 'Product Roadmap' },
+  ]},
+  { group: 'Support', items: [
+    { value: 'support', label: 'Support' },
+    { value: 'support_escalation', label: 'Support Escalation' },
+  ]},
+  { group: 'Specialized', items: [
+    { value: 'data_sovereignty', label: 'Data Sovereignty' },
+    { value: 'sustainability', label: 'Sustainability' },
+    { value: 'migration_modernization', label: 'Migration/Modernization' },
+    { value: 'performance_optimization', label: 'Performance Issue' },
+    { value: 'integration_connectivity', label: 'Integration Issue' },
+    { value: 'cost_billing', label: 'Cost/Billing' },
+    { value: 'training_documentation', label: 'Training/Documentation' },
+    { value: 'other', label: 'Other' },
+  ]},
+];
+
+const INTENT_OPTIONS = [
+  { group: 'Support', items: [
+    { value: 'seeking_guidance', label: 'Seeking Guidance' },
+    { value: 'reporting_issue', label: 'Reporting Issue' },
+    { value: 'troubleshooting', label: 'Troubleshooting' },
+    { value: 'configuration_help', label: 'Configuration Help' },
+  ]},
+  { group: 'Requests', items: [
+    { value: 'requesting_feature', label: 'Requesting Feature' },
+    { value: 'requesting_service', label: 'Requesting Service' },
+    { value: 'capacity_request', label: 'Capacity Request' },
+  ]},
+  { group: 'Business', items: [
+    { value: 'business_engagement', label: 'Business Engagement' },
+    { value: 'escalation_request', label: 'Escalation Request' },
+  ]},
+  { group: 'Specialized', items: [
+    { value: 'compliance_support', label: 'Compliance Support' },
+    { value: 'sovereignty_concern', label: 'Sovereignty Concern' },
+    { value: 'roadmap_inquiry', label: 'Roadmap Inquiry' },
+    { value: 'sustainability_inquiry', label: 'Sustainability Inquiry' },
+    { value: 'need_migration_help', label: 'Migration Help' },
+    { value: 'best_practices', label: 'Best Practices' },
+  ]},
+];
+
+const BUSINESS_IMPACT_OPTIONS = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+];
+
 /* ---------- small helpers ---------- */
 function Badge({ children, color = '#0078d4', bg = '#deecf9' }) {
   return (
@@ -141,6 +213,9 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
   // Evaluation state
   const [evalCorrect, setEvalCorrect] = useState(null);
   const [feedback, setFeedback] = useState('');
+  const [correctedCategory, setCorrectedCategory] = useState('');
+  const [correctedIntent, setCorrectedIntent] = useState('');
+  const [correctedImpact, setCorrectedImpact] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -183,7 +258,14 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
   const handleReanalyze = async () => {
     setSubmitting(true);
     try {
-      await submitCorrection({ session_id: sessionId, action: 'reanalyze', correction_notes: feedback });
+      await submitCorrection({
+        session_id: sessionId,
+        action: 'reanalyze',
+        correct_category: correctedCategory || undefined,
+        correct_intent: correctedIntent || undefined,
+        correct_business_impact: correctedImpact || undefined,
+        correction_notes: feedback,
+      });
       // Reload detail with fresh data
       const freshDetail = await getAnalysisDetail(sessionId);
       setDetail(freshDetail);
@@ -195,7 +277,14 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
   const handleSaveCorrections = async () => {
     setSubmitting(true);
     try {
-      await submitCorrection({ session_id: sessionId, action: 'save_corrections', correction_notes: feedback });
+      await submitCorrection({
+        session_id: sessionId,
+        action: 'save_corrections',
+        correct_category: correctedCategory || undefined,
+        correct_intent: correctedIntent || undefined,
+        correct_business_impact: correctedImpact || undefined,
+        correction_notes: feedback,
+      });
       navigate('/searching', { state: { sessionId } });
     } catch (err) {
       setError(err.message);
@@ -591,7 +680,13 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
                 type="radio"
                 name="eval"
                 checked={evalCorrect === false}
-                onChange={() => setEvalCorrect(false)}
+                onChange={() => {
+                  setEvalCorrect(false);
+                  // Pre-populate with current analysis values
+                  if (!correctedCategory) setCorrectedCategory(analysis?.category || '');
+                  if (!correctedIntent) setCorrectedIntent(analysis?.intent || '');
+                  if (!correctedImpact) setCorrectedImpact(analysis?.business_impact || '');
+                }}
                 style={{ accentColor: 'var(--color-danger)' }}
               />
               <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
@@ -601,13 +696,76 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
           </div>
         </div>
 
+        {/* ── Correction Dropdowns (shown when "No" is selected) ── */}
+        {evalCorrect === false && (
+          <div style={{
+            background: 'var(--color-bg-secondary, #f3f2f1)', border: '1px solid var(--color-border, #edebe9)',
+            borderLeft: '4px solid var(--color-primary, #0078d4)', borderRadius: 6, padding: 16, marginBottom: 16,
+          }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary, #0078d4)', margin: '0 0 12px 0' }}>
+              Please provide the correct analysis:
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Category:</label>
+                <select
+                  value={correctedCategory}
+                  onChange={(e) => setCorrectedCategory(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
+                >
+                  <option value="">-- Select Category --</option>
+                  {CATEGORY_OPTIONS.map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.items.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Intent:</label>
+                <select
+                  value={correctedIntent}
+                  onChange={(e) => setCorrectedIntent(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
+                >
+                  <option value="">-- Select Intent --</option>
+                  {INTENT_OPTIONS.map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.items.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Business Impact:</label>
+                <select
+                  value={correctedImpact}
+                  onChange={(e) => setCorrectedImpact(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
+                >
+                  <option value="">-- Select Impact --</option>
+                  {BUSINESS_IMPACT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="form-group">
-          <label>General Feedback (optional):</label>
+          <label>{evalCorrect === false ? 'Explain why the analysis is wrong:' : 'General Feedback (optional):'}</label>
           <textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             rows={3}
-            placeholder="Any additional feedback to help improve the system..."
+            placeholder={evalCorrect === false
+              ? 'Please explain why the system\'s analysis was incorrect and provide any additional context...'
+              : 'Any additional feedback to help improve the system...'}
           />
         </div>
 

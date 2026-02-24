@@ -725,7 +725,6 @@ async def correct_classification(req: CorrectionRequest):
 
     if req.action == "reanalyze":
         # Re-run analysis with correction hints in the description
-        gw = get_gateway()
         inp = state.original_input
 
         # Build enhanced description with correction context
@@ -741,14 +740,23 @@ async def correct_classification(req: CorrectionRequest):
         if correction_context:
             enhanced_desc += "\n\n" + "\n".join(correction_context)
 
-        try:
-            raw = await gw.analyze_context(
-                title=inp.title,
-                description=enhanced_desc,
-                impact=inp.impact,
-            )
-        except GatewayError as e:
-            raise HTTPException(502, f"Re-analysis failed: {e.detail}")
+        # Primary path: run analysis engine directly (no gateway needed)
+        raw = _local_pattern_analysis(inp.title, enhanced_desc, inp.impact)
+        source = raw.get("context_analysis", {}).get("source", "")
+
+        # If direct analysis gave only a minimal fallback, try gateway as backup
+        if source == "fallback_minimal":
+            try:
+                gw = get_gateway()
+                raw = await gw.analyze_context(
+                    title=inp.title,
+                    description=enhanced_desc,
+                    impact=inp.impact,
+                )
+                logger.info("Re-analysis succeeded via gateway fallback")
+            except GatewayError as e:
+                logger.warning(f"Gateway also unavailable for re-analysis: {e}")
+                # raw already has the minimal fallback, keep it
 
         ctx_raw = raw.get("context_analysis", raw)
         de_raw = ctx_raw.get("domain_entities", {})

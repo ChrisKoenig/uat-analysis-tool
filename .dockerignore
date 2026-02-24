@@ -1,0 +1,72 @@
+# Version control
+.git
+.github
+
+# IDE
+.vscode
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+
+# Node modules (will be installed fresh in container)
+node_modules
+
+# Markdown / documentation (not needed in containers)
+*.md
+
+# Old backups and archives
+archive/
+backup_*/
+
+# Infrastructure-as-code (not needed at runtime)
+infrastructure/
+
+# Local caches
+.cache/
+cache/
+field-portal/cache/
+
+# PowerShell scripts
+*.ps1
+
+# Log files
+*.log
+
+# Build outputs (UI rebuilt in container)
+triage-ui/dist/
+field-portal/ui/dist/
+
+# Migration / one-off scripts
+migrate_*.py
+add_*.py
+assign_*.py
+check_*.py
+find_*.py
+get_resource_*.py
+resolve_*.py
+update_*.py
+configure_*.py
+disable_*.py
+authenticate_*.py
+
+# Test files
+test_*.py
+
+# Admin service (not being containerized)
+admin_service.py
+admin-service/
+
+# Microservice agents (not being containerized in this pass)
+agents/
+
+# API gateway (not being containerized)
+api_gateway.py
+
+# Launcher (local dev only)
+launcher.py
+start_*.ps1
+
+# Deployment docs
+DEPLOYMENT_GUIDE.md

@@ -26,6 +26,7 @@ export default function FieldCombobox({
   id,
   placeholder = 'Click here and start typing to search fields…',
   required = false,
+  loading = false,
 }) {
   const [searchText, setSearchText] = useState('');
   const [open, setOpen] = useState(false);
@@ -143,6 +144,49 @@ export default function FieldCombobox({
     }
   }, [highlightIndex]);
 
+  // ── Build grouped list for rendering ────────────────────────
+  // Maintains flat indices for keyboard navigation while inserting
+  // group headers between sections.
+  // NOTE: Must be above early returns to satisfy React Rules of Hooks.
+  const groupedItems = useMemo(() => {
+    const items = [];
+    let lastGroup = null;
+    filtered.forEach((f, idx) => {
+      const g = f.group || f.source || '';
+      if (g !== lastGroup) {
+        const groupLabels = {
+          'Analysis': '🔬 AI / Evaluation Fields',
+          'Custom':   'Custom Fields',
+          'System':   'System Fields',
+          'Microsoft': 'Microsoft Fields',
+        };
+        items.push({ _isHeader: true, label: groupLabels[g] || `${g} Fields` });
+        lastGroup = g;
+      }
+      items.push({ ...f, _flatIndex: idx });
+    });
+    return items;
+  }, [filtered]);
+
+  // ── Loading state ──────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="field-combobox">
+        <div className="field-combobox-input-wrap">
+          <input
+            id={id}
+            className="form-input field-combobox-loading"
+            type="text"
+            value=""
+            placeholder="Loading ADO fields…"
+            disabled
+          />
+          <span className="field-combobox-chevron" aria-hidden="true">⏳</span>
+        </div>
+      </div>
+    );
+  }
+
   // ── No fields loaded → plain text input ────────────────────
   if (fields.length === 0) {
     return (
@@ -188,24 +232,30 @@ export default function FieldCombobox({
 
       {open && filtered.length > 0 && (
         <div className="field-combobox-dropdown" ref={listRef} role="listbox">
-          {filtered.map((f, idx) => (
-            <div
-              key={f.id}
-              data-index={idx}
-              className={`field-combobox-option ${idx === highlightIndex ? 'highlighted' : ''} ${f.id === value ? 'selected' : ''}`}
-              role="option"
-              aria-selected={f.id === value}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                selectField(f);
-              }}
-              onMouseEnter={() => setHighlightIndex(idx)}
-            >
-              <span className="field-display-name">{f.displayName}</span>
-              <span className="field-ref-name">{f.id}</span>
-              {f.type && <span className="field-type-badge">{f.type}</span>}
-            </div>
-          ))}
+          {groupedItems.map((item, i) =>
+            item._isHeader ? (
+              <div key={`hdr-${i}`} className="field-combobox-group-header">
+                {item.label}
+              </div>
+            ) : (
+              <div
+                key={item.id}
+                data-index={item._flatIndex}
+                className={`field-combobox-option ${item._flatIndex === highlightIndex ? 'highlighted' : ''} ${item.id === value ? 'selected' : ''}`}
+                role="option"
+                aria-selected={item.id === value}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectField(item);
+                }}
+                onMouseEnter={() => setHighlightIndex(item._flatIndex)}
+              >
+                <span className="field-display-name">{item.displayName}</span>
+                <span className="field-ref-name">{item.id}</span>
+                {item.type && <span className="field-type-badge">{item.type}</span>}
+              </div>
+            )
+          )}
         </div>
       )}
 

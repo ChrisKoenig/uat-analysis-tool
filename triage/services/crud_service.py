@@ -32,6 +32,7 @@ from ..models.rule import Rule
 from ..models.action import Action
 from ..models.trigger import Trigger
 from ..models.route import Route
+from ..models.triage_team import TriageTeam
 from ..models.audit_entry import AuditEntry, AuditAction
 
 logger = logging.getLogger("triage.services.crud")
@@ -63,6 +64,11 @@ ENTITY_REGISTRY = {
         "model_class": Route,
         "container": "routes",
         "id_prefix": "route",
+    },
+    "triage-team": {
+        "model_class": TriageTeam,
+        "container": "triage-teams",
+        "id_prefix": "team",
     },
 }
 

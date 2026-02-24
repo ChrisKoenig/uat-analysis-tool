@@ -23,6 +23,7 @@ import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
 import StatusFilter from '../components/common/StatusFilter';
 import StatusBadge from '../components/common/StatusBadge';
+import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import RuleForm from '../components/rules/RuleForm';
@@ -36,6 +37,8 @@ export default function RulesPage({ addToast }) {
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [teamFilter, setTeamFilter] = useState(null);
+  const [teams, setTeams] = useState([]);
   const [selectedRule, setSelectedRule] = useState(null);
   const [formMode, setFormMode] = useState(null); // 'create' | 'edit' | null
   const [toggleTarget, setToggleTarget] = useState(null);
@@ -44,17 +47,27 @@ export default function RulesPage({ addToast }) {
 
   // ── Data Loading ─────────────────────────────────────────────
 
+  // Load active teams for filter + scope dropdowns
+  useEffect(() => {
+    api.listTriageTeams('active').then((d) => {
+      const sorted = (d.items || []).sort(
+        (a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+      );
+      setTeams(sorted);
+    }).catch(() => {});
+  }, []);
+
   const loadRules = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.listRules(statusFilter);
+      const data = await api.listRules(statusFilter, teamFilter);
       setRules(data.items || []);
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, addToast]);
+  }, [statusFilter, teamFilter, addToast]);
 
   useEffect(() => {
     loadRules();
@@ -187,6 +200,7 @@ export default function RulesPage({ addToast }) {
       <div className="page-header">
         <h1>📋 Rules</h1>
         <div className="page-header-actions">
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
             + New Rule
@@ -228,6 +242,7 @@ export default function RulesPage({ addToast }) {
             <div className="card-body">
               <RuleForm
                 rule={formMode === 'edit' ? selectedRule : null}
+                teams={teams}
                 onSubmit={handleFormSubmit}
                 onCancel={handleClosePanel}
               />

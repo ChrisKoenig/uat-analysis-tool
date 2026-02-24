@@ -16,13 +16,15 @@
 
 import React, { useState, useEffect } from 'react';
 import RouteDesigner from './RouteDesigner';
+import TeamScopeSelect from '../common/TeamScopeSelect';
 
 
-export default function RouteForm({ route, actions = [], onSubmit, onCancel }) {
+export default function RouteForm({ route, actions = [], teams = [], onSubmit, onCancel }) {
   // ── Form State ───────────────────────────────────────────────
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [actionIds, setActionIds] = useState([]);
+  const [triageTeamId, setTriageTeamId] = useState('');
   const [status, setStatus] = useState('active');
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,11 +35,13 @@ export default function RouteForm({ route, actions = [], onSubmit, onCancel }) {
       setName(route.name || '');
       setDescription(route.description || '');
       setActionIds(route.actions || []);
+      setTriageTeamId(route.triageTeamId || '');
       setStatus(route.status || 'active');
     } else {
       setName('');
       setDescription('');
       setActionIds([]);
+      setTriageTeamId('');
       setStatus('active');
     }
   }, [route]);
@@ -52,6 +56,7 @@ export default function RouteForm({ route, actions = [], onSubmit, onCancel }) {
         name,
         description,
         actions: actionIds,
+        triageTeamId: triageTeamId || null,
         status,
       });
     } finally {
@@ -102,6 +107,11 @@ export default function RouteForm({ route, actions = [], onSubmit, onCancel }) {
           actions={actions}
         />
       </div>
+
+      {/* Triage Team Scope */}
+      {teams.length > 0 && (
+        <TeamScopeSelect value={triageTeamId} onChange={setTriageTeamId} teams={teams} />
+      )}
 
       {/* Status */}
       <div className="form-group">

@@ -13,7 +13,7 @@
  * Items with Approved / Override / Redirected are hidden (done).
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as api from '../api/triageApi';
 import { getCachedQueue, setCachedQueue, clearQueueCache } from '../api/queueCache';
 import { formatDate, truncate } from '../utils/helpers';
@@ -88,6 +88,12 @@ const STATE_CLASSES = {
 
 
 export default function QueuePage({ addToast }) {
+  // ── Team State ───────────────────────────────────────────────
+  const [teams, setTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState(() =>
+    localStorage.getItem('triage_selectedTeamId') || ''
+  );
+
   // ── State ────────────────────────────────────────────────────
   const [items, setItems] = useState([]);
   const [queryName, setQueryName] = useState('');
@@ -103,6 +109,8 @@ export default function QueuePage({ addToast }) {
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
   const [totalAvailable, setTotalAvailable] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // Analysis state
   const [analysisMap, setAnalysisMap] = useState({});       // { workItemId: { category, intent, ... } }
@@ -114,13 +122,105 @@ export default function QueuePage({ addToast }) {
   const [analysisProgress, setAnalysisProgress] = useState(null);
   // Shape: { total, completed, failed, currentId, items: [ { id, title, status, category, intent, confidence, source, error } ] }
 
+  // ── Column Resize State ────────────────────────────────────
+  const [colWidths, setColWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem('triage_colWidths');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return Object.fromEntries(COLUMNS.map((c) => [c.key, c.width]));
+  });
+  const resizeRef = useRef(null);  // tracks active drag { key, startX, startW }
+  const loadSeqRef = useRef(0);     // monotonic counter to discard stale loadQueue responses
+
+  /** Persist column widths to localStorage on change */
+  useEffect(() => {
+    localStorage.setItem('triage_colWidths', JSON.stringify(colWidths));
+  }, [colWidths]);
+
+  /** Start column resize drag */
+  const handleResizeStart = useCallback((e, colKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colWidths[colKey] || 100;
+    resizeRef.current = { key: colKey, startX, startW };
+
+    const onMouseMove = (ev) => {
+      if (!resizeRef.current) return;
+      const diff = ev.clientX - resizeRef.current.startX;
+      const newW = Math.max(40, resizeRef.current.startW + diff);
+      setColWidths((prev) => ({ ...prev, [resizeRef.current.key]: newW }));
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [colWidths]);
+
+  /** Reset columns to default widths on double-click */
+  const handleResizeReset = useCallback(() => {
+    const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.width]));
+    setColWidths(defaults);
+  }, []);
+
+
+  // ── Load Active Triage Teams ─────────────────────────────────
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await api.listTriageTeams('active');
+        const sorted = (data.items || []).sort(
+          (a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+        );
+        setTeams(sorted);
+
+        // If no team selected yet and teams exist, auto-select the first
+        if (!selectedTeamId && sorted.length > 0) {
+          setSelectedTeamId(sorted[0].id);
+          localStorage.setItem('triage_selectedTeamId', sorted[0].id);
+        }
+      } catch {
+        // Non-fatal — teams feature may not be configured yet
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Handle team dropdown change — use per-team cache (no clear needed) */
+  const handleTeamChange = useCallback((e) => {
+    const teamId = e.target.value;
+    setSelectedTeamId(teamId);
+    localStorage.setItem('triage_selectedTeamId', teamId);
+    // Cache is per-team now — loadQueue will re-run via activeQueryId change
+    // and serve from cache if available, so no clearQueueCache() here.
+  }, []);
+
+  /** Resolve the ADO query ID to use based on selected team */
+  const activeQueryId = useMemo(() => {
+    if (!selectedTeamId) return null;
+    const team = teams.find((t) => t.id === selectedTeamId);
+    return team?.adoQueryId || null;
+  }, [selectedTeamId, teams]);
+
 
   // ── Load Queue (Saved Query) ─────────────────────────────────
 
   const loadQueue = useCallback(async (forceRefresh = false) => {
+    // Increment sequence — any prior in-flight request becomes stale
+    const seq = ++loadSeqRef.current;
+    const isStale = () => seq !== loadSeqRef.current;
+
     // Check cache first (skip on explicit refresh)
-    if (!forceRefresh) {
-      const cached = getCachedQueue();
+    if (!forceRefresh && activeQueryId) {
+      const cached = getCachedQueue(activeQueryId);
       if (cached) {
         setItems(cached.items);
         setQueryName(cached.queryName);
@@ -138,7 +238,9 @@ export default function QueuePage({ addToast }) {
     setAnalysisDetail(null);
     setAnalysisDetailId(null);
     try {
-      const data = await api.getSavedQueryResults(null, 200);
+      const data = await api.getSavedQueryResults(activeQueryId, 500);
+      if (isStale()) return;  // team changed while awaiting — discard
+
       const loadedItems = data.items || [];
       const loadedQueryName = data.queryName || '';
       const loadedTotal = data.totalAvailable || data.count || 0;
@@ -155,6 +257,7 @@ export default function QueuePage({ addToast }) {
         try {
           const ids = loadedItems.map((i) => i.id);
           const analysisData = await api.getAnalysisBatch(ids);
+          if (isStale()) return;  // team changed while awaiting
           loadedAnalysisMap = analysisData.results || {};
           setAnalysisMap(loadedAnalysisMap);
         } catch {
@@ -162,26 +265,29 @@ export default function QueuePage({ addToast }) {
         }
       }
 
-      // Persist to cache
-      setCachedQueue({
-        items: loadedItems,
-        queryName: loadedQueryName,
-        totalAvailable: loadedTotal,
-        analysisMap: loadedAnalysisMap,
-      });
+      // Persist to per-team cache
+      if (activeQueryId && !isStale()) {
+        setCachedQueue(activeQueryId, {
+          items: loadedItems,
+          queryName: loadedQueryName,
+          totalAvailable: loadedTotal,
+          analysisMap: loadedAnalysisMap,
+        });
+      }
     } catch (err) {
+      if (isStale()) return;
       addToast?.(err.message, 'error');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, activeQueryId]);
 
-  /** Force-refresh: clears cache and reloads from ADO */
+  /** Force-refresh: clears current team's cache and reloads from ADO */
   const refreshQueue = useCallback(() => {
-    clearQueueCache();
+    clearQueueCache(activeQueryId);
     loadQueue(true);
-  }, [loadQueue]);
+  }, [loadQueue, activeQueryId]);
 
 
   useEffect(() => {
@@ -226,6 +332,18 @@ export default function QueuePage({ addToast }) {
     });
   }, [tabItems, sortCol, sortDir, analysisMap]);
 
+  // ── Pagination ───────────────────────────────────────────────
+
+  const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE));
+
+  // Reset to page 1 when tab, sort, or items change
+  useEffect(() => { setCurrentPage(1); }, [activeTab, sortCol, sortDir, tabItems.length]);
+
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return sortedItems.slice(start, start + PAGE_SIZE);
+  }, [sortedItems, currentPage, PAGE_SIZE]);
+
 
   // ── Selection ────────────────────────────────────────────────
 
@@ -252,6 +370,7 @@ export default function QueuePage({ addToast }) {
     setSelectedIds(new Set());
     setResults(null);
     setExpandedId(null);
+    setCurrentPage(1);
   };
 
 
@@ -610,11 +729,26 @@ export default function QueuePage({ addToast }) {
       <div className="page-header">
         <h1>📥 Triage Queue</h1>
         <div className="page-header-actions">
-          {queryName && (
+          {/* Team Selector */}
+          {teams.length > 0 ? (
+            <select
+              className="team-selector"
+              value={selectedTeamId}
+              onChange={handleTeamChange}
+              title="Select triage team"
+            >
+              {!selectedTeamId && <option value="">— Select Team —</option>}
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          ) : queryName ? (
             <span className="queue-query-name" title={queryName}>
               {queryName}
             </span>
-          )}
+          ) : null}
           <button
             className="btn btn-secondary"
             onClick={refreshQueue}
@@ -631,6 +765,7 @@ export default function QueuePage({ addToast }) {
           {loading ? 'Loading\u2026' : `${tabItems.length} items`}
           {totalAvailable > items.length && ` of ${totalAvailable} total`}
           {selectedIds.size > 0 && ` \xb7 ${selectedIds.size} selected`}
+          {totalPages > 1 && ` \xb7 Page ${currentPage} of ${totalPages}`}
         </span>
         <div className="queue-action-buttons">
           {activeTab === 'analysis' ? (
@@ -848,7 +983,7 @@ export default function QueuePage({ addToast }) {
                 </td>
               </tr>
             ) : (
-              sortedItems.map((item) => {
+              paginatedItems.map((item) => {
                 const evalResult = getResultForItem(item.id);
                 return (
                   <React.Fragment key={item.id}>
@@ -876,14 +1011,18 @@ export default function QueuePage({ addToast }) {
                           onChange={() => toggleSelect(item.id)}
                         />
                       </td>
-                      {COLUMNS.map((col) => (
-                        <td
-                          key={col.key}
-                          className={`queue-cell ${col.sticky ? 'queue-col-id' : ''}`}
-                        >
-                          {renderCell(col, item)}
-                        </td>
-                      ))}
+                      {COLUMNS.map((col) => {
+                        const w = colWidths[col.key] || col.width;
+                        return (
+                          <td
+                            key={col.key}
+                            className={`queue-cell ${col.sticky ? 'queue-col-id' : ''}`}
+                            style={{ width: w, minWidth: 40 }}
+                          >
+                            {renderCell(col, item)}
+                          </td>
+                        );
+                      })}
                       <td className="queue-col-actions" onClick={(e) => e.stopPropagation()}>
                         {evalResult && (
                           <button
@@ -985,6 +1124,50 @@ export default function QueuePage({ addToast }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="queue-pagination">
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+            title="First page"
+          >
+            ⏮
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            title="Previous page"
+          >
+            ◀
+          </button>
+          <span className="queue-pagination-info">
+            Page {currentPage} of {totalPages}
+            <span className="queue-pagination-range">
+              {' '}({(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, sortedItems.length)} of {sortedItems.length})
+            </span>
+          </span>
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            title="Next page"
+          >
+            ▶
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(totalPages)}
+            title="Last page"
+          >
+            ⏭
+          </button>
+        </div>
+      )}
 
       {/* Analysis Detail Panel (slide-out) */}
       {analysisDetailId && (

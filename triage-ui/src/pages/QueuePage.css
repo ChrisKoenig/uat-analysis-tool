@@ -17,6 +17,30 @@
   white-space: nowrap;
 }
 
+/* ── Team Selector Dropdown ──────────────────────────────────── */
+
+.team-selector {
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  background: var(--muted-bg);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-width: 200px;
+  font-weight: 500;
+}
+
+.team-selector:hover {
+  border-color: var(--primary);
+}
+
+.team-selector:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-fade, rgba(0, 120, 212, 0.15));
+}
+
 /* ── Action Bar ──────────────────────────────────────────────── */
 
 /* ── Tab Bar ─────────────────────────────────────────────────── */
@@ -140,7 +164,11 @@
 /* ── Table ───────────────────────────────────────────────────── */
 
 .queue-table-card {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: calc(100vh - 280px);
+  min-height: 200px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .queue-table {
@@ -153,6 +181,7 @@
 .queue-table th {
   position: sticky;
   top: 0;
+  z-index: 3;
   background: var(--card-bg);
   text-align: left;
   padding: 6px 8px;
@@ -169,6 +198,29 @@
 
 .queue-col-header:hover {
   color: var(--primary);
+}
+
+/* Column resize handle */
+.queue-col-header {
+  position: relative;
+}
+
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.col-resize-handle:hover,
+.col-resize-handle:active {
+  background: var(--primary);
+  opacity: 0.5;
 }
 
 .sort-arrow {
@@ -207,6 +259,37 @@
 .queue-col-check { width: 36px; text-align: center; }
 .queue-col-id { width: 70px; }
 .queue-col-actions { width: 130px; white-space: nowrap; }
+
+/* ── Pagination ──────────────────────────────────────────────── */
+
+.queue-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+  font-size: var(--font-size-sm);
+}
+
+.queue-pagination-info {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 140px;
+  text-align: center;
+}
+
+.queue-pagination-range {
+  font-weight: 400;
+  color: var(--text-light);
+}
+
+.queue-pagination .btn {
+  min-width: 32px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
 
 /* ── Analysis Indicator Dot ──────────────────────────────────── */
 

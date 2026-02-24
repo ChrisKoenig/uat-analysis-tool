@@ -9,10 +9,16 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PublicClientApplication } from '@azure/msal-browser';
 import { MsalProvider } from '@azure/msal-react';
 import { loadRuntimeConfig, getMsalConfig } from './auth/authConfig';
-import AuthGate, { useAuth } from './auth/AuthGate';
+import AuthGate from './auth/AuthGate';
+import NoAuthProvider from './auth/NoAuthProvider';
+import { useAuth } from './auth/AuthContext';
 import { WizardProvider } from './auth/WizardContext';
+
 import { setTokenGetter } from './api/fieldApi';
 import LoadingSpinner from './components/LoadingSpinner';
+
+// When true, skip MSAL entirely (container / offline builds)
+const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === 'true';
 
 // MSAL instance — created after runtime config loads
 let msalInstance = null;
@@ -126,10 +132,10 @@ function AppShell() {
 }
 
 export default function App() {
-  const [ready, setReady] = useState(!!msalInstance);
+  const [ready, setReady] = useState(AUTH_DISABLED || !!msalInstance);
 
   useEffect(() => {
-    if (msalInstance) return;
+    if (AUTH_DISABLED || msalInstance) return;
 
     (async () => {
       // Load /config.json (Azure deployment) or fall back to VITE_ env vars
@@ -144,6 +150,18 @@ export default function App() {
     return <LoadingSpinner message="Initializing authentication..." />;
   }
 
+  // ── Auth-disabled mode (container / offline) ──
+  if (AUTH_DISABLED) {
+    return (
+      <NoAuthProvider>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </NoAuthProvider>
+    );
+  }
+
+  // ── Normal MSAL mode ──
   return (
     <MsalProvider instance={msalInstance}>
       <BrowserRouter>

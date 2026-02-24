@@ -2073,9 +2073,12 @@ class IntelligentContextAnalyzer:
             detected_terms.extend(matches)
         
         # Log detected terms for debugging
-        with open('C:/Projects/Hack/debug_ica.log', 'a', encoding='utf-8') as f:
-            f.write(f"\n[DEBUG ICA] All detected terms from patterns: {detected_terms}\n")
-            f.flush()
+        try:
+            with open('C:/Projects/Hack/debug_ica.log', 'a', encoding='utf-8') as f:
+                f.write(f"\n[DEBUG ICA] All detected terms from patterns: {detected_terms}\n")
+                f.flush()
+        except OSError:
+            pass
         print(f"[DEBUG ICA] All detected terms from patterns: {detected_terms}")
         
         if not detected_terms:

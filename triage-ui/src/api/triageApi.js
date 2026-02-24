@@ -123,10 +123,13 @@ function del(path, params = {}) {
 // Rules API
 // =============================================================================
 
-/** List all rules, optionally filtered by status */
-export function listRules(status = null) {
-  const query = status ? `?status=${status}` : '';
-  return get(`/rules${query}`);
+/** List all rules, optionally filtered by status and/or triage team */
+export function listRules(status = null, triageTeamId = null) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (triageTeamId) params.set('triage_team_id', triageTeamId);
+  const query = params.toString();
+  return get(`/rules${query ? '?' + query : ''}`);
 }
 
 /** Get a single rule by ID */
@@ -172,9 +175,12 @@ export function updateRuleStatus(id, status, version) {
 // Actions API
 // =============================================================================
 
-export function listActions(status = null) {
-  const query = status ? `?status=${status}` : '';
-  return get(`/actions${query}`);
+export function listActions(status = null, triageTeamId = null) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (triageTeamId) params.set('triage_team_id', triageTeamId);
+  const query = params.toString();
+  return get(`/actions${query ? '?' + query : ''}`);
 }
 
 export function getAction(id) {
@@ -215,9 +221,12 @@ export function updateActionStatus(id, status, version) {
 // Triggers API
 // =============================================================================
 
-export function listTriggers(status = null) {
-  const query = status ? `?status=${status}` : '';
-  return get(`/triggers${query}`);
+export function listTriggers(status = null, triageTeamId = null) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (triageTeamId) params.set('triage_team_id', triageTeamId);
+  const query = params.toString();
+  return get(`/triggers${query ? '?' + query : ''}`);
 }
 
 export function getTrigger(id) {
@@ -258,9 +267,12 @@ export function updateTriggerStatus(id, status, version) {
 // Routes API
 // =============================================================================
 
-export function listRoutes(status = null) {
-  const query = status ? `?status=${status}` : '';
-  return get(`/routes${query}`);
+export function listRoutes(status = null, triageTeamId = null) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (triageTeamId) params.set('triage_team_id', triageTeamId);
+  const query = params.toString();
+  return get(`/routes${query ? '?' + query : ''}`);
 }
 
 export function getRoute(id) {
@@ -294,6 +306,50 @@ export function getRouteReferences(id) {
 /** Update route status (requires version for optimistic locking) */
 export function updateRouteStatus(id, status, version) {
   return put(`/routes/${id}/status`, { status, version });
+}
+
+
+// =============================================================================
+// Triage Teams API
+// =============================================================================
+
+/** List all triage teams, optionally filtered by status */
+export function listTriageTeams(status = null) {
+  const query = status ? `?status=${status}` : '';
+  return get(`/triage-teams${query}`);
+}
+
+/** Get a single triage team by ID */
+export function getTriageTeam(id) {
+  return get(`/triage-teams/${id}`);
+}
+
+/** Create a new triage team */
+export function createTriageTeam(data) {
+  return post('/triage-teams', data);
+}
+
+/** Update an existing triage team */
+export function updateTriageTeam(id, data) {
+  return put(`/triage-teams/${id}`, data);
+}
+
+/** Delete a triage team */
+export function deleteTriageTeam(id, { hard = false, version = null } = {}) {
+  const params = {};
+  if (hard) params.hard = 'true';
+  if (version != null) params.version = String(version);
+  return del(`/triage-teams/${id}`, params);
+}
+
+/** Clone/copy a triage team */
+export function copyTriageTeam(id, newName = null) {
+  return post(`/triage-teams/${id}/copy`, newName ? { newName } : {});
+}
+
+/** Update triage team status */
+export function updateTriageTeamStatus(id, status, version) {
+  return put(`/triage-teams/${id}/status`, { status, version });
 }
 
 
@@ -393,7 +449,7 @@ export function getTriageQueueDetails(stateFilter = null, areaPath = null, maxRe
  * Run a saved ADO query and return hydrated work items.
  * Default: "Azure Corp Daily Triage" queue.
  */
-export function getSavedQueryResults(queryId = null, maxResults = 200) {
+export function getSavedQueryResults(queryId = null, maxResults = 500) {
   const params = new URLSearchParams();
   if (queryId) params.set('query_id', queryId);
   params.set('max_results', maxResults.toString());
@@ -435,6 +491,15 @@ export function getAnalysisEngineStatus() {
  */
 export function runAnalysis(workItemIds) {
   return post('/analyze', { workItemIds });
+}
+
+/**
+ * Re-analyze a single work item with user-supplied correction hints.
+ * @param {number} workItemId
+ * @param {Object} corrections - { correct_category, correct_intent, correct_business_impact, correction_notes }
+ */
+export function reanalyzeWithCorrections(workItemId, corrections) {
+  return post('/analyze/reanalyze', { workItemId, ...corrections });
 }
 
 /**
@@ -572,6 +637,11 @@ export function listCorrections() {
  */
 export function addCorrection(correction) {
   return post('/admin/corrections', correction);
+}
+
+/** Update a correction by index (zero-based) */
+export function updateCorrection(index, correction) {
+  return put(`/admin/corrections/${index}`, correction);
 }
 
 /** Delete a correction by index (zero-based) */

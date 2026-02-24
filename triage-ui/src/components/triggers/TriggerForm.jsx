@@ -21,10 +21,11 @@
 
 import React, { useState, useEffect } from 'react';
 import ExpressionBuilder from './ExpressionBuilder';
+import TeamScopeSelect from '../common/TeamScopeSelect';
 import { deepClone } from '../../utils/helpers';
 
 
-export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit, onCancel }) {
+export default function TriggerForm({ trigger, rules = [], routes = [], teams = [], onSubmit, onCancel }) {
   // ── Form State ───────────────────────────────────────────────
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -32,6 +33,7 @@ export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit
   const [expression, setExpression] = useState({ and: [] });
   const [onTrue, setOnTrue] = useState('');
   const [status, setStatus] = useState('active');
+  const [triageTeamId, setTriageTeamId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
 
@@ -44,6 +46,7 @@ export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit
       setExpression(trigger.expression ? deepClone(trigger.expression) : { and: [] });
       setOnTrue(trigger.onTrue || '');
       setStatus(trigger.status || 'active');
+      setTriageTeamId(trigger.triageTeamId || '');
     } else {
       setName('');
       setDescription('');
@@ -51,6 +54,7 @@ export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit
       setExpression({ and: [] });
       setOnTrue('');
       setStatus('active');
+      setTriageTeamId('');
     }
   }, [trigger]);
 
@@ -67,6 +71,7 @@ export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit
         expression,
         onTrue,
         status,
+        triageTeamId: triageTeamId || null,
       });
     } finally {
       setSubmitting(false);
@@ -160,6 +165,11 @@ export default function TriggerForm({ trigger, rules = [], routes = [], onSubmit
           The route to execute when this trigger's expression evaluates to TRUE
         </span>
       </div>
+
+      {/* Triage Team Scope */}
+      {teams.length > 0 && (
+        <TeamScopeSelect value={triageTeamId} onChange={setTriageTeamId} teams={teams} />
+      )}
 
       {/* Status */}
       <div className="form-group">

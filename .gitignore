@@ -65,6 +65,14 @@ backup_*/
 # Node
 node_modules/
 
+# Caches
+cache/
+**/cache/
+
+# Build artifacts
+build_log.txt
+
 # Logs
 *.log
 flask_*.log
+debug_*.log

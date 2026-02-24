@@ -27,9 +27,10 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../../api/triageApi';
 import { OPERATIONS, TEMPLATE_VARIABLES } from '../../utils/constants';
 import FieldCombobox from '../common/FieldCombobox';
+import TeamScopeSelect from '../common/TeamScopeSelect';
 
 
-export default function ActionForm({ action, onSubmit, onCancel }) {
+export default function ActionForm({ action, teams = [], onSubmit, onCancel }) {
   // ── Form State ───────────────────────────────────────────────
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -37,18 +38,22 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
   const [operation, setOperation] = useState('set');
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('active');
+  const [triageTeamId, setTriageTeamId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [adoFields, setAdoFields] = useState([]);
   const [readableFields, setReadableFields] = useState([]);
+  const [fieldsLoading, setFieldsLoading] = useState(true);
 
-  // ── Load ADO field lists ───────────────────────────────────
+  // ── Load ADO field lists ─────────────────────────────────
   useEffect(() => {
-    api.listFields({ canSet: true })
-      .then((data) => setAdoFields(data.items || []))
-      .catch(() => setAdoFields([]));
-    api.listFields({ canEvaluate: true })
-      .then((data) => setReadableFields(data.items || []))
-      .catch(() => setReadableFields([]));
+    Promise.all([
+      api.listFields({ canSet: true })
+        .then((data) => setAdoFields(data.items || []))
+        .catch(() => setAdoFields([])),
+      api.listFields({ canEvaluate: true })
+        .then((data) => setReadableFields(data.items || []))
+        .catch(() => setReadableFields([])),
+    ]).finally(() => setFieldsLoading(false));
   }, []);
 
 
@@ -61,6 +66,7 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
       setOperation(action.operation || 'set');
       setValue(action.value ?? '');
       setStatus(action.status || 'active');
+      setTriageTeamId(action.triageTeamId || '');
     } else {
       setName('');
       setDescription('');
@@ -68,6 +74,7 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
       setOperation('set');
       setValue('');
       setStatus('active');
+      setTriageTeamId('');
     }
   }, [action]);
 
@@ -98,6 +105,7 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
         value: value || null,
         valueType: derivedType,
         status,
+        triageTeamId: triageTeamId || null,
       });
     } finally {
       setSubmitting(false);
@@ -150,6 +158,7 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
           fields={adoFields}
           placeholder="Click here and type to search fields…"
           required
+          loading={fieldsLoading}
         />
         <span className="hint">
           Click the field above to browse available ADO fields, or type to search by name.
@@ -198,6 +207,7 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
               onChange={setValue}
               fields={readableFields}
               placeholder="Click to browse source fields…"
+              loading={fieldsLoading}
             />
             <span className="hint">Select the field whose value will be copied into the target field</span>
           </>
@@ -266,6 +276,11 @@ export default function ActionForm({ action, onSubmit, onCancel }) {
           />
         )}
       </div>
+
+      {/* Triage Team Scope */}
+      {teams.length > 0 && (
+        <TeamScopeSelect value={triageTeamId} onChange={setTriageTeamId} teams={teams} />
+      )}
 
       {/* Status */}
       <div className="form-group">

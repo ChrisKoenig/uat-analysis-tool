@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
 import StatusFilter from '../components/common/StatusFilter';
+import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import RouteForm from '../components/routes/RouteForm';
@@ -22,6 +23,8 @@ export default function RoutesPage({ addToast }) {
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [teamFilter, setTeamFilter] = useState(null);
+  const [teams, setTeams] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [formMode, setFormMode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -33,18 +36,23 @@ export default function RoutesPage({ addToast }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [routesData, actionsData] = await Promise.all([
-        api.listRoutes(statusFilter),
+      const [routesData, actionsData, teamsData] = await Promise.all([
+        api.listRoutes(statusFilter, teamFilter),
         api.listActions(),
+        api.listTriageTeams('active'),
       ]);
       setRoutes(routesData.items || []);
       setActions(actionsData.items || []);
+      const sortedTeams = (teamsData.items || []).sort(
+        (a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+      );
+      setTeams(sortedTeams);
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, addToast]);
+  }, [statusFilter, teamFilter, addToast]);
 
   useEffect(() => {
     loadData();
@@ -168,6 +176,7 @@ export default function RoutesPage({ addToast }) {
       <div className="page-header">
         <h1>🔀 Routes</h1>
         <div className="page-header-actions">
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
             + New Route
@@ -207,6 +216,7 @@ export default function RoutesPage({ addToast }) {
               <RouteForm
                 route={formMode === 'edit' ? selectedRoute : null}
                 actions={actions}
+                teams={teams}
                 onSubmit={handleFormSubmit}
                 onCancel={handleClosePanel}
               />

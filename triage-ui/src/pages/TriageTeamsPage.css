@@ -1,0 +1,40 @@
+/**
+ * TriageTeamsPage Styles
+ */
+
+.teams-page {
+  max-width: 1400px;
+}
+
+/* ── Blade Layout (list + detail panel) ──────────────────────── */
+
+.teams-layout {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.teams-list {
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.2s ease;
+}
+
+.teams-list-narrow {
+  flex: 0.55;
+}
+
+.teams-detail-panel {
+  flex: 0.45;
+  min-width: 380px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  position: sticky;
+  top: var(--space-lg);
+}
+
+.teams-count {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+}

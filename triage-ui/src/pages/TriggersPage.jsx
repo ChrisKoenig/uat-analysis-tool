@@ -16,6 +16,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
 import StatusFilter from '../components/common/StatusFilter';
+import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import TriggerForm from '../components/triggers/TriggerForm';
@@ -30,6 +31,8 @@ export default function TriggersPage({ addToast }) {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [teamFilter, setTeamFilter] = useState(null);
+  const [teams, setTeams] = useState([]);
   const [selectedTrigger, setSelectedTrigger] = useState(null);
   const [formMode, setFormMode] = useState(null);
   const [toggleTarget, setToggleTarget] = useState(null);
@@ -40,10 +43,11 @@ export default function TriggersPage({ addToast }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [triggersData, rulesData, routesData] = await Promise.all([
-        api.listTriggers(statusFilter),
+      const [triggersData, rulesData, routesData, teamsData] = await Promise.all([
+        api.listTriggers(statusFilter, teamFilter),
         api.listRules(),      // All rules for expression builder
         api.listRoutes(),     // All routes for onTrue selector
+        api.listTriageTeams('active'),
       ]);
       // Sort triggers by priority
       const sorted = (triggersData.items || []).sort(
@@ -52,12 +56,16 @@ export default function TriggersPage({ addToast }) {
       setTriggers(sorted);
       setRules(rulesData.items || []);
       setRoutes(routesData.items || []);
+      const sortedTeams = (teamsData.items || []).sort(
+        (a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+      );
+      setTeams(sortedTeams);
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, addToast]);
+  }, [statusFilter, teamFilter, addToast]);
 
   useEffect(() => {
     loadData();
@@ -183,6 +191,7 @@ export default function TriggersPage({ addToast }) {
       <div className="page-header">
         <h1>⚡ Triggers</h1>
         <div className="page-header-actions">
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
             + New Trigger
@@ -223,6 +232,7 @@ export default function TriggersPage({ addToast }) {
                 trigger={formMode === 'edit' ? selectedTrigger : null}
                 rules={rules}
                 routes={routes}
+                teams={teams}
                 onSubmit={handleFormSubmit}
                 onCancel={handleClosePanel}
               />

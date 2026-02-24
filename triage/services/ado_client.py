@@ -36,6 +36,7 @@ Authentication:
 import sys
 import os
 import logging
+import base64
 import requests as http_requests
 import traceback
 from typing import Dict, List, Optional, Any, Tuple
@@ -151,16 +152,43 @@ class AdoClient:
 
         Reuses the AzureDevOpsClient's cached credential — no duplicated
         auth chain. Tokens are short-lived (~1 hour) and refreshed each call.
+        Returns None if using PAT auth (no token needed).
         """
+        if self._client._pat:
+            return None  # PAT uses Basic auth, no bearer token
         return self._client.credential.get_token(self._config.ADO_SCOPE).token
 
-    def _headers(self, content_type: str = "application/json") -> Dict[str, str]:
+    def _pat_for_org(self, org: str) -> Optional[str]:
         """
-        Build HTTP headers using the existing credential.
+        Return the correct PAT for a given ADO org.
+
+        Two org-scoped PATs are supported:
+            ADO_PAT      → write org (unifiedactiontrackertest)
+            ADO_PAT_READ → read org  (unifiedactiontracker / production)
+
+        Falls back to ADO_PAT if ADO_PAT_READ is not set.
+        """
+        if org == self._config.READ_ORGANIZATION and self._client._pat_read:
+            return self._client._pat_read
+        return self._client._pat  # may be None (token auth)
+
+    def _headers(self, content_type: str = "application/json", org: Optional[str] = None) -> Dict[str, str]:
+        """
+        Build HTTP headers using the correct PAT for *org*, or credential.
 
         Args:
             content_type: MIME type. Use 'application/json-patch+json' for PATCH.
+            org: ADO org name — determines which PAT to use.
+                 Pass READ_ORGANIZATION for reads, WRITE_ORGANIZATION for writes.
         """
+        pat = self._pat_for_org(org) if org else self._client._pat
+        if pat:
+            b64 = base64.b64encode(f":{pat}".encode()).decode()
+            return {
+                "Authorization": f"Basic {b64}",
+                "Content-Type": content_type,
+                "Accept": "application/json",
+            }
         return {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": content_type,
@@ -244,7 +272,7 @@ class AdoClient:
         try:
             url = self._read_work_item_url(work_item_id)
             logger.debug("get_work_item %d: GET %s", work_item_id, url)
-            response = http_requests.get(url, headers=self._headers())
+            response = http_requests.get(url, headers=self._headers(org=self._config.READ_ORGANIZATION))
             logger.debug("get_work_item %d: status=%d", work_item_id, response.status_code)
 
             if response.status_code == 200:
@@ -303,7 +331,7 @@ class AdoClient:
         for chunk in chunks:
             try:
                 url = self._read_batch_url(chunk)
-                response = http_requests.get(url, headers=self._headers())
+                response = http_requests.get(url, headers=self._headers(org=self._config.READ_ORGANIZATION))
 
                 if response.status_code == 200:
                     data = response.json()
@@ -390,7 +418,7 @@ class AdoClient:
             response = http_requests.post(
                 self._read_wiql_url(),
                 json={"query": wiql},
-                headers=self._headers(),
+                headers=self._headers(org=self._config.READ_ORGANIZATION),
             )
 
             if response.status_code != 200:
@@ -461,7 +489,7 @@ class AdoClient:
                 f"?api-version={self._config.API_VERSION}&$expand=wiql"
             )
             logger.info("Fetching saved query %s", query_id)
-            resp = http_requests.get(query_def_url, headers=self._headers())
+            resp = http_requests.get(query_def_url, headers=self._headers(org=self._config.READ_ORGANIZATION))
 
             if resp.status_code == 404:
                 return {
@@ -496,7 +524,7 @@ class AdoClient:
             wiql_resp = http_requests.post(
                 wiql_url,
                 json={"query": wiql},
-                headers=self._headers(),
+                headers=self._headers(org=self._config.READ_ORGANIZATION),
             )
 
             if wiql_resp.status_code != 200:
@@ -550,7 +578,7 @@ class AdoClient:
                     batch_resp = http_requests.post(
                         batch_url,
                         json={"ids": chunk, "fields": fetch_fields},
-                        headers=self._headers(),
+                        headers=self._headers(org=self._config.READ_ORGANIZATION),
                     )
 
                     if batch_resp.status_code == 200:
@@ -653,7 +681,8 @@ class AdoClient:
                 url,
                 json=operations,
                 headers=self._headers(
-                    content_type="application/json-patch+json"
+                    content_type="application/json-patch+json",
+                    org=self._config.WRITE_ORGANIZATION,
                 ),
             )
 
@@ -723,7 +752,7 @@ class AdoClient:
             response = http_requests.post(
                 self._write_comment_url(work_item_id),
                 json={"text": html_content},
-                headers=self._headers(),
+                headers=self._headers(org=self._config.WRITE_ORGANIZATION),
             )
 
             if response.status_code in (200, 201):

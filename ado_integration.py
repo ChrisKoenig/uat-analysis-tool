@@ -32,9 +32,10 @@ Last Updated: December 2025
 import requests
 import json
 import os
+import base64
 from typing import Dict, List, Optional, Any
 from urllib.parse import quote
-from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
+from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential, ManagedIdentityCredential
 
 
 class AzureDevOpsConfig:
@@ -75,9 +76,12 @@ class AzureDevOpsConfig:
         """
         Get Azure credential for authentication.
 
-        Uses InteractiveBrowserCredential for proper permissions, with caching
-        so authentication only happens once. Attempts to reuse credential from
-        EnhancedMatchingConfig if already authenticated.
+        Auth chain (in order):
+        1. ManagedIdentityCredential — if ADO_MANAGED_IDENTITY_CLIENT_ID is set
+           (for headless container deployment)
+        2. Reuse cached credential from EnhancedMatchingConfig
+        3. AzureCliCredential — if user ran 'az login'
+        4. InteractiveBrowserCredential — one-time browser login
 
         NOTE: This credential is intentionally SEPARATE from shared_auth.py.
         shared_auth forces tenant 16b3c013-... (for Azure OpenAI), but the
@@ -87,9 +91,36 @@ class AzureDevOpsConfig:
         Returns:
             Azure credential object
         """
-        from azure.identity import AzureCliCredential, InteractiveBrowserCredential
+        from azure.identity import (
+            AzureCliCredential,
+            InteractiveBrowserCredential,
+            ManagedIdentityCredential,
+            SharedTokenCacheCredential,
+            TokenCachePersistenceOptions,
+        )
 
-        # Try to reuse credential from EnhancedMatchingConfig (if already authenticated)
+        # ── Persistent cache name (shared across server restarts) ──
+        ADO_CACHE_NAME = "gcs-ado-auth"
+
+        # Return our own cached credential if available
+        if AzureDevOpsConfig._cached_credential is not None:
+            return AzureDevOpsConfig._cached_credential
+
+        # 1. Managed Identity — for container/cloud deployment (headless)
+        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID")
+        if ado_mi_client_id:
+            print(f"[AUTH] Trying Managed Identity credential for ADO (client_id={ado_mi_client_id[:8]}...)...")
+            try:
+                credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
+                token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
+                print("[SUCCESS] Managed Identity authentication successful for ADO")
+                AzureDevOpsConfig._cached_credential = credential
+                return credential
+            except Exception as mi_error:
+                print(f"[WARNING] Managed Identity credential failed: {mi_error}")
+                print("[INFO] Falling back to other auth methods...")
+
+        # 2. Try to reuse credential from EnhancedMatchingConfig (if already authenticated)
         try:
             from enhanced_matching import EnhancedMatchingConfig
             if EnhancedMatchingConfig._uat_credential is not None:
@@ -102,43 +133,93 @@ class AzureDevOpsConfig:
             print(f"[WARNING] Could not reuse cached credential: {reuse_error}")
             pass
 
-        # Return our own cached credential if available
-        if AzureDevOpsConfig._cached_credential is not None:
-            return AzureDevOpsConfig._cached_credential
+        # 3. Try Azure CLI — only if logged into a tenant that ADO accepts.
+        #    The Cosmos / OpenAI tenant (16b3c013-...) causes 403
+        #    "identity not materialized" against both ADO orgs.
+        import subprocess
+        MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+        OPENAI_TENANT = "16b3c013-d300-468d-ac64-7eda0820b6d3"  # known-bad for ADO
 
-        # Try Azure CLI first (works if user ran 'az login', no prompts)
-        print("[AUTH] Trying Azure CLI credential...")
         try:
-            credential = AzureCliCredential()
-            token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
-            print("[SUCCESS] Azure CLI authentication successful")
-            AzureDevOpsConfig._cached_credential = credential
+            _az = subprocess.run(
+                ["az", "account", "show", "--query", "tenantId", "-o", "tsv"],
+                capture_output=True, text=True, timeout=5,
+            )
+            cli_tenant = _az.stdout.strip() if _az.returncode == 0 else None
+        except Exception:
+            cli_tenant = None
 
-            # Cache in EnhancedMatchingConfig for search services
-            from enhanced_matching import EnhancedMatchingConfig
-            EnhancedMatchingConfig._uat_credential = credential
-            EnhancedMatchingConfig._uat_token = token.token
-            print("[Auth] Credential shared with search services")
+        if cli_tenant and cli_tenant != OPENAI_TENANT:
+            print(f"[AUTH] Trying Azure CLI credential (tenant {cli_tenant[:8]}...)...")
+            try:
+                credential = AzureCliCredential()
+                token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
+                print("[SUCCESS] Azure CLI authentication successful")
+                AzureDevOpsConfig._cached_credential = credential
 
-            return credential
-        except Exception as cli_error:
-            print(f"[WARNING] Azure CLI credential failed: {cli_error}")
+                # Cache in EnhancedMatchingConfig for search services
+                try:
+                    from enhanced_matching import EnhancedMatchingConfig
+                    EnhancedMatchingConfig._uat_credential = credential
+                    EnhancedMatchingConfig._uat_token = token.token
+                    print("[Auth] Credential shared with search services")
+                except Exception:
+                    pass
+
+                return credential
+            except Exception as cli_error:
+                print(f"[WARNING] Azure CLI credential failed: {cli_error}")
+                print("[INFO] Falling back to Interactive Browser authentication...")
+        else:
+            reason = "not logged in" if not cli_tenant else f"CLI tenant {cli_tenant[:8]}... is OpenAI/Cosmos tenant (wrong for ADO)"
+            print(f"[AUTH] Skipping Azure CLI credential — {reason}")
+            print("[INFO] Trying cached token, then Interactive Browser...")
+
+        # 3b. Try SharedTokenCache — picks up a previous browser login from
+        #     the persistent cache WITHOUT opening a new browser window.
+        try:
+            cache_opts = TokenCachePersistenceOptions(name=ADO_CACHE_NAME)
+            print("[AUTH] Checking persistent token cache for ADO...")
+            shared_cred = SharedTokenCacheCredential(
+                cache_persistence_options=cache_opts,
+            )
+            token = shared_cred.get_token(AzureDevOpsConfig.ADO_SCOPE)
+            print("[SUCCESS] Persistent cache hit — no browser prompt needed")
+            AzureDevOpsConfig._cached_credential = shared_cred
+
+            try:
+                from enhanced_matching import EnhancedMatchingConfig
+                EnhancedMatchingConfig._uat_credential = shared_cred
+                EnhancedMatchingConfig._uat_token = token.token
+            except Exception:
+                pass
+
+            return shared_cred
+        except Exception as cache_err:
+            print(f"[AUTH] No usable cached token ({cache_err})")
             print("[INFO] Falling back to Interactive Browser authentication...")
 
-        # Fallback to Interactive Browser — NO tenant_id so the user's
-        # home tenant is used (required for unifiedactiontrackertest org)
+        # 4. Fallback to Interactive Browser — NO tenant_id so the user's
+        # home tenant is used (required for unifiedactiontrackertest org).
+        # Persistent cache: token survives server restarts / uvicorn --reload
         try:
-            print("[AUTH] Using Interactive Browser credential (one-time login)...")
-            credential = InteractiveBrowserCredential()
+            cache_opts = TokenCachePersistenceOptions(name=ADO_CACHE_NAME)
+            print("[AUTH] Using Interactive Browser credential (persistent cache)...")
+            credential = InteractiveBrowserCredential(
+                cache_persistence_options=cache_opts,
+            )
             token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
             print("[SUCCESS] Interactive Browser authentication successful")
             AzureDevOpsConfig._cached_credential = credential
 
             # Cache in EnhancedMatchingConfig for search services
-            from enhanced_matching import EnhancedMatchingConfig
-            EnhancedMatchingConfig._uat_credential = credential
-            EnhancedMatchingConfig._uat_token = token.token
-            print("[Auth] Credential shared with search services")
+            try:
+                from enhanced_matching import EnhancedMatchingConfig
+                EnhancedMatchingConfig._uat_credential = credential
+                EnhancedMatchingConfig._uat_token = token.token
+                print("[Auth] Credential shared with search services")
+            except Exception:
+                pass
 
             return credential
         except Exception as browser_error:
@@ -153,7 +234,13 @@ class AzureDevOpsConfig:
         The TFT org (unifiedactiontracker) lives in the Microsoft tenant,
         so we need a credential scoped to that tenant — NOT the shared
         credential which targets the OpenAI tenant.
-        
+
+        Auth chain (in order):
+        1. ManagedIdentityCredential — if ADO_MANAGED_IDENTITY_CLIENT_ID is set
+           (same identity works for both orgs once registered in ADO)
+        2. AzureCliCredential — if logged into Microsoft tenant
+        3. InteractiveBrowserCredential with Microsoft tenant_id
+
         Returns:
             Azure credential object configured for TFT org access
         """
@@ -162,12 +249,25 @@ class AzureDevOpsConfig:
             print("[AUTH] Reusing cached TFT credential...")
             return AzureDevOpsConfig._cached_tft_credential
 
-        # The TFT org requires Microsoft tenant — the shared credential
-        # uses a different tenant (OpenAI) and gets 403 on WIQL queries.
-        # Try Azure CLI first (if logged into Microsoft tenant), then browser.
-        import subprocess
+        # 1. Managed Identity — for container/cloud deployment
+        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID")
+        if ado_mi_client_id:
+            print(f"[AUTH] Trying Managed Identity credential for TFT (client_id={ado_mi_client_id[:8]}...)...")
+            try:
+                from azure.identity import ManagedIdentityCredential
+                credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
+                credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
+                AzureDevOpsConfig._cached_tft_credential = credential
+                print("[SUCCESS] Managed Identity authentication successful for TFT")
+                return credential
+            except Exception as mi_error:
+                print(f"[WARNING] Managed Identity TFT credential failed: {mi_error}")
+                print("[INFO] Falling back to other auth methods...")
 
-        # Quick check: is Azure CLI logged in?
+        # 2. Try Azure CLI (if logged into Microsoft tenant)
+        import subprocess
+        MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+
         try:
             result = subprocess.run(
                 ["az", "account", "show", "--query", "tenantId", "-o", "tsv"],
@@ -175,7 +275,6 @@ class AzureDevOpsConfig:
             )
             if result.returncode == 0:
                 cli_tenant = result.stdout.strip()
-                MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
                 if cli_tenant == MICROSOFT_TENANT:
                     from azure.identity import AzureCliCredential
                     credential = AzureCliCredential()
@@ -188,11 +287,32 @@ class AzureDevOpsConfig:
         except Exception:
             pass
 
-        # Interactive Browser with Microsoft tenant ID
-        from azure.identity import InteractiveBrowserCredential
-        MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-        print("[AUTH] Creating TFT credential via browser (Microsoft tenant)...")
-        credential = InteractiveBrowserCredential(tenant_id=MICROSOFT_TENANT)
+        # 2b. Try SharedTokenCache — picks up a previous browser login
+        TFT_CACHE_NAME = "gcs-ado-tft-auth"
+        try:
+            from azure.identity import SharedTokenCacheCredential, TokenCachePersistenceOptions
+            cache_opts = TokenCachePersistenceOptions(name=TFT_CACHE_NAME)
+            print("[AUTH] Checking persistent token cache for TFT...")
+            shared_cred = SharedTokenCacheCredential(
+                tenant_id=MICROSOFT_TENANT,
+                cache_persistence_options=cache_opts,
+            )
+            shared_cred.get_token(AzureDevOpsConfig.ADO_SCOPE)
+            AzureDevOpsConfig._cached_tft_credential = shared_cred
+            print("[AUTH] TFT persistent cache hit — no browser prompt needed")
+            return shared_cred
+        except Exception as cache_err:
+            print(f"[AUTH] No usable cached TFT token ({cache_err})")
+
+        # 3. Interactive Browser with Microsoft tenant ID
+        # Persistent cache: token survives server restarts / uvicorn --reload
+        from azure.identity import InteractiveBrowserCredential, TokenCachePersistenceOptions
+        cache_opts = TokenCachePersistenceOptions(name=TFT_CACHE_NAME)
+        print("[AUTH] Creating TFT credential via browser (Microsoft tenant, persistent cache)...")
+        credential = InteractiveBrowserCredential(
+            tenant_id=MICROSOFT_TENANT,
+            cache_persistence_options=cache_opts,
+        )
         credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
         AzureDevOpsConfig._cached_tft_credential = credential
         print("[AUTH] TFT credential cached for reuse (Microsoft tenant)")
@@ -220,25 +340,41 @@ class AzureDevOpsClient:
         """
         Initialize the Azure DevOps client with configuration and authentication.
         
-        Sets up the client with proper authentication headers and configuration
-        from the AzureDevOpsConfig class.
+        Sets up the client with proper authentication headers and configuration.
+        Auth priority: ADO_PAT env var > ManagedIdentity > CLI > Browser
         """
         self.config = AzureDevOpsConfig()
-        self.credential = self.config.get_credential()
+        self._pat = os.environ.get("ADO_PAT")
+        self._pat_read = os.environ.get("ADO_PAT_READ")
+        if self._pat:
+            print("[AUTH] Using PAT token for ADO authentication (write org)")
+            if self._pat_read:
+                print("[AUTH] Using separate PAT for read org (production)")
+            self.credential = None  # Not needed with PAT
+        else:
+            self.credential = self.config.get_credential()
         self.headers = self._get_headers()
     
     def _get_headers(self) -> Dict[str, str]:
         """
         Generate authentication headers for Azure DevOps API calls.
         
-        Uses Azure credential (CLI or Service Principal) to obtain an access token
-        for Azure DevOps REST API authentication.
+        Uses PAT (Basic auth) if ADO_PAT is set, otherwise uses Azure credential
+        (Bearer token) for authentication.
         
         Returns:
             Dict[str, str]: HTTP headers including Authorization, Content-Type, and Accept
         """
         try:
-            # Always get fresh token from credential
+            if self._pat:
+                # PAT uses Basic auth with base64(:PAT)
+                b64 = base64.b64encode(f":{self._pat}".encode()).decode()
+                return {
+                    'Content-Type': 'application/json-patch+json',
+                    'Authorization': f'Basic {b64}',
+                    'Accept': 'application/json'
+                }
+            # Bearer token from credential
             token = self.credential.get_token(self.config.ADO_SCOPE)
             
             return {

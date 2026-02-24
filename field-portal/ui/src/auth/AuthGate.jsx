@@ -5,20 +5,16 @@
  * Provides the user's account info and a getToken() helper
  * via a React context so any component can access auth state.
  */
-import React, { createContext, useCallback, useContext } from 'react';
+import React, { useCallback } from 'react';
 import {
   AuthenticatedTemplate,
   UnauthenticatedTemplate,
   useMsal,
 } from '@azure/msal-react';
 import { loginRequest } from './authConfig';
+import AuthCtx, { useAuth } from './AuthContext';
 
-// ── Auth context (user + token getter) ──
-const AuthCtx = createContext(null);
-
-export function useAuth() {
-  return useContext(AuthCtx);
-}
+export { useAuth };
 
 // ── Login screen shown to unauthenticated users ──
 function LoginScreen() {

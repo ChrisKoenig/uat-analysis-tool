@@ -11,8 +11,7 @@
  *   /rules       → Rules CRUD
  *   /actions     → Actions CRUD
  *   /triggers    → Triggers CRUD
- *   /routes      → Routes CRUD
- *   /validation  → Validation warnings
+ *   /routes      → Routes CRUD *   /teams      → Triage Teams config *   /validation  → Validation warnings
  *   /audit       → Audit log
  */
 
@@ -33,9 +32,8 @@ const RoutesPage      = lazy(() => import('./pages/RoutesPage'));
 const ValidationPage  = lazy(() => import('./pages/ValidationPage'));
 const AuditPage       = lazy(() => import('./pages/AuditPage'));
 const EvalHistoryPage = lazy(() => import('./pages/EvalHistoryPage'));
-const ClassifyPage    = lazy(() => import('./pages/ClassifyPage'));
-const CorrectionsPage = lazy(() => import('./pages/CorrectionsPage'));
-const HealthPage      = lazy(() => import('./pages/HealthPage'));
+const CorrectionsPage  = lazy(() => import('./pages/CorrectionsPage'));
+const TriageTeamsPage  = lazy(() => import('./pages/TriageTeamsPage'));
 
 
 // ---------------------------------------------------------------------------
@@ -116,9 +114,8 @@ export default function App() {
             <Route path="/validation" element={<ValidationPage addToast={addToast} />} />
             <Route path="/audit"      element={<AuditPage addToast={addToast} />} />
             <Route path="/history"    element={<EvalHistoryPage addToast={addToast} />} />
-            <Route path="/classify"   element={<ClassifyPage addToast={addToast} />} />
             <Route path="/corrections" element={<CorrectionsPage addToast={addToast} />} />
-            <Route path="/health"     element={<HealthPage addToast={addToast} />} />
+            <Route path="/teams"      element={<TriageTeamsPage addToast={addToast} />} />
           </Routes>
         </Suspense>
       </AppLayout>

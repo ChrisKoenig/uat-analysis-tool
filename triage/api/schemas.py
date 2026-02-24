@@ -29,6 +29,7 @@ class RuleCreate(BaseModel):
     operator: str = Field(..., description="Comparison operator (e.g., equals, in, isNull)")
     value: Any = Field(None, description="Comparison value (type depends on operator)")
     status: str = Field("active", description="active | disabled | staged")
+    triageTeamId: Optional[str] = Field(None, description="Scoped team ID or null for all teams")
 
 
 class RuleUpdate(BaseModel):
@@ -39,6 +40,7 @@ class RuleUpdate(BaseModel):
     operator: Optional[str] = None
     value: Any = None
     status: Optional[str] = None
+    triageTeamId: Optional[str] = None
     version: int = Field(..., description="Current version for optimistic locking")
 
 
@@ -55,6 +57,7 @@ class ActionCreate(BaseModel):
     value: Any = Field(None, description="Value to apply (depends on operation)")
     valueType: str = Field("static", description="Value type hint: static, computed, field_ref, template")
     status: str = Field("active", description="active | disabled | staged")
+    triageTeamId: Optional[str] = Field(None, description="Scoped team ID or null for all teams")
 
 
 class ActionUpdate(BaseModel):
@@ -66,6 +69,7 @@ class ActionUpdate(BaseModel):
     value: Any = None
     valueType: Optional[str] = None
     status: Optional[str] = None
+    triageTeamId: Optional[str] = None
     version: int = Field(..., description="Current version for optimistic locking")
 
 
@@ -81,6 +85,7 @@ class TriggerCreate(BaseModel):
     expression: Dict = Field(..., description="Nested AND/OR expression referencing rule IDs")
     onTrue: str = Field(..., description="Route ID to execute when True")
     status: str = Field("active", description="active | disabled | staged")
+    triageTeamId: Optional[str] = Field(None, description="Scoped team ID or null for all teams")
 
 
 class TriggerUpdate(BaseModel):
@@ -91,6 +96,7 @@ class TriggerUpdate(BaseModel):
     expression: Optional[Dict] = None
     onTrue: Optional[str] = None
     status: Optional[str] = None
+    triageTeamId: Optional[str] = None
     version: int = Field(..., description="Current version for optimistic locking")
 
 
@@ -104,6 +110,7 @@ class RouteCreate(BaseModel):
     description: str = Field("", description="Purpose of this route")
     actions: List[str] = Field(..., description="Ordered list of action IDs")
     status: str = Field("active", description="active | disabled | staged")
+    triageTeamId: Optional[str] = Field(None, description="Scoped team ID or null for all teams")
 
 
 class RouteUpdate(BaseModel):
@@ -111,6 +118,36 @@ class RouteUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     actions: Optional[List[str]] = None
+    status: Optional[str] = None
+    triageTeamId: Optional[str] = None
+    version: int = Field(..., description="Current version for optimistic locking")
+
+
+# =============================================================================
+# Triage Team Schemas
+# =============================================================================
+
+class TriageTeamCreate(BaseModel):
+    """Request body for creating a triage team"""
+    name: str = Field(..., description="Human-readable team name")
+    description: str = Field("", description="Purpose of this triage team")
+    adoQueryId: str = Field(..., description="GUID of the saved ADO query")
+    adoQueryName: str = Field("", description="Human-readable ADO query name")
+    organization: str = Field("", description="ADO organization (blank = default)")
+    project: str = Field("", description="ADO project (blank = default)")
+    displayOrder: int = Field(100, description="Sort order in dropdowns")
+    status: str = Field("active", description="active | disabled")
+
+
+class TriageTeamUpdate(BaseModel):
+    """Request body for updating a triage team"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    adoQueryId: Optional[str] = None
+    adoQueryName: Optional[str] = None
+    organization: Optional[str] = None
+    project: Optional[str] = None
+    displayOrder: Optional[int] = None
     status: Optional[str] = None
     version: int = Field(..., description="Current version for optimistic locking")
 
@@ -216,6 +253,15 @@ class AnalyzeRequest(BaseModel):
     )
 
 
+class ReanalyzeRequest(BaseModel):
+    """Request body for re-analyzing a work item with correction hints."""
+    workItemId: int = Field(..., description="ADO work item ID to re-analyze")
+    correct_category: str = Field("", description="Corrected category")
+    correct_intent: str = Field("", description="Corrected intent")
+    correct_business_impact: str = Field("", description="Corrected business impact")
+    correction_notes: str = Field("", description="Explanation of why analysis was wrong")
+
+
 class AnalysisStateRequest(BaseModel):
     """Request body for updating ROBAnalysisState on ADO work items."""
     workItemIds: List[int] = Field(
@@ -263,6 +309,8 @@ class AdoConnectionStatus(BaseModel):
     connected: bool
     organization: Optional[str] = None
     project: Optional[str] = None
+    read_organization: Optional[str] = None
+    read_project: Optional[str] = None
     message: Optional[str] = None
     error: Optional[str] = None
 

@@ -76,6 +76,11 @@ class BaseEntity:
     modifiedBy: str = ""               # Email of last modifier
     modifiedDate: str = field(default_factory=utc_now) # ISO 8601 last modified
     
+    # -------------------------------------------------------------------------
+    # Triage Team Scoping
+    # -------------------------------------------------------------------------
+    triageTeamId: Optional[str] = None  # None/"" = available to ALL teams; otherwise team ID
+    
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert entity to a dictionary suitable for Cosmos DB storage.

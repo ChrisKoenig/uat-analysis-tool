@@ -12,6 +12,16 @@
       "correction_notes": "User asking about regional service availability, not documentation",
       "timestamp": "2025-12-31T10:00:00Z",
       "confidence_boost": 0.15
+    },
+    {
+      "original_text": "DCU / MFA in Azure ",
+      "pattern": "",
+      "original_category": "feature_request",
+      "corrected_category": "business_desk",
+      "corrected_intent": "business_engagement",
+      "correction_notes": "The customer is asking for funding from Microsoft to develop a POC.  Anytime there is a funding ask or the term ECIF is used it should go to the business desk.",
+      "timestamp": "2026-02-23T20:27:42.379787+00:00",
+      "confidence_boost": 0.15
     }
   ]
 }

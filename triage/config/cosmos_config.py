@@ -34,6 +34,7 @@ from azure.identity import (
     ManagedIdentityCredential,
     InteractiveBrowserCredential,
     SharedTokenCacheCredential,
+    AzureCliCredential,
     ChainedTokenCredential,
     TokenCachePersistenceOptions,
 )
@@ -87,6 +88,10 @@ CONTAINER_DEFINITIONS = {
     "corrections": {
         "partition_key": "/workItemId",
         "description": "User corrections to AI classifications, fed back into fine-tuning"
+    },
+    "triage-teams": {
+        "partition_key": "/status",
+        "description": "Triage team configurations (team name, ADO query, display order)"
     }
 }
 
@@ -212,10 +217,10 @@ class CosmosDBConfig:
                         )
                         auth_method = f"Managed Identity ({managed_identity_client_id[:8]}...)"
                     else:
-                        # Development: Use default credential chain
+                        # Development: Use credential chain that avoids
+                        # repeated interactive browser prompts.
+                        # Order: SharedTokenCache → AzureCLI → InteractiveBrowser (last resort)
                         if self.tenant_id:
-                            # Cross-tenant: use persistent cache so auth prompt
-                            # only appears once (survives process restarts)
                             logger.info("  Using tenant: %s", self.tenant_id)
                             cache_opts = TokenCachePersistenceOptions(
                                 name="gcs-cosmos-auth"
@@ -224,6 +229,9 @@ class CosmosDBConfig:
                                 SharedTokenCacheCredential(
                                     tenant_id=self.tenant_id,
                                     cache_persistence_options=cache_opts,
+                                ),
+                                AzureCliCredential(
+                                    tenant_id=self.tenant_id,
                                 ),
                                 InteractiveBrowserCredential(
                                     tenant_id=self.tenant_id,

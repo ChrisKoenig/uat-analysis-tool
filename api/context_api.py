@@ -49,13 +49,16 @@ def analyze_context():
             }), 400
         
         # Write debug to file since terminal output isn't showing
-        with open('C:/Projects/Hack/debug_context.log', 'a', encoding='utf-8') as f:
-            f.write("="*80 + "\n")
-            f.write(f"[DEBUG CONTEXT API] REQUEST RECEIVED\n")
-            f.write(f"[DEBUG CONTEXT API] Title: {title}\n")
-            f.write(f"[DEBUG CONTEXT API] Description: {description[:200]}\n")
-            f.write("="*80 + "\n")
-            f.flush()
+        try:
+            with open('C:/Projects/Hack/debug_context.log', 'a', encoding='utf-8') as f:
+                f.write("="*80 + "\n")
+                f.write(f"[DEBUG CONTEXT API] REQUEST RECEIVED\n")
+                f.write(f"[DEBUG CONTEXT API] Title: {title}\n")
+                f.write(f"[DEBUG CONTEXT API] Description: {description[:200]}\n")
+                f.write("="*80 + "\n")
+                f.flush()
+        except OSError:
+            pass
         
         import sys
         sys.stdout.flush()

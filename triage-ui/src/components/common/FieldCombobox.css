@@ -89,3 +89,24 @@
   color: var(--text-light);
   font-size: var(--font-size-sm);
 }
+
+.field-combobox-loading {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.field-combobox-group-header {
+  position: sticky;
+  top: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary, #4a90d9);
+  background: var(--card-bg, #fff);
+  border-bottom: 2px solid var(--primary-light, #e8f0fe);
+  z-index: 1;
+  -webkit-user-select: none;
+  user-select: none;
+}

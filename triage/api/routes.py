@@ -38,6 +38,7 @@ from .schemas import (
     ActionCreate, ActionUpdate,
     TriggerCreate, TriggerUpdate,
     RouteCreate, RouteUpdate,
+    TriageTeamCreate, TriageTeamUpdate,
     EvaluateRequest, EvaluateResponse,
     StatusUpdate, CopyRequest,
     HealthResponse, ErrorResponse, ReferenceResponse,
@@ -46,7 +47,7 @@ from .schemas import (
     SavedQueryResponse, SavedQueryItemSummary,
     ApplyChangesRequest, ApplyChangesResponse,
     WebhookResponse, AdoConnectionStatus,
-    AnalyzeRequest, AnalysisStateRequest,
+    AnalyzeRequest, ReanalyzeRequest, AnalysisStateRequest,
 )
 from ..services.crud_service import CrudService, ConflictError
 from ..services.evaluation_service import EvaluationService
@@ -206,13 +207,22 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     # --- LIST ---
     @app.get(f"/api/v1/{plural}", tags=[tag])
     async def list_entities(
-        status: Optional[str] = Query(None, description="Filter by status")
+        status: Optional[str] = Query(None, description="Filter by status"),
+        triage_team_id: Optional[str] = Query(None, description="Filter by triage team ID (or 'all' for shared)"),
     ):
-        """List entities with optional status filter.
+        """List entities with optional status and triage team filter.
         Returns empty results when Cosmos DB is unavailable (graceful degradation)."""
         try:
             crud = get_crud()
             items, token = crud.list(entity_type, status=status)
+            # Client-side filter by triageTeamId if requested
+            if triage_team_id is not None and entity_type not in ("triage-team",):
+                if triage_team_id == "all":
+                    # Only items scoped to ALL teams (no triageTeamId)
+                    items = [i for i in items if not i.get("triageTeamId")]
+                else:
+                    # Items scoped to the specific team OR available to all
+                    items = [i for i in items if not i.get("triageTeamId") or i.get("triageTeamId") == triage_team_id]
             return {
                 "items": items,
                 "count": len(items),
@@ -385,6 +395,7 @@ _create_crud_endpoints("rule", RuleCreate, RuleUpdate)
 _create_crud_endpoints("action", ActionCreate, ActionUpdate)
 _create_crud_endpoints("trigger", TriggerCreate, TriggerUpdate)
 _create_crud_endpoints("route", RouteCreate, RouteUpdate)
+_create_crud_endpoints("triage-team", TriageTeamCreate, TriageTeamUpdate)
 
 
 # =============================================================================
@@ -448,6 +459,18 @@ async def evaluate(body: EvaluateRequest):
         for failed_id in batch_result.get("failed_ids", []):
             errors.append(f"Failed to fetch work item {failed_id}")
     
+    # Build rule-ID → rule-name lookup for friendly display
+    rule_name_map = {}
+    try:
+        rules_container = get_cosmos_config().get_container("rules")
+        for rdoc in rules_container.query_items(
+            query="SELECT c.id, c.name FROM c",
+            enable_cross_partition_query=True,
+        ):
+            rule_name_map[rdoc["id"]] = rdoc.get("name", rdoc["id"])
+    except Exception:
+        pass  # Non-fatal — frontend will fall back to rule IDs
+
     # Run evaluation pipeline for each item
     for item in items_data:
         work_item_id = item["id"]
@@ -483,6 +506,7 @@ async def evaluate(body: EvaluateRequest):
             "appliedRoute": evaluation.appliedRoute,
             "actionsExecuted": evaluation.actionsExecuted,
             "ruleResults": evaluation.ruleResults,
+            "ruleNames": rule_name_map,
             "fieldsChanged": evaluation.fieldsChanged,
             "errors": evaluation.errors,
             "isDryRun": evaluation.isDryRun,
@@ -909,6 +933,72 @@ async def run_analysis(body: AnalyzeRequest):
     }
 
 
+@app.post("/api/v1/analyze/reanalyze", tags=["Analysis"])
+async def reanalyze_with_corrections(body: ReanalyzeRequest):
+    """
+    Re-analyze a single work item with user-supplied correction hints.
+
+    Fetches the item from ADO, appends correction context to the description,
+    re-runs the HybridContextAnalyzer, stores in Cosmos, and returns the
+    updated analysis detail.
+    """
+    try:
+        ado = get_ado()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"ADO connection failed: {e}")
+
+    try:
+        analyzer = get_analyzer()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Analysis engine failed: {e}")
+
+    # Fetch work item from ADO
+    ado_result = ado.get_work_item(body.workItemId)
+    if not ado_result.get("success"):
+        raise HTTPException(status_code=404, detail=f"Work item {body.workItemId} not found")
+
+    fields = ado_result.get("fields", {})
+    title = fields.get("System.Title", "")
+    description = fields.get("System.Description", "")
+    import re as _re
+    clean_desc = _re.sub(r"<[^>]+>", " ", description or "").strip()
+
+    # Build enhanced description with correction hints
+    correction_hints = []
+    if body.correct_category:
+        correction_hints.append(f"[CORRECTION: Category should be {body.correct_category}]")
+    if body.correct_intent:
+        correction_hints.append(f"[CORRECTION: Intent should be {body.correct_intent}]")
+    if body.correct_business_impact:
+        correction_hints.append(f"[CORRECTION: Business impact should be {body.correct_business_impact}]")
+    if body.correction_notes:
+        correction_hints.append(f"[USER NOTE: {body.correction_notes}]")
+
+    enhanced_desc = clean_desc
+    if correction_hints:
+        enhanced_desc += "\n\n" + "\n".join(correction_hints)
+
+    try:
+        hybrid_result = analyzer.analyze(title, enhanced_desc)
+        analysis = _map_hybrid_to_analysis_result(body.workItemId, hybrid_result, title, clean_desc)
+
+        # Store updated result in Cosmos
+        cosmos = get_cosmos_config()
+        container = cosmos.get_container("analysis-results")
+        container.upsert_item(analysis.to_dict())
+
+        return {
+            "success": True,
+            "workItemId": body.workItemId,
+            "analysis": analysis.to_dict(),
+            "message": "Re-analysis complete with corrections applied.",
+        }
+    except Exception as e:
+        import traceback
+        logger.error("Re-analysis failed for %s: %s\n%s", body.workItemId, e, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Re-analysis failed: {e}")
+
+
 @app.post("/api/v1/ado/analysis-state", tags=["ADO"])
 async def update_analysis_state(body: AnalysisStateRequest):
     """
@@ -1078,7 +1168,7 @@ async def get_saved_query_results(
         "b0ad9398-4942-4d8f-829e-604a347d8ac8",
         description="GUID of the saved ADO query",
     ),
-    max_results: int = Query(200, ge=1, le=500),
+    max_results: int = Query(500, ge=1, le=500),
 ):
     """
     Run a saved ADO query and return hydrated work items.
@@ -1169,6 +1259,8 @@ async def ado_connection_status():
             connected=result["success"],
             organization=result.get("organization"),
             project=result.get("project"),
+            read_organization=result.get("read_organization"),
+            read_project=result.get("read_project"),
             message=result.get("message"),
             error=result.get("error"),
         )
@@ -1499,12 +1591,17 @@ async def list_fields(
     
     Used by the rule and action forms to provide field autocomplete.
     Returns field schemas with metadata about type, operators, and allowed values.
+    
+    Falls back to live ADO field definitions when the Cosmos field-schema
+    container is empty or unavailable.
     """
+    # ── Try Cosmos first ────────────────────────────────────────
     try:
         cosmos = get_cosmos_config()
         container = cosmos.get_container("field-schema")
         
         # Build query with optional filters
+        # Note: "group" is a reserved SQL keyword — use c["group"] syntax
         conditions = []
         if source:
             conditions.append(f"c.source = '{source}'")
@@ -1513,17 +1610,95 @@ async def list_fields(
         if can_set is not None:
             conditions.append(f"c.canSet = {'true' if can_set else 'false'}")
         if group:
-            conditions.append(f"c.group = '{group}'")
+            conditions.append(f'c["group"] = \'{group}\'')
         
         where_clause = " AND ".join(conditions)
-        query = f"SELECT * FROM c{' WHERE ' + where_clause if where_clause else ''} ORDER BY c.group, c.displayName"
+        query = f'SELECT * FROM c{" WHERE " + where_clause if where_clause else ""} ORDER BY c["group"], c.displayName'
         
         items = list(container.query_items(query=query, enable_cross_partition_query=True))
         
+        if items:
+            return {
+                "items": items,
+                "total": len(items),
+            }
+        # If Cosmos returned nothing, fall through to ADO
+        logger.info("field-schema container is empty, falling back to live ADO fields")
+    except Exception as e:
+        logger.warning("Error querying field-schema container, falling back to ADO: %s", e)
+
+    # ── Fallback: fetch live from ADO + Analysis fields ─────────
+    try:
+        ado = get_ado()
+        result = ado.get_field_definitions()
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=502,
+                detail=result.get("error", "Failed to fetch field definitions from ADO"),
+            )
+
+        # Map ADO field format → FieldCombobox expected format
+        ado_fields = result.get("fields", [])
+        items = []
+        for f in ado_fields:
+            ref = f.get("referenceName", "")
+            # Derive a group from the reference name prefix (System, Custom, Microsoft, etc.)
+            prefix = ref.split(".")[0] if "." in ref else "Other"
+            items.append({
+                "id": ref,
+                "displayName": f.get("name", ref),
+                "type": f.get("type", "string"),
+                "description": f.get("helpText", ""),
+                "source": "ado",
+                "group": prefix,
+                "canEvaluate": True,
+                "canSet": not f.get("alwaysRequired", False),
+            })
+
+        # ── Add Analysis / Evaluation fields ──────────────────
+        # These map to AnalysisResult.get_analysis_field() in the rules engine.
+        # Prefixed with "Analysis." to match the rules engine resolution.
+        analysis_fields = [
+            {"id": "Analysis.Category",            "displayName": "Category",             "type": "string",  "description": "Primary category classification (e.g., feature_request, bug_report)"},
+            {"id": "Analysis.Intent",              "displayName": "Intent",               "type": "string",  "description": "Inferred intent (e.g., requesting_feature, reporting_bug)"},
+            {"id": "Analysis.Confidence",          "displayName": "Confidence",           "type": "double",  "description": "Overall analysis confidence score (0.0 – 1.0)"},
+            {"id": "Analysis.Source",              "displayName": "Source",               "type": "string",  "description": "Analysis source method (hybrid, llm, pattern)"},
+            {"id": "Analysis.Agreement",           "displayName": "Agreement",            "type": "boolean", "description": "Whether pattern engine and LLM classification agree"},
+            {"id": "Analysis.BusinessImpact",      "displayName": "Business Impact",      "type": "string",  "description": "Business impact level (high / medium / low)"},
+            {"id": "Analysis.TechnicalComplexity", "displayName": "Technical Complexity",  "type": "string",  "description": "Technical complexity level (high / medium / low)"},
+            {"id": "Analysis.UrgencyLevel",        "displayName": "Urgency Level",        "type": "string",  "description": "Urgency level (high / medium / low)"},
+            {"id": "Analysis.Products",            "displayName": "Detected Products",    "type": "list",    "description": "Azure products mentioned in the work item"},
+            {"id": "Analysis.Services",            "displayName": "Azure Services",       "type": "list",    "description": "Azure service names detected"},
+            {"id": "Analysis.Regions",             "displayName": "Regions",              "type": "list",    "description": "Azure regions mentioned"},
+            {"id": "Analysis.Technologies",        "displayName": "Technologies",         "type": "list",    "description": "Technologies referenced in the work item"},
+            {"id": "Analysis.KeyConcepts",         "displayName": "Key Concepts",         "type": "list",    "description": "Key concepts extracted from the work item"},
+            {"id": "Analysis.SemanticKeywords",    "displayName": "Semantic Keywords",    "type": "list",    "description": "Keywords for search and matching"},
+            {"id": "Analysis.ContextSummary",      "displayName": "Context Summary",      "type": "string",  "description": "Brief AI-generated summary of the work item"},
+            {"id": "Analysis.Reasoning",           "displayName": "Reasoning",            "type": "string",  "description": "LLM reasoning for the classification decision"},
+            {"id": "Analysis.PatternCategory",     "displayName": "Pattern Category",     "type": "string",  "description": "Category from the pattern matching engine"},
+            {"id": "Analysis.PatternConfidence",   "displayName": "Pattern Confidence",   "type": "double",  "description": "Pattern engine confidence score (0.0 – 1.0)"},
+        ]
+        for af in analysis_fields:
+            af["source"] = "analysis"
+            af["group"] = "Analysis"
+            af["canEvaluate"] = True
+            af["canSet"] = False  # Analysis fields are read-only
+        items.extend(analysis_fields)
+
+        # Sort: Analysis group first, then ADO groups alphabetically
+        def sort_key(x):
+            g = x["group"]
+            # Analysis fields sort before everything else
+            return (0 if g == "Analysis" else 1, g, x["displayName"])
+        items.sort(key=sort_key)
+
         return {
             "items": items,
             "total": len(items),
+            "source": "ado-live",
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Error listing fields: %s", e)
+        logger.error("Error fetching live ADO fields: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

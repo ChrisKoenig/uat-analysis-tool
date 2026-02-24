@@ -70,3 +70,58 @@ The terminal may send signals or close file descriptors that cause Flask to thin
 2. For quick API tests, VS Code terminals may work
 3. For full end-to-end testing, use external terminals
 4. Document any similar issues with other long-running services
+
+---
+
+## Cosmos DB: Repeated Login Prompts / "Loading Dashboard" Stuck
+
+**Date Discovered:** February 23, 2026
+
+**Symptoms:**
+- Triage UI stuck on "Loading dashboard…" forever
+- Browser pops up Azure AD login prompts repeatedly (10+ times)
+- API `/health` returns `"status":"degraded"` with `Forbidden` error mentioning IP address
+- API data endpoints return empty `{"items":[],"count":0}` with a `"warning"` about firewall
+
+**Root Cause:** Cosmos DB account `cosmos-gcs-dev` had `publicNetworkAccess` set to **Disabled**. This overrides ALL IP firewall rules — no public internet traffic gets through, even if your IP is in the allow list. The 403 Forbidden from Cosmos causes the Azure Identity SDK's `ChainedTokenCredential` to keep retrying `InteractiveBrowserCredential`, which pops up a browser login window each time.
+
+**How to Diagnose:**
+```powershell
+# 1. Check API health — look for "Forbidden" / IP blocked error
+curl -s http://localhost:8009/health
+
+# 2. Check Cosmos DB public network access setting
+az cosmosdb show --name cosmos-gcs-dev --resource-group rg-gcs-dev `
+  --query "{publicNetworkAccess:publicNetworkAccess, ipRules:ipRules}" -o json
+```
+
+**Fix:**
+```powershell
+# Re-enable public network access (takes ~1-2 minutes)
+az cosmosdb update --name cosmos-gcs-dev --resource-group rg-gcs-dev `
+  --public-network-access ENABLED
+
+# Verify
+az cosmosdb show --name cosmos-gcs-dev --resource-group rg-gcs-dev `
+  --query "publicNetworkAccess" -o tsv
+# Should return: Enabled
+
+# Then restart the API server so it reconnects
+```
+
+**If your IP changed** (e.g., after router restart):
+```powershell
+# Find current public IP
+curl -s https://api.ipify.org
+
+# Add it to Cosmos DB firewall
+az cosmosdb update --name cosmos-gcs-dev --resource-group rg-gcs-dev `
+  --ip-range-filter "104.42.195.92,40.76.54.131,52.176.6.30,52.169.50.45,52.187.184.26,0.0.0.0,<YOUR_NEW_IP>"
+```
+
+**Key Details:**
+- Cosmos DB account: `cosmos-gcs-dev` in `rg-gcs-dev`
+- Current allowed IP: `73.118.198.121`
+- The `0.0.0.0` entry allows Azure Portal access
+- The other IPs (`104.42.*`, `40.76.*`, etc.) are Azure data center IPs for portal features
+- `publicNetworkAccess: Disabled` **blocks everything** regardless of IP rules

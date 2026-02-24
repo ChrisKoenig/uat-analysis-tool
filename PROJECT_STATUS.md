@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 20, 2026
-**Status**: ✅ All systems operational — Triage Management + Field Submission Portal + Cosmos DB (shared evaluations & corrections) + AI classification
+**Last Updated**: February 22, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps deployment live — Triage Management + Field Submission Portal + Cosmos DB + AI classification + ADO dual-org integration
 
 ---
 
@@ -628,10 +628,16 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ### Infrastructure
 - [x] Commit all field-portal changes (pushed `0ba2dea` — Feb 20)
+- [x] Container deployment — All 4 apps deployed to Azure Container Apps (Feb 21-22)
+- [x] Managed Identity — `id-gcs-containerapp` used for Cosmos + OpenAI AAD auth in containers
+- [x] ADO integration in containers — Dual PAT approach (test org write, production org read)
+- [x] AI analysis in containers — OpenAI env vars set, AI-Powered mode confirmed
+- [ ] Rebuild container images — debug log hardcoded path fix needs redeployment
+- [ ] Fix Key Vault networking — Container Apps blocked by IP firewall (using env vars as workaround)
 - [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
 - [ ] Copilot API plugin — field portal API already has OpenAPI spec at :8010/docs
-- [ ] Container deployment — Dockerize services for Azure
-- [ ] Managed Identity — switch from interactive auth to `mi-gcs-dev` in production
+- [ ] Custom domain / SSL for container apps
+- [ ] CI/CD pipeline — automate build/deploy on push
 - [ ] Legacy Flask UI retirement — retire `:5003` after field portal validation
 
 ### Existing Issues
@@ -680,12 +686,105 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Feb 20, 2026): System is fully operational. Three UIs: **Field Portal** (React :3001 + FastAPI :8010, 9-step wizard), **Triage Management** (FastAPI :8009 + React :3000, 13 pages), and **Legacy Input** (Flask :5003). All changes committed and pushed.
+**STATUS** (Feb 22, 2026): System is fully operational locally AND deployed to Azure Container Apps. Four container apps live with Cosmos DB, ADO dual-org PAT auth, and AI-Powered analysis.
 
-**KEY CHANGES**:
-1. The Field Portal works INDEPENDENTLY — calls analysis engines directly (no gateway/microservices needed)
-2. **Cosmos DB integration** — evaluations stored at Step 9, corrections at Step 4, summary HTML written to ADO ChallengeDetails
-3. Field portal and triage share the `evaluations` container (`source` discriminator); new `corrections` container feeds fine-tuning
+---
+
+## Azure Container Apps Deployment (Feb 21-22, 2026) ✅
+
+### Infrastructure
+| Resource | Name | Details |
+|----------|------|---------|
+| **Resource Group** | `rg-gcs-dev` | North Central US |
+| **ACR** | `acrgcsdevgg4a6y` | All 4 images built and pushed |
+| **Container Apps Env** | `cae-gcs-dev` | Domain: `gentleisland-16a66e4f.northcentralus.azurecontainerapps.io` |
+| **Cosmos DB** | `cosmos-gcs-dev` | AAD auth, serverless, database `triage-management`, all 9 containers |
+| **Key Vault** | `kv-gcs-dev-gg4a6y` | Contains OpenAI, Cosmos, storage secrets |
+| **Managed Identity** | `id-gcs-containerapp` | ClientId `5e7fe4e7-9be7-4768-a077-ebae7f29bc20` — Cosmos, KV, OpenAI, AcrPull |
+| **Managed Identity** | `id-gcs-ado` | ClientId `ae84f7b5-9f04-47d2-a990-b6ae1053d8a8` — assigned but unusable for ADO (cross-tenant) |
+
+### Container Apps (4 apps, all running)
+| App | FQDN | Ingress | Image |
+|-----|------|---------|-------|
+| `ca-gcs-triage-ui` | `ca-gcs-triage-ui.gentleisland-16a66e4f.northcentralus.azurecontainerapps.io` | **External** | `gcs/triage-ui:latest` |
+| `ca-gcs-triage-api` | `ca-gcs-triage-api.internal.gentleisland-16a66e4f...` | **Internal** | `gcs/triage-api:latest` |
+| `ca-gcs-field-ui` | `ca-gcs-field-ui.gentleisland-16a66e4f.northcentralus.azurecontainerapps.io` | **External** | `gcs/field-ui:latest` |
+| `ca-gcs-field-api` | `ca-gcs-field-api.internal.gentleisland-16a66e4f...` | **Internal** | `gcs/field-api:latest` |
+
+**Access URLs** (basic auth: `gcs` / `TriageGCS2026!`):
+- **Triage UI**: https://ca-gcs-triage-ui.gentleisland-16a66e4f.northcentralus.azurecontainerapps.io
+- **Field UI**: https://ca-gcs-field-ui.gentleisland-16a66e4f.northcentralus.azurecontainerapps.io
+- API containers are internal-only (proxied through UI nginx)
+
+### ADO Integration — Dual PAT Approach ✅
+Managed Identity approach failed (MI in fdpo tenant, ADO orgs in Microsoft tenant). Switched to PAT tokens:
+- `ADO_PAT` → test org (`unifiedactiontrackertest`) for writes
+- `ADO_PAT_READ` → production org (`unifiedactiontracker`) for reads
+- Updated `ado_integration.py` with `self._pat_read` from `ADO_PAT_READ`
+- Updated `triage/services/ado_client.py` with `_pat_for_org()` helper — all 8 HTTP call sites use correct org
+- Status confirmed: `{"connected":true,"organization":"unifiedactiontrackertest","message":"Write: unifiedactiontrackertest, Read: unifiedactiontracker"}`
+
+### AI Analysis — Enabled ✅
+- Container initially reported `{"aiAvailable":false,"mode":"Pattern Only"}` because Key Vault was blocked by IP firewall
+- Fixed by adding env vars directly to `ca-gcs-triage-api`:
+  - `AZURE_OPENAI_ENDPOINT=https://OpenAI-bp-NorthCentral.openai.azure.com/`
+  - `AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT=gpt-4o-standard`
+  - `AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large`
+  - `AZURE_OPENAI_USE_AAD=true` (was already set)
+- MI `id-gcs-containerapp` has `Cognitive Services OpenAI User` role on the OpenAI resource
+- Status now: `{"available":true,"aiAvailable":true,"mode":"AI-Powered"}`
+
+### Triage API Env Vars (ca-gcs-triage-api)
+```
+AZURE_CLIENT_ID=5e7fe4e7-9be7-4768-a077-ebae7f29bc20
+AZURE_OPENAI_USE_AAD=true
+AZURE_OPENAI_ENDPOINT=https://OpenAI-bp-NorthCentral.openai.azure.com/
+AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT=gpt-4o-standard
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+COSMOS_ENDPOINT=https://cosmos-gcs-dev.documents.azure.com:443/
+COSMOS_USE_AAD=true
+COSMOS_DATABASE=triage-management
+ADO_MANAGED_IDENTITY_CLIENT_ID=ae84f7b5-9f04-47d2-a990-b6ae1053d8a8
+ADO_PAT=<test-org-pat>
+ADO_PAT_READ=<production-org-pat>
+```
+
+### Dockerfiles
+| File | Purpose |
+|------|---------|
+| `containers/triage-api.Dockerfile` | Triage API — Python + uvicorn |
+| `containers/triage-ui.Dockerfile` | Triage UI — Node build + nginx with basic auth + API proxy |
+| `containers/field-api.Dockerfile` | Field API — Python + uvicorn |
+| `containers/field-ui.Dockerfile` | Field UI — Node build + nginx with basic auth + API proxy |
+
+### Build/Deploy Commands
+```powershell
+# Build (use --no-logs to avoid charmap encoding errors)
+$env:PYTHONIOENCODING = "utf-8"
+az acr build -r acrgcsdevgg4a6y -f containers/triage-api.Dockerfile -t gcs/triage-api:latest . --no-logs
+
+# Deploy (bump FORCE_REDEPLOY to force new revision)
+az containerapp update --name ca-gcs-triage-api --resource-group rg-gcs-dev `
+  --set-env-vars "FORCE_REDEPLOY=N" `
+  --image acrgcsdevgg4a6y.azurecr.io/gcs/triage-api:latest
+```
+
+### Remaining Container Deployment Items
+- [ ] **Rebuild container images** — debug_ica.log hardcoded path fix needs redeployment (wrapped in try/except locally)
+- [ ] **Key Vault networking** — Container Apps get `Forbidden` from KV due to IP firewall. Not blocking (using env vars), but should fix for cleaner config
+- [ ] **Field API env vars** — field-api container may need OpenAI env vars too (same as triage-api)
+- [ ] **End-to-end testing** — Full 9-step field flow and triage workflow through container apps
+- [ ] **Custom domain / SSL** — Currently using Azure-generated FQDNs
+- [ ] **CI/CD pipeline** — Automate build/deploy on push
+
+---
+
+**KEY CHANGES (Feb 22)**:
+1. All 4 Container Apps deployed and running with nginx basic auth
+2. Cosmos DB connected (AAD auth via Managed Identity)
+3. ADO dual PAT integration fully working (both orgs)
+4. AI analysis enabled (AI-Powered mode) via direct env vars
+5. Fixed hardcoded `debug_ica.log` and `debug_context.log` paths (local only, container redeploy needed)
 
 **HOW TO START** (for new sessions):
 - **Field Portal only** (recommended): `cd field-portal; python -m uvicorn api.main:app --host 0.0.0.0 --port 8010 --reload` + `cd field-portal/ui; npm run dev` → UI at http://localhost:3001

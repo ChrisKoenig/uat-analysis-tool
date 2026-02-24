@@ -13,6 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
 import StatusFilter from '../components/common/StatusFilter';
+import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import ActionForm from '../components/actions/ActionForm';
@@ -26,6 +27,8 @@ export default function ActionsPage({ addToast }) {
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [teamFilter, setTeamFilter] = useState(null);
+  const [teams, setTeams] = useState([]);
   const [selectedAction, setSelectedAction] = useState(null);
   const [formMode, setFormMode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -34,17 +37,27 @@ export default function ActionsPage({ addToast }) {
 
   // ── Data Loading ─────────────────────────────────────────────
 
+  // Load active teams for filter + scope dropdowns
+  useEffect(() => {
+    api.listTriageTeams('active').then((d) => {
+      const sorted = (d.items || []).sort(
+        (a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+      );
+      setTeams(sorted);
+    }).catch(() => {});
+  }, []);
+
   const loadActions = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.listActions(statusFilter);
+      const data = await api.listActions(statusFilter, teamFilter);
       setActions(data.items || []);
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, addToast]);
+  }, [statusFilter, teamFilter, addToast]);
 
   useEffect(() => {
     loadActions();
@@ -170,6 +183,7 @@ export default function ActionsPage({ addToast }) {
       <div className="page-header">
         <h1>🎯 Actions</h1>
         <div className="page-header-actions">
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
             + New Action
@@ -208,6 +222,7 @@ export default function ActionsPage({ addToast }) {
             <div className="card-body">
               <ActionForm
                 action={formMode === 'edit' ? selectedAction : null}
+                teams={teams}
                 onSubmit={handleFormSubmit}
                 onCancel={handleClosePanel}
               />

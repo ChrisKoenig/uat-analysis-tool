@@ -25,9 +25,10 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../../api/triageApi';
 import { OPERATORS, VALUELESS_OPERATORS } from '../../utils/constants';
 import FieldCombobox from '../common/FieldCombobox';
+import TeamScopeSelect from '../common/TeamScopeSelect';
 
 
-export default function RuleForm({ rule, onSubmit, onCancel }) {
+export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
   // ── Form State ───────────────────────────────────────────────
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -35,14 +36,17 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
   const [operator, setOperator] = useState('equals');
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('active');
+  const [triageTeamId, setTriageTeamId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [adoFields, setAdoFields] = useState([]);
+  const [fieldsLoading, setFieldsLoading] = useState(true);
 
   // ── Load ADO field list once ─────────────────────────────────
   useEffect(() => {
     api.listFields({ canEvaluate: true })
       .then((data) => setAdoFields(data.items || []))
-      .catch(() => setAdoFields([]));
+      .catch(() => setAdoFields([]))
+      .finally(() => setFieldsLoading(false));
   }, []);
 
   // Track whether the operator requires no value
@@ -65,6 +69,7 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
           : (rule.value ?? '').toString()
       );
       setStatus(rule.status || 'active');
+      setTriageTeamId(rule.triageTeamId || '');
     } else {
       // Reset for create mode
       setName('');
@@ -73,6 +78,7 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
       setOperator('equals');
       setValue('');
       setStatus('active');
+      setTriageTeamId('');
     }
   }, [rule]);
 
@@ -104,6 +110,7 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
         operator,
         value: parsedValue,
         status,
+        triageTeamId: triageTeamId || null,
       });
     } finally {
       setSubmitting(false);
@@ -141,9 +148,9 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
         />
       </div>
 
-      {/* ADO Field */}
+      {/* Analysis/ADO Field */}
       <div className="form-group">
-        <label htmlFor="rule-field">ADO Field *</label>
+        <label htmlFor="rule-field">Analysis/ADO Field *</label>
         <FieldCombobox
           id="rule-field"
           value={field}
@@ -151,9 +158,10 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
           fields={adoFields}
           placeholder="Click here and type to search fields…"
           required
+          loading={fieldsLoading}
         />
         <span className="hint">
-          Click the field above to browse available ADO fields, or type to search by name.
+          Click the field above to browse available fields, or type to search by name.
         </span>
       </div>
 
@@ -210,6 +218,11 @@ export default function RuleForm({ rule, onSubmit, onCancel }) {
             />
           )}
         </div>
+      )}
+
+      {/* Triage Team Scope */}
+      {teams.length > 0 && (
+        <TeamScopeSelect value={triageTeamId} onChange={setTriageTeamId} teams={teams} />
       )}
 
       {/* Status */}

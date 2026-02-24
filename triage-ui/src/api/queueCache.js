@@ -11,38 +11,48 @@
 
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
-let _cache = null;
+/** Per-team cache keyed by ADO query ID */
+const _cacheMap = new Map();
 
 /**
- * Get cached queue data if it exists and is still fresh.
+ * Get cached queue data for a specific query/team if it exists and is still fresh.
+ * @param {string} key  — typically the ADO query ID (activeQueryId)
  * @returns {{ items, queryName, totalAvailable, analysisMap, timestamp } | null}
  */
-export function getCachedQueue() {
-  if (!_cache) return null;
-  const age = Date.now() - _cache.timestamp;
+export function getCachedQueue(key) {
+  if (!key) return null;
+  const entry = _cacheMap.get(key);
+  if (!entry) return null;
+  const age = Date.now() - entry.timestamp;
   if (age > CACHE_TTL_MS) {
-    _cache = null;
+    _cacheMap.delete(key);
     return null;
   }
-  return _cache;
+  return entry;
 }
 
 /**
- * Store queue data in the cache.
+ * Store queue data in the per-team cache.
+ * @param {string} key  — typically the ADO query ID
  */
-export function setCachedQueue({ items, queryName, totalAvailable, analysisMap }) {
-  _cache = {
+export function setCachedQueue(key, { items, queryName, totalAvailable, analysisMap }) {
+  _cacheMap.set(key, {
     items,
     queryName,
     totalAvailable,
     analysisMap: analysisMap || {},
     timestamp: Date.now(),
-  };
+  });
 }
 
 /**
- * Invalidate the cache (called on explicit Refresh or after mutations).
+ * Invalidate the cache.
+ * @param {string} [key]  — if provided, clear only that team's cache; otherwise clear all.
  */
-export function clearQueueCache() {
-  _cache = null;
+export function clearQueueCache(key) {
+  if (key) {
+    _cacheMap.delete(key);
+  } else {
+    _cacheMap.clear();
+  }
 }

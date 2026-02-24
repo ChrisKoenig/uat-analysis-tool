@@ -169,6 +169,31 @@ async def delete_correction(index: int):
     return None
 
 
+@router.put("/corrections/{index}", response_model=CorrectionItem,
+            summary="Update a correction")
+async def update_correction(index: int, req: CorrectionCreate):
+    """Update an existing correction by its zero-based index."""
+    data = _load_corrections()
+    corrections = data.get("corrections", [])
+    if index < 0 or index >= len(corrections):
+        raise HTTPException(404, f"Correction index {index} not found (have {len(corrections)})")
+    existing = corrections[index]
+    updated = {
+        "original_text": req.original_text,
+        "pattern": req.pattern,
+        "original_category": req.original_category,
+        "corrected_category": req.corrected_category,
+        "corrected_intent": req.corrected_intent,
+        "correction_notes": req.correction_notes,
+        "timestamp": existing.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "confidence_boost": req.confidence_boost,
+    }
+    corrections[index] = updated
+    _save_corrections(data)
+    logger.info(f"Updated correction #{index}: {req.original_category} → {req.corrected_category}")
+    return CorrectionItem(**updated)
+
+
 # ==========================================================================
 # Health dashboard endpoints
 # ==========================================================================
@@ -188,16 +213,27 @@ async def health_dashboard():
         t0 = time.perf_counter()
         from ..config.cosmos_config import get_cosmos_config
         cfg = get_cosmos_config()
-        db = cfg.get_database()
-        # lightweight probe: list containers
-        containers = list(db.list_containers())
-        latency = int((time.perf_counter() - t0) * 1000)
-        components.append(HealthDetail(
-            name="cosmos_db",
-            status="healthy",
-            latency_ms=latency,
-            detail={"database": db.id, "containers": len(containers)},
-        ))
+        if cfg._in_memory:
+            latency = int((time.perf_counter() - t0) * 1000)
+            components.append(HealthDetail(
+                name="cosmos_db",
+                status="degraded",
+                latency_ms=latency,
+                detail={"mode": "in-memory", "database": cfg.database_name},
+            ))
+            if overall == "healthy":
+                overall = "degraded"
+        else:
+            cfg._ensure_database()
+            db = cfg._database
+            containers = list(db.list_containers())
+            latency = int((time.perf_counter() - t0) * 1000)
+            components.append(HealthDetail(
+                name="cosmos_db",
+                status="healthy",
+                latency_ms=latency,
+                detail={"database": db.id, "containers": len(containers)},
+            ))
     except Exception as e:
         overall = "degraded"
         components.append(HealthDetail(
@@ -236,14 +272,15 @@ async def health_dashboard():
     # --- Key Vault ---
     try:
         t0 = time.perf_counter()
-        from keyvault_config import KeyVaultConfig
+        from keyvault_config import KeyVaultConfig, KEY_VAULT_URI
         kv = KeyVaultConfig()
-        # attempt a lightweight read
-        vault_url = kv.vault_url if hasattr(kv, 'vault_url') else "unknown"
+        # extract short vault name from URI (e.g. "kv-gcs-dev-gg4a6y")
+        from urllib.parse import urlparse
+        vault_name = urlparse(KEY_VAULT_URI).hostname.split(".")[0] if KEY_VAULT_URI else "unknown"
         latency = int((time.perf_counter() - t0) * 1000)
         components.append(HealthDetail(
             name="key_vault", status="healthy", latency_ms=latency,
-            detail={"vault": vault_url},
+            detail={"vault": vault_name},
         ))
     except Exception as e:
         components.append(HealthDetail(
