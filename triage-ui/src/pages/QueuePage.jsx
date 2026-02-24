@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import * as api from '../api/triageApi';
 import { getCachedQueue, setCachedQueue, clearQueueCache } from '../api/queueCache';
 import { formatDate, truncate } from '../utils/helpers';
@@ -143,6 +144,12 @@ export default function QueuePage({ addToast }) {
   const [loading, setLoading] = useState(true);
   const [loadingStep, setLoadingStep] = useState(null);
   // Shape: { steps: [ { label, status: 'pending'|'active'|'done'|'error', detail? } ] }
+
+  // ── Column Filtering ──────────────────────────────────────
+  const [filters, setFilters] = useState({});           // { colKey: Set<string> } — inclusion filter
+  const [filterOpen, setFilterOpen] = useState(null);    // { colKey, top, left } | null
+  const [filterSearch, setFilterSearch] = useState('');
+
   const [activeTab, setActiveTab] = useState('analysis');   // 'analysis' | 'triage'
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [evaluating, setEvaluating] = useState(false);
@@ -192,6 +199,12 @@ export default function QueuePage({ addToast }) {
     localStorage.setItem('triage_colWidths', JSON.stringify(colWidths));
   }, [colWidths]);
 
+  /** Number of columns with an active filter */
+  const activeFilterCount = useMemo(
+    () => Object.values(filters).filter((s) => s.size > 0).length,
+    [filters]
+  );
+
   /** Start column resize drag */
   const handleResizeStart = useCallback((e, colKey) => {
     e.preventDefault();
@@ -224,6 +237,70 @@ export default function QueuePage({ addToast }) {
     const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.width]));
     setColWidths(defaults);
   }, [COLUMNS]);
+
+
+  // ── Column Filter Handlers ───────────────────────────────────
+
+  /** Open / close the filter dropdown for a column */
+  const openFilter = useCallback((colKey, e) => {
+    e.stopPropagation();
+    if (filterOpen?.colKey === colKey) {
+      setFilterOpen(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFilterOpen({
+      colKey,
+      top: rect.bottom + 2,
+      left: Math.min(rect.left, window.innerWidth - 260),
+    });
+    setFilterSearch('');
+  }, [filterOpen]);
+
+  /** Toggle a single value in the filter for a column */
+  const toggleFilterValue = useCallback((colKey, value) => {
+    setFilters((prev) => {
+      const next = new Set(prev[colKey] || []);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, [colKey]: next };
+    });
+  }, []);
+
+  /** Select all visible (search-filtered) values for a column */
+  const selectAllFilterValues = useCallback((colKey, values) => {
+    setFilters((prev) => {
+      const next = new Set(prev[colKey] || []);
+      values.forEach((v) => next.add(v));
+      return { ...prev, [colKey]: next };
+    });
+  }, []);
+
+  /** Clear the filter for a single column */
+  const clearColumnFilter = useCallback((colKey) => {
+    setFilters((prev) => {
+      const result = { ...prev };
+      delete result[colKey];
+      return result;
+    });
+  }, []);
+
+  /** Clear all column filters */
+  const clearAllFilters = useCallback(() => {
+    setFilters({});
+    setFilterOpen(null);
+  }, []);
+
+  /** Close filter dropdown on outside click */
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handle = (e) => {
+      if (e.target.closest('.col-filter-dropdown') || e.target.closest('.col-filter-btn')) return;
+      setFilterOpen(null);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [filterOpen]);
 
 
   // ── Load Active Triage Teams ─────────────────────────────────
@@ -424,6 +501,51 @@ export default function QueuePage({ addToast }) {
   const tabItems      = activeTab === 'analysis' ? analysisItems : triageItems;
 
 
+  // ── Column Filter Logic ──────────────────────────────────────
+
+  /** Unique display values for the currently-open filter column */
+  const filterValues = useMemo(() => {
+    if (!filterOpen) return [];
+    const colKey = filterOpen.colKey;
+    const vals = new Set();
+    for (const item of tabItems) {
+      let v;
+      if (colKey.startsWith('analysis.')) {
+        v = analysisMap[String(item.id)]?.[colKey.replace('analysis.', '')];
+      } else {
+        v = item.fields?.[colKey];
+      }
+      vals.add(v === undefined || v === null || v === '' ? '(Blank)' : String(v));
+    }
+    return [...vals].sort((a, b) => a.localeCompare(b));
+  }, [filterOpen, tabItems, analysisMap]);
+
+  /** Filter values narrowed by the search box inside the dropdown */
+  const visibleFilterValues = useMemo(() => {
+    if (!filterSearch) return filterValues;
+    const q = filterSearch.toLowerCase();
+    return filterValues.filter((v) => v.toLowerCase().includes(q));
+  }, [filterValues, filterSearch]);
+
+  /** Apply column filters (additive / AND across columns) */
+  const filteredItems = useMemo(() => {
+    const active = Object.entries(filters).filter(([, s]) => s.size > 0);
+    if (active.length === 0) return tabItems;
+    return tabItems.filter((item) =>
+      active.every(([colKey, allowed]) => {
+        let v;
+        if (colKey.startsWith('analysis.')) {
+          v = analysisMap[String(item.id)]?.[colKey.replace('analysis.', '')];
+        } else {
+          v = item.fields?.[colKey];
+        }
+        const display = v === undefined || v === null || v === '' ? '(Blank)' : String(v);
+        return allowed.has(display);
+      })
+    );
+  }, [tabItems, filters, analysisMap]);
+
+
   // ── Sorting ──────────────────────────────────────────────────
 
   const handleSort = (colKey) => {
@@ -436,8 +558,8 @@ export default function QueuePage({ addToast }) {
   };
 
   const sortedItems = useMemo(() => {
-    if (!sortCol) return tabItems;
-    return [...tabItems].sort((a, b) => {
+    if (!sortCol) return filteredItems;
+    return [...filteredItems].sort((a, b) => {
       let av, bv;
       if (sortCol.startsWith('analysis.')) {
         const field = sortCol.replace('analysis.', '');
@@ -452,14 +574,14 @@ export default function QueuePage({ addToast }) {
         : String(av).localeCompare(String(bv));
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [tabItems, sortCol, sortDir, analysisMap]);
+  }, [filteredItems, sortCol, sortDir, analysisMap]);
 
   // ── Pagination ───────────────────────────────────────────────
 
   const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE));
 
-  // Reset to page 1 when tab, sort, or items change
-  useEffect(() => { setCurrentPage(1); }, [activeTab, sortCol, sortDir, tabItems.length]);
+  // Reset to page 1 when tab, sort, filter, or items change
+  useEffect(() => { setCurrentPage(1); }, [activeTab, sortCol, sortDir, filteredItems.length]);
 
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -479,10 +601,10 @@ export default function QueuePage({ addToast }) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === tabItems.length) {
+    if (selectedIds.size === filteredItems.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(tabItems.map((i) => i.id)));
+      setSelectedIds(new Set(filteredItems.map((i) => i.id)));
     }
   };
 
@@ -493,6 +615,8 @@ export default function QueuePage({ addToast }) {
     setResults(null);
     setExpandedId(null);
     setCurrentPage(1);
+    setFilters({});
+    setFilterOpen(null);
   };
 
 
@@ -888,11 +1012,27 @@ export default function QueuePage({ addToast }) {
       {/* ── Toolbar ───────────────────────────────────────────────── */}
       <div className="queue-action-bar">
         <span className="queue-count">
-          {loading ? 'Loading\u2026' : `${tabItems.length} items`}
-          {totalAvailable > items.length && ` of ${totalAvailable} total`}
-          {selectedIds.size > 0 && ` \xb7 ${selectedIds.size} selected`}
-          {totalPages > 1 && ` \xb7 Page ${currentPage} of ${totalPages}`}
+          {loading ? 'Loading\u2026' : (
+            <>
+              {activeFilterCount > 0
+                ? `${filteredItems.length} of ${tabItems.length} items (filtered)`
+                : `${tabItems.length} items`
+              }
+              {totalAvailable > items.length && ` of ${totalAvailable} total`}
+              {selectedIds.size > 0 && ` \xb7 ${selectedIds.size} selected`}
+              {totalPages > 1 && ` \xb7 Page ${currentPage} of ${totalPages}`}
+            </>
+          )}
         </span>
+        {activeFilterCount > 0 && (
+          <button
+            className="btn btn-toolbar btn-clear-filters"
+            onClick={clearAllFilters}
+            title="Remove all column filters"
+          >
+            \u2715 Clear {activeFilterCount} Filter{activeFilterCount !== 1 ? 's' : ''}
+          </button>
+        )}
         <div className="queue-action-buttons">
           {activeTab === 'analysis' ? (
             <>
@@ -1103,25 +1243,46 @@ export default function QueuePage({ addToast }) {
               <th className="queue-col-check">
                 <input
                   type="checkbox"
-                  checked={tabItems.length > 0 && selectedIds.size === tabItems.length}
+                  checked={filteredItems.length > 0 && selectedIds.size === filteredItems.length}
                   onChange={toggleSelectAll}
-                  disabled={tabItems.length === 0}
+                  disabled={filteredItems.length === 0}
                 />
               </th>
-              {COLUMNS.map((col) => (
-                <th
-                  key={col.key}
-                  className="queue-col-header"
-                  style={{ width: effectiveColWidths[col.key] || col.width, minWidth: 40 }}
-                  onClick={() => handleSort(col.key)}
-                  title={`Sort by ${col.label}`}
-                >
-                  {col.label}
-                  {sortCol === col.key && (
-                    <span className="sort-arrow">{sortDir === 'asc' ? ' \u25B2' : ' \u25BC'}</span>
-                  )}
-                </th>
-              ))}
+              {COLUMNS.map((col) => {
+                const isFiltered = filters[col.key]?.size > 0;
+                return (
+                  <th
+                    key={col.key}
+                    className={`queue-col-header ${isFiltered ? 'col-filtered' : ''}`}
+                    style={{ width: effectiveColWidths[col.key] || col.width, minWidth: 40 }}
+                  >
+                    <div className="col-header-inner">
+                      <span
+                        className="col-header-label"
+                        onClick={() => handleSort(col.key)}
+                        title={`Sort by ${col.label}`}
+                      >
+                        {col.label}
+                        {sortCol === col.key && (
+                          <span className="sort-arrow">{sortDir === 'asc' ? ' \u25B2' : ' \u25BC'}</span>
+                        )}
+                      </span>
+                      <button
+                        className={`col-filter-btn ${isFiltered ? 'active' : ''}`}
+                        onClick={(e) => openFilter(col.key, e)}
+                        title={isFiltered ? 'Filter active \u2014 click to edit' : `Filter ${col.label}`}
+                      >
+                        \u25BE
+                      </button>
+                    </div>
+                    <div
+                      className="col-resize-handle"
+                      onMouseDown={(e) => handleResizeStart(e, col.key)}
+                      onDoubleClick={handleResizeReset}
+                    />
+                  </th>
+                );
+              })}
               <th className="queue-col-actions">Actions</th>
             </tr>
           </thead>
@@ -1488,6 +1649,94 @@ export default function QueuePage({ addToast }) {
             Expand individual rows above to see details and apply changes.
           </p>
         </div>
+      )}
+
+      {/* ── Column Filter Dropdown (portal to body to avoid table overflow clip) */}
+      {filterOpen && createPortal(
+        <div
+          className="col-filter-dropdown"
+          style={{ top: filterOpen.top, left: filterOpen.left }}
+        >
+          {/* Sort section */}
+          <div className="cfd-sort">
+            <button
+              className={`cfd-sort-btn ${sortCol === filterOpen.colKey && sortDir === 'asc' ? 'active' : ''}`}
+              onClick={() => { setSortCol(filterOpen.colKey); setSortDir('asc'); }}
+            >
+              ▲ Sort A → Z
+            </button>
+            <button
+              className={`cfd-sort-btn ${sortCol === filterOpen.colKey && sortDir === 'desc' ? 'active' : ''}`}
+              onClick={() => { setSortCol(filterOpen.colKey); setSortDir('desc'); }}
+            >
+              ▼ Sort Z → A
+            </button>
+          </div>
+          <div className="cfd-divider" />
+          {/* Search */}
+          <div className="cfd-search">
+            <input
+              placeholder="Search values…"
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+          </div>
+          {/* Select all / Clear */}
+          <div className="cfd-bulk">
+            <label className="cfd-select-all">
+              <input
+                type="checkbox"
+                checked={visibleFilterValues.length > 0 && visibleFilterValues.every((v) => filters[filterOpen.colKey]?.has(v))}
+                ref={(el) => {
+                  if (el) {
+                    const someChecked = visibleFilterValues.some((v) => filters[filterOpen.colKey]?.has(v));
+                    const allChecked = visibleFilterValues.length > 0 && visibleFilterValues.every((v) => filters[filterOpen.colKey]?.has(v));
+                    el.indeterminate = someChecked && !allChecked;
+                  }
+                }}
+                onChange={() => {
+                  const allChecked = visibleFilterValues.every((v) => filters[filterOpen.colKey]?.has(v));
+                  if (allChecked) {
+                    // Deselect all visible
+                    setFilters((prev) => {
+                      const next = new Set(prev[filterOpen.colKey] || []);
+                      visibleFilterValues.forEach((v) => next.delete(v));
+                      return { ...prev, [filterOpen.colKey]: next };
+                    });
+                  } else {
+                    selectAllFilterValues(filterOpen.colKey, visibleFilterValues);
+                  }
+                }}
+              />
+              <span>Select All</span>
+            </label>
+            {filters[filterOpen.colKey]?.size > 0 && (
+              <button className="cfd-clear-btn" onClick={() => clearColumnFilter(filterOpen.colKey)}>
+                Clear Filter
+              </button>
+            )}
+          </div>
+          <div className="cfd-divider" />
+          {/* Value list */}
+          <div className="cfd-values">
+            {visibleFilterValues.map((val) => (
+              <label key={val} className="cfd-value-item">
+                <input
+                  type="checkbox"
+                  checked={filters[filterOpen.colKey]?.has(val) ?? false}
+                  onChange={() => toggleFilterValue(filterOpen.colKey, val)}
+                />
+                <span title={val}>{val}</span>
+              </label>
+            ))}
+            {visibleFilterValues.length === 0 && (
+              <div className="cfd-empty">No matching values</div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
