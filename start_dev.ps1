@@ -1,17 +1,17 @@
 # ============================================================================
-# GCS Development Startup — Clean Start All Services
+# GCS Development Startup - Clean Start All Services
 # ============================================================================
 #
 # Starts all 4 services required for local development:
-#   - Triage API        (port 8009)  — FastAPI backend
-#   - Field Portal API  (port 8010)  — FastAPI backend
-#   - Triage UI         (port 3000)  — Vite dev server
-#   - Field Portal UI   (port 3001)  — Vite dev server
+#   - Triage API        (port 8009)  - FastAPI backend
+#   - Field Portal API  (port 8010)  - FastAPI backend
+#   - Triage UI         (port 3000)  - Vite dev server
+#   - Field Portal UI   (port 3001)  - Vite dev server
 #
 # Usage:
-#   .\start_dev.ps1            — Start everything
-#   .\start_dev.ps1 -SkipUI    — APIs only (UIs already running)
-#   .\start_dev.ps1 -SkipAPI   — UIs only  (APIs already running)
+#   .\start_dev.ps1            - Start everything
+#   .\start_dev.ps1 -SkipUI    - APIs only (UIs already running)
+#   .\start_dev.ps1 -SkipAPI   - UIs only  (APIs already running)
 #
 # ============================================================================
 
@@ -25,11 +25,11 @@ $Root = $PSScriptRoot
 
 Write-Host ""
 Write-Host "================================================================================" -ForegroundColor Cyan
-Write-Host "  GCS Development Environment — Clean Start" -ForegroundColor Cyan
+Write-Host "  GCS Development Environment - Clean Start" -ForegroundColor Cyan
 Write-Host "  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGray
 Write-Host "================================================================================" -ForegroundColor Cyan
 
-# ── Step 1: Kill existing processes ──────────────────────────────────────────
+# -- Step 1: Kill existing processes -----------------------------------------------
 
 Write-Host "`n[1/5] Cleaning up existing processes..." -ForegroundColor Yellow
 
@@ -70,7 +70,7 @@ if ($busy.Count -gt 0) {
     Write-Host "  All ports free" -ForegroundColor Green
 }
 
-# ── Step 2: Set environment variables ────────────────────────────────────────
+# -- Step 2: Set environment variables ---------------------------------------------
 
 Write-Host "`n[2/5] Setting environment variables..." -ForegroundColor Yellow
 
@@ -84,7 +84,7 @@ Write-Host "  COSMOS_ENDPOINT  = $env:COSMOS_ENDPOINT" -ForegroundColor Gray
 Write-Host "  COSMOS_USE_AAD   = $env:COSMOS_USE_AAD" -ForegroundColor Gray
 Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 
-# ── Step 3: Start APIs ──────────────────────────────────────────────────────
+# -- Step 3: Start APIs --------------------------------------------------------
 
 if (-not $SkipAPI) {
     Write-Host "`n[3/5] Starting API services..." -ForegroundColor Yellow
@@ -124,10 +124,10 @@ if (-not $SkipAPI) {
         }
     }
 } else {
-    Write-Host "`n[3/5] Skipping APIs (--SkipAPI)" -ForegroundColor DarkGray
+    Write-Host "`n[3/5] Skipping APIs (-SkipAPI)" -ForegroundColor DarkGray
 }
 
-# ── Step 4: Start UIs ───────────────────────────────────────────────────────
+# -- Step 4: Start UIs ---------------------------------------------------------
 
 if (-not $SkipUI) {
     Write-Host "`n[4/5] Starting UI dev servers..." -ForegroundColor Yellow
@@ -148,10 +148,10 @@ if (-not $SkipUI) {
 
     Start-Sleep -Seconds 5
 } else {
-    Write-Host "`n[4/5] Skipping UIs (--SkipUI)" -ForegroundColor DarkGray
+    Write-Host "`n[4/5] Skipping UIs (-SkipUI)" -ForegroundColor DarkGray
 }
 
-# ── Step 5: Summary ─────────────────────────────────────────────────────────
+# -- Step 5: Summary -----------------------------------------------------------
 
 Write-Host "`n[5/5] Verifying services..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
@@ -165,7 +165,7 @@ $services = @(
 
 Write-Host ""
 Write-Host "  Service                Port    Status" -ForegroundColor White
-Write-Host "  ─────────────────────  ──────  ──────" -ForegroundColor DarkGray
+Write-Host "  ---------------------  ------  ------" -ForegroundColor DarkGray
 
 foreach ($svc in $services) {
     $listening = netstat -ano | Select-String "LISTENING" | Select-String ":$($svc.Port) "
