@@ -1272,7 +1272,7 @@ export default function QueuePage({ addToast }) {
                         onClick={(e) => openFilter(col.key, e)}
                         title={isFiltered ? 'Filter active \u2014 click to edit' : `Filter ${col.label}`}
                       >
-                        \u25BE
+                        {'\u25BE'}
                       </button>
                     </div>
                     <div
