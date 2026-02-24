@@ -236,10 +236,16 @@ class SavedQueryItemSummary(BaseModel):
     adoLink: str = ""
 
 
+class QueryColumn(BaseModel):
+    """Column definition from an ADO saved query."""
+    referenceName: str
+    name: str = ""
+
+
 class SavedQueryResponse(BaseModel):
     """Response from running a saved ADO query."""
     queryName: str = ""
-    columns: List[str] = []
+    columns: List[QueryColumn] = []
     items: List[SavedQueryItemSummary] = []
     count: int = 0
     totalAvailable: Optional[int] = None

@@ -455,6 +455,126 @@
 .btn-warning:hover:not(:disabled) { background: #bf360c; }
 .btn-warning:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Step-by-step Loading Progress ────────────────────────────── */
+
+.queue-loading-steps {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px 16px;
+}
+
+.queue-loading-steps-inner {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 12px;
+  padding: 20px 28px;
+  min-width: 380px;
+  max-width: 520px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.queue-loading-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #333);
+  margin-bottom: 16px;
+}
+
+.queue-spinner-sm {
+  width: 20px;
+  height: 20px;
+  border-width: 2.5px;
+}
+
+.queue-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.queue-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-light, #666);
+  transition: color 0.2s;
+}
+
+.queue-step-active {
+  color: var(--text, #333);
+  font-weight: 600;
+}
+
+.queue-step-done {
+  color: var(--text-light, #888);
+}
+
+.queue-step-error {
+  color: var(--danger, #d32f2f);
+}
+
+.queue-step-icon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.queue-step-done .queue-step-icon {
+  color: var(--success, #2e7d32);
+}
+
+.queue-step-error .queue-step-icon {
+  color: var(--danger, #d32f2f);
+}
+
+.queue-step-active .queue-step-icon {
+  color: var(--primary, #0078d4);
+}
+
+.queue-step-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.queue-step-detail {
+  font-weight: 400;
+  color: var(--text-light, #999);
+  margin-left: 2px;
+}
+
+.queue-step-detail::before {
+  content: '\2014\00a0';
+}
+
+.queue-step-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border, #e0e0e0);
+  border-top-color: var(--primary, #0078d4);
+  border-radius: 50%;
+  animation: queue-spin 0.8s linear infinite;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .queue-loading-steps-inner {
+    background: var(--card-bg, #1e1e1e);
+    border-color: var(--border, #333);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+
 /* ── Loading Overlay & Spinner ────────────────────────────────── */
 
 .queue-overlay {

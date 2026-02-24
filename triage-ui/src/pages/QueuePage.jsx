@@ -36,29 +36,71 @@ const isTriageItem = (item) => {
 };
 
 
-// ── Column definitions ──────────────────────────────────────────
+// ── Fixed columns (always shown, in this order) ────────────────
 
-const COLUMNS = [
-  { key: 'System.Id',                    label: 'ID',          width: 70,  sticky: true },
-  { key: 'System.Title',                 label: 'Title',       width: 260 },
-  { key: 'Custom.ROBAnalysisState',      label: 'Analysis State', width: 120 },
-  { key: 'Custom.Customer_Commitment',   label: 'Commitment',  width: 105 },
-  { key: 'Custom.MilestoneStatus',       label: 'MS Status',   width: 100 },
-  { key: 'Custom.MilestoneID',          label: 'Milestone ID',width: 120 },
-  { key: 'Custom.SolutionArea',          label: 'Solution Area',width: 140 },
-  { key: 'analysis.category',           label: 'Category',    width: 130 },
-  { key: 'analysis.intent',             label: 'Intent',      width: 130 },
-  { key: 'Custom.AreaField',             label: 'Area',        width: 100 },
-  { key: 'Custom.Segment',              label: 'Segment',     width: 150 },
-  { key: 'Custom.pTriageType',          label: 'Triage Type', width: 120 },
-  { key: 'Custom.HelpNeededField',      label: 'Help Needed', width: 130 },
-  { key: 'Custom.Opportunity_ID',       label: 'Opp ID',      width: 120 },
-  { key: 'Custom.OpportunityStage',     label: 'Opp Stage',   width: 120 },
-  { key: 'Custom.PartnerOneName',       label: 'Partner',     width: 120 },
-  { key: 'System.CommentCount',         label: '\uD83D\uDCAC',   width: 40  },
-  { key: 'Custom.AssignToCorpDate',     label: 'Corp Date',   width: 100,
-    render: (v) => v ? formatDate(v) : '\u2014' },
+const FIXED_COLUMNS = [
+  { key: 'System.Id',               label: 'ID',             width: 70,  sticky: true, fixed: true },
+  { key: 'System.Title',            label: 'Title',          width: 260, fixed: true },
+  { key: 'Custom.ROBAnalysisState', label: 'Analysis State', width: 120, fixed: true },
+  { key: 'analysis.category',       label: 'Category',       width: 130, fixed: true },
+  { key: 'analysis.intent',         label: 'Intent',         width: 130, fixed: true },
 ];
+
+const FIXED_KEYS = new Set(FIXED_COLUMNS.map((c) => c.key));
+
+/** Default width for dynamically-discovered ADO columns */
+const DEFAULT_DYNAMIC_WIDTH = 120;
+
+/** Known column widths / labels (override ADO display names when we know better) */
+const COLUMN_OVERRIDES = {
+  'System.CommentCount':          { label: '\uD83D\uDCAC', width: 40 },
+  'Custom.Customer_Commitment':   { label: 'Commitment', width: 105 },
+  'Custom.MilestoneStatus':       { label: 'MS Status', width: 100 },
+  'Custom.MilestoneID':          { label: 'Milestone ID', width: 120 },
+  'Custom.SolutionArea':          { label: 'Solution Area', width: 140 },
+  'Custom.AreaField':             { label: 'Area', width: 100 },
+  'Custom.Segment':              { label: 'Segment', width: 150 },
+  'Custom.pTriageType':          { label: 'Triage Type', width: 120 },
+  'Custom.HelpNeededField':      { label: 'Help Needed', width: 130 },
+  'Custom.Opportunity_ID':       { label: 'Opp ID', width: 120 },
+  'Custom.OpportunityStage':     { label: 'Opp Stage', width: 120 },
+  'Custom.PartnerOneName':       { label: 'Partner', width: 120 },
+  'Custom.AssignToCorpDate':     { label: 'Corp Date', width: 100 },
+};
+
+/**
+ * Build dynamic columns from the ADO query response.
+ * Fixed columns appear first (always), then the remaining query columns
+ * in the order they appear in the ADO saved query.
+ */
+function buildColumns(queryColumns) {
+  if (!queryColumns || queryColumns.length === 0) {
+    return FIXED_COLUMNS;
+  }
+
+  const dynamicCols = [];
+  for (const qc of queryColumns) {
+    // qc can be { referenceName, name } (new) or a plain string (legacy)
+    const ref = typeof qc === 'string' ? qc : qc.referenceName;
+    const adoName = typeof qc === 'string' ? ref.split('.').pop() : qc.name;
+
+    // Skip columns that are already in the fixed set
+    if (FIXED_KEYS.has(ref)) continue;
+
+    const overrides = COLUMN_OVERRIDES[ref] || {};
+    dynamicCols.push({
+      key: ref,
+      label: overrides.label || adoName || ref.split('.').pop(),
+      width: overrides.width || DEFAULT_DYNAMIC_WIDTH,
+      // Date columns get auto-formatter
+      render: ref === 'Custom.AssignToCorpDate'
+        ? (v) => v ? formatDate(v) : '\u2014'
+        : undefined,
+    });
+  }
+
+  return [...FIXED_COLUMNS, ...dynamicCols];
+}
 
 /** Badge color mapping for commitment values */
 const COMMITMENT_CLASSES = {
@@ -97,7 +139,10 @@ export default function QueuePage({ addToast }) {
   // ── State ────────────────────────────────────────────────────
   const [items, setItems] = useState([]);
   const [queryName, setQueryName] = useState('');
+  const [queryColumns, setQueryColumns] = useState([]);       // columns from ADO query response
   const [loading, setLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState(null);
+  // Shape: { steps: [ { label, status: 'pending'|'active'|'done'|'error', detail? } ] }
   const [activeTab, setActiveTab] = useState('analysis');   // 'analysis' | 'triage'
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [evaluating, setEvaluating] = useState(false);
@@ -122,16 +167,25 @@ export default function QueuePage({ addToast }) {
   const [analysisProgress, setAnalysisProgress] = useState(null);
   // Shape: { total, completed, failed, currentId, items: [ { id, title, status, category, intent, confidence, source, error } ] }
 
+  // ── Derived: active columns for the current query ───────────
+  const COLUMNS = useMemo(() => buildColumns(queryColumns), [queryColumns]);
+
   // ── Column Resize State ────────────────────────────────────
   const [colWidths, setColWidths] = useState(() => {
     try {
       const saved = localStorage.getItem('triage_colWidths');
       if (saved) return JSON.parse(saved);
     } catch { /* ignore */ }
-    return Object.fromEntries(COLUMNS.map((c) => [c.key, c.width]));
+    return {};
   });
   const resizeRef = useRef(null);  // tracks active drag { key, startX, startW }
   const loadSeqRef = useRef(0);     // monotonic counter to discard stale loadQueue responses
+
+  /** Merge saved widths with current column defaults (dynamic columns may change) */
+  const effectiveColWidths = useMemo(() => {
+    const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.width]));
+    return { ...defaults, ...colWidths };
+  }, [COLUMNS, colWidths]);
 
   /** Persist column widths to localStorage on change */
   useEffect(() => {
@@ -143,7 +197,7 @@ export default function QueuePage({ addToast }) {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
-    const startW = colWidths[colKey] || 100;
+    const startW = effectiveColWidths[colKey] || 100;
     resizeRef.current = { key: colKey, startX, startW };
 
     const onMouseMove = (ev) => {
@@ -163,13 +217,13 @@ export default function QueuePage({ addToast }) {
     document.addEventListener('mouseup', onMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-  }, [colWidths]);
+  }, [effectiveColWidths]);
 
   /** Reset columns to default widths on double-click */
   const handleResizeReset = useCallback(() => {
     const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.width]));
     setColWidths(defaults);
-  }, []);
+  }, [COLUMNS]);
 
 
   // ── Load Active Triage Teams ─────────────────────────────────
@@ -211,7 +265,17 @@ export default function QueuePage({ addToast }) {
   }, [selectedTeamId, teams]);
 
 
-  // ── Load Queue (Saved Query) ─────────────────────────────────
+  // ── Load Queue (Saved Query) — with step progress ─────────
+
+  /** Helper: update a specific step in loadingStep state */
+  const updateStep = useCallback((idx, updates) => {
+    setLoadingStep((prev) => {
+      if (!prev) return prev;
+      const steps = [...prev.steps];
+      steps[idx] = { ...steps[idx], ...updates };
+      return { ...prev, steps };
+    });
+  }, []);
 
   const loadQueue = useCallback(async (forceRefresh = false) => {
     // Increment sequence — any prior in-flight request becomes stale
@@ -226,7 +290,9 @@ export default function QueuePage({ addToast }) {
         setQueryName(cached.queryName);
         setTotalAvailable(cached.totalAvailable);
         setAnalysisMap(cached.analysisMap);
+        if (cached.queryColumns) setQueryColumns(cached.queryColumns);
         setLoading(false);
+        setLoadingStep(null);
         return;
       }
     }
@@ -237,32 +303,73 @@ export default function QueuePage({ addToast }) {
     setAnalysisMap({});
     setAnalysisDetail(null);
     setAnalysisDetailId(null);
-    try {
-      const data = await api.getSavedQueryResults(activeQueryId, 500);
-      if (isStale()) return;  // team changed while awaiting — discard
 
-      const loadedItems = data.items || [];
-      const loadedQueryName = data.queryName || '';
-      const loadedTotal = data.totalAvailable || data.count || 0;
+    // Initialize loading steps
+    const teamObj = teams.find((t) => t.id === selectedTeamId);
+    const teamLabel = teamObj?.name || 'team';
+    setLoadingStep({
+      steps: [
+        { label: `Running saved query for ${teamLabel}`, status: 'active', detail: 'Connecting to Azure DevOps…' },
+        { label: 'Loading work item details', status: 'pending' },
+        { label: 'Loading analysis results', status: 'pending' },
+      ],
+    });
+
+    let loadedItems = [];
+    let loadedQueryName = '';
+    let loadedTotal = 0;
+    let loadedColumns = [];
+
+    try {
+      //  Step 1: Run saved query
+      const data = await api.getSavedQueryResults(activeQueryId, 500);
+      if (isStale()) return;
+
+      loadedItems = data.items || [];
+      loadedQueryName = data.queryName || '';
+      loadedTotal = data.totalAvailable || data.count || 0;
+      loadedColumns = data.columns || [];
+
+      updateStep(0, {
+        status: 'done',
+        detail: `Found ${loadedTotal} item${loadedTotal !== 1 ? 's' : ''} in "${loadedQueryName}"`,
+      });
+
       setItems(loadedItems);
       setQueryName(loadedQueryName);
       setTotalAvailable(loadedTotal);
+      setQueryColumns(loadedColumns);
+
       if (data.failedIds?.length > 0) {
         addToast?.(`${data.failedIds.length} items failed to load`, 'warning');
       }
 
-      // Batch-fetch analysis status for all work item IDs
+      // Step 2: Details loaded (batch fetch happened server-side)
+      updateStep(1, {
+        status: 'done',
+        detail: `${loadedItems.length} item${loadedItems.length !== 1 ? 's' : ''} hydrated`,
+      });
+
+      // Step 3: Batch-fetch analysis status
       let loadedAnalysisMap = {};
       if (loadedItems.length > 0) {
+        updateStep(2, { status: 'active', detail: `Checking analysis for ${loadedItems.length} items…` });
         try {
           const ids = loadedItems.map((i) => i.id);
           const analysisData = await api.getAnalysisBatch(ids);
-          if (isStale()) return;  // team changed while awaiting
+          if (isStale()) return;
           loadedAnalysisMap = analysisData.results || {};
           setAnalysisMap(loadedAnalysisMap);
+          const analysisCount = Object.keys(loadedAnalysisMap).length;
+          updateStep(2, {
+            status: 'done',
+            detail: `${analysisCount} item${analysisCount !== 1 ? 's' : ''} have analysis results`,
+          });
         } catch {
-          // Non-fatal: analysis lookup can fail silently
+          updateStep(2, { status: 'done', detail: 'Analysis lookup skipped' });
         }
+      } else {
+        updateStep(2, { status: 'done', detail: 'No items to analyze' });
       }
 
       // Persist to per-team cache
@@ -272,16 +379,31 @@ export default function QueuePage({ addToast }) {
           queryName: loadedQueryName,
           totalAvailable: loadedTotal,
           analysisMap: loadedAnalysisMap,
+          queryColumns: loadedColumns,
         });
       }
     } catch (err) {
       if (isStale()) return;
       addToast?.(err.message, 'error');
       setItems([]);
+      // Mark current active step as error
+      setLoadingStep((prev) => {
+        if (!prev) return prev;
+        const steps = prev.steps.map((s) =>
+          s.status === 'active' ? { ...s, status: 'error', detail: err.message } : s
+        );
+        return { ...prev, steps };
+      });
     } finally {
-      if (!isStale()) setLoading(false);
+      if (!isStale()) {
+        setLoading(false);
+        // Auto-clear loading steps after a brief delay so user sees the "done" state
+        setTimeout(() => {
+          if (!isStale()) setLoadingStep(null);
+        }, 800);
+      }
     }
-  }, [addToast, activeQueryId]);
+  }, [addToast, activeQueryId, teams, selectedTeamId, updateStep]);
 
   /** Force-refresh: clears current team's cache and reloads from ADO */
   const refreshQueue = useCallback(() => {
@@ -703,6 +825,12 @@ export default function QueuePage({ addToast }) {
     }
 
     if (val === undefined || val === null || val === '') return '\u2014';
+
+    // Auto-detect date strings from dynamic columns (ISO 8601 pattern)
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
+      return formatDate(val);
+    }
+
     return String(val);
   };
 
@@ -710,10 +838,8 @@ export default function QueuePage({ addToast }) {
   // ── Busy state for any action ────────────────────────────────
 
   const busy = loading || evaluating || analyzing || settingState;
-  const showSimpleOverlay = (loading || evaluating || settingState) && !analyzing;
-  const simpleOverlayMsg = loading
-    ? 'Loading triage queue from ADO\u2026'
-    : evaluating
+  const showSimpleOverlay = (evaluating || settingState) && !analyzing;
+  const simpleOverlayMsg = evaluating
       ? 'Running evaluation pipeline\u2026'
       : settingState
         ? 'Updating analysis state\u2026'
@@ -841,6 +967,37 @@ export default function QueuePage({ addToast }) {
         </div>
       )}
 
+      {/* Step-by-step Loading Progress (queue load) */}
+      {loadingStep && (
+        <div className="queue-loading-steps">
+          <div className="queue-loading-steps-inner">
+            <div className="queue-loading-header">
+              <div className="queue-spinner queue-spinner-sm" />
+              <span>Loading Triage Queue</span>
+            </div>
+            <ol className="queue-steps-list">
+              {loadingStep.steps.map((step, idx) => (
+                <li key={idx} className={`queue-step queue-step-${step.status}`}>
+                  <span className="queue-step-icon">
+                    {step.status === 'done' && '\u2713'}
+                    {step.status === 'error' && '\u2717'}
+                    {step.status === 'active' && ''}
+                    {step.status === 'pending' && '\u00B7'}
+                  </span>
+                  <span className="queue-step-label">{step.label}</span>
+                  {step.detail && (
+                    <span className="queue-step-detail">{step.detail}</span>
+                  )}
+                  {step.status === 'active' && (
+                    <span className="queue-step-spinner" />
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      )}
+
       {/* ── Analysis Progress Panel ────────────────────────────── */}
       {analysisProgress && (
         <div className="analysis-progress-overlay">
@@ -955,7 +1112,7 @@ export default function QueuePage({ addToast }) {
                 <th
                   key={col.key}
                   className="queue-col-header"
-                  style={{ width: col.width, minWidth: col.width }}
+                  style={{ width: effectiveColWidths[col.key] || col.width, minWidth: 40 }}
                   onClick={() => handleSort(col.key)}
                   title={`Sort by ${col.label}`}
                 >
@@ -1012,7 +1169,7 @@ export default function QueuePage({ addToast }) {
                         />
                       </td>
                       {COLUMNS.map((col) => {
-                        const w = colWidths[col.key] || col.width;
+                        const w = effectiveColWidths[col.key] || col.width;
                         return (
                           <td
                             key={col.key}

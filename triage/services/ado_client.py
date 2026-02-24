@@ -508,9 +508,15 @@ class AdoClient:
             query_def = resp.json()
             query_name = query_def.get("name", "Unnamed")
             wiql = query_def.get("wiql", "")
+            # Preserve both reference name and display name for dynamic UI columns
             columns = [
-                c["referenceName"] for c in query_def.get("columns", [])
+                {
+                    "referenceName": c["referenceName"],
+                    "name": c.get("name", c["referenceName"].split(".")[-1]),
+                }
+                for c in query_def.get("columns", [])
             ]
+            column_refs = [c["referenceName"] for c in columns]
 
             if not wiql:
                 return {
@@ -554,7 +560,7 @@ class AdoClient:
                 }
 
             # Step 3: Determine fields to fetch
-            fetch_fields = list(set(columns + [
+            fetch_fields = list(set(column_refs + [
                 "System.Id", "System.State", "System.AssignedTo",
                 "System.AreaPath", "System.Tags",
                 "System.CreatedDate", "System.ChangedDate",

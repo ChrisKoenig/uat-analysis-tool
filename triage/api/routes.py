@@ -57,7 +57,7 @@ from .schemas import (
     HealthResponse, ErrorResponse, ReferenceResponse,
     TriageQueueRequest, TriageQueueResponse,
     TriageQueueDetailsResponse, QueueItemSummary,
-    SavedQueryResponse, SavedQueryItemSummary,
+    SavedQueryResponse, SavedQueryItemSummary, QueryColumn,
     ApplyChangesRequest, ApplyChangesResponse,
     WebhookResponse, AdoConnectionStatus,
     AnalyzeRequest, ReanalyzeRequest, AnalysisStateRequest,
@@ -1215,9 +1215,15 @@ async def get_saved_query_results(
         for item in result.get("items", [])
     ]
 
+    raw_cols = result.get("columns", [])
+    # Handle both old (List[str]) and new (List[dict]) column formats
+    query_columns = [
+        QueryColumn(**c) if isinstance(c, dict) else QueryColumn(referenceName=c, name=c.split(".")[-1])
+        for c in raw_cols
+    ]
     return SavedQueryResponse(
         queryName=result.get("queryName", ""),
-        columns=result.get("columns", []),
+        columns=query_columns,
         items=items,
         count=len(items),
         totalAvailable=result.get("totalAvailable"),

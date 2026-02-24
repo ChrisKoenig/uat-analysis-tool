@@ -35,12 +35,13 @@ export function getCachedQueue(key) {
  * Store queue data in the per-team cache.
  * @param {string} key  — typically the ADO query ID
  */
-export function setCachedQueue(key, { items, queryName, totalAvailable, analysisMap }) {
+export function setCachedQueue(key, { items, queryName, totalAvailable, analysisMap, queryColumns }) {
   _cacheMap.set(key, {
     items,
     queryName,
     totalAvailable,
     analysisMap: analysisMap || {},
+    queryColumns: queryColumns || [],
     timestamp: Date.now(),
   });
 }
