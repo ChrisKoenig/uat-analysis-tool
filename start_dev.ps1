@@ -85,9 +85,7 @@ $env:AZURE_OPENAI_ENDPOINT = "https://openai-bp-northcentral.openai.azure.com/"
 $env:AZURE_OPENAI_USE_AAD  = "true"
 
 # Application Insights (telemetry for both APIs)
-# TODO: Replace with real connection string from appi-gcs-dev (stored in KV as azure-app-insights-connection-string)
-# Leave blank to skip telemetry; both APIs handle missing value gracefully.
-$env:APPLICATIONINSIGHTS_CONNECTION_STRING = ""
+$env:APPLICATIONINSIGHTS_CONNECTION_STRING = "InstrumentationKey=59506f54-8a7a-4c57-b26c-ed2a0dc7daae;IngestionEndpoint=https://northcentralus-0.in.applicationinsights.azure.com/;LiveEndpoint=https://northcentralus.livediagnostics.monitor.azure.com/;ApplicationId=6a7da292-a8af-4742-9af7-cd7909178530"
 
 Write-Host "  COSMOS_ENDPOINT  = $env:COSMOS_ENDPOINT" -ForegroundColor Gray
 Write-Host "  COSMOS_USE_AAD   = $env:COSMOS_USE_AAD" -ForegroundColor Gray

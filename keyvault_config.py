@@ -93,13 +93,10 @@ class KeyVaultConfig:
                     self._credential = ManagedIdentityCredential(client_id=managed_identity_client_id)
                     auth_method = f"Managed Identity (client_id: {managed_identity_client_id[:8]}...)"
                 else:
-                    # Development: Exclude slow-failing CLI/PowerShell credentials
-                    # (saves ~20s when az/pwsh are not logged in)
-                    self._credential = DefaultAzureCredential(
-                        exclude_cli_credential=True,
-                        exclude_powershell_credential=True,
-                    )
-                    auth_method = "DefaultAzureCredential (excl CLI/PowerShell)"
+                    # Development: Use DefaultAzureCredential with CLI/PowerShell
+                    # enabled so local dev works when logged into az cli.
+                    self._credential = DefaultAzureCredential()
+                    auth_method = "DefaultAzureCredential"
                 
                 self._client = SecretClient(vault_url=KEY_VAULT_URI, credential=self._credential)
                 print(f"[OK] Connected to Key Vault: {KEY_VAULT_URI} ({_t.time()-_t0:.1f}s)")
