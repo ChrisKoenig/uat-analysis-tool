@@ -1,25 +1,37 @@
-# Enhanced Issue Tracker System
+# GCS Intelligent Triage & Field Submission Platform
 
-A 9-step guided wizard for field personnel to submit issues, get AI-powered
-quality analysis, search across Azure DevOps organizations, and create UAT work
-items.
+A dual-portal platform for field personnel issue submission (9-step wizard) and
+corporate triage team management (rules, routing, AI classification).
 
-> **The active application is in [`field-portal/`](field-portal/README.md)** —
-> a React SPA (Vite, port 3001) backed by a FastAPI API (port 8010) that
-> delegates to a microservice gateway (port 8000).
+> **Two separate UIs for two audiences:**
+> - **Field Portal** ([`field-portal/`](field-portal/README.md)) — React SPA (port 3001) + FastAPI (port 8010) for field personnel
+> - **Triage Admin** ([`triage-ui/`](triage-ui/)) — React SPA (port 3000) + FastAPI (port 8009) for the corporate triage team
 
 ## Quick Start
 
-See the full setup instructions in [`field-portal/README.md`](field-portal/README.md).
-
 ```powershell
-# 1. Gateway (port 8000)
-python api_gateway.py
+# All-in-one GUI launcher (recommended)
+python launcher.py
+```
 
-# 2. FastAPI backend (port 8010)
-python -m uvicorn field-portal.api.main:app --host 0.0.0.0 --port 8010 --reload
+### Manual: Triage System
+```powershell
+# Terminal 1 — API (set env vars for Cosmos DB)
+$env:COSMOS_ENDPOINT="https://cosmos-gcs-dev.documents.azure.com:443/"
+$env:COSMOS_USE_AAD="true"
+$env:COSMOS_TENANT_ID="16b3c013-d300-468d-ac64-7eda0820b6d3"
+python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload
 
-# 3. React UI (port 3001)
+# Terminal 2 — Frontend
+cd triage-ui && npm run dev
+```
+
+### Manual: Field Portal
+```powershell
+# Terminal 1 — API
+python -m uvicorn "field-portal.api.main:app" --host 0.0.0.0 --port 8010 --reload
+
+# Terminal 2 — UI
 cd field-portal\ui && npm run dev
 ```
 
@@ -27,38 +39,66 @@ cd field-portal\ui && npm run dev
 
 ```
 C:\Projects\Hack\
-├── field-portal/          # ★ Active application (React + FastAPI)
-│   ├── api/               #   FastAPI backend (Python)
-│   ├── ui/                #   React SPA (Vite + React 18)
+├── triage-ui/             # ★ Triage Admin UI (React + Vite, port 3000)
+│   └── src/pages/         #   11 pages: Dashboard, Queue, Evaluate, Rules,
+│                          #   Triggers, Actions, Routes, Teams, Validation,
+│                          #   Audit Log, Eval History, Corrections
+├── triage/                # ★ Triage API (FastAPI, port 8009)
+│   ├── api/               #   Routes, admin routes, schemas
+│   ├── config/            #   Cosmos DB config
+│   ├── models/            #   Data models
+│   └── services/          #   ADO client, CRUD service
+│
+├── field-portal/          # ★ Field Portal (React + FastAPI)
+│   ├── api/               #   FastAPI backend (port 8010)
+│   ├── ui/                #   React SPA (port 3001)
 │   └── README.md          #   Full architecture & setup docs
 │
+├── containers/            # Docker deployment (Dockerfiles, nginx, deploy script)
 ├── api_gateway.py         # Microservice gateway (port 8000)
 ├── enhanced_matching.py   # AI analysis and matching engine
-├── ado_integration.py     # Azure DevOps API client
-├── search_service.py      # Search and embedding services
+├── hybrid_context_analyzer.py  # Hybrid AI: pattern + LLM + vectors + corrections
+├── ado_integration.py     # Azure DevOps API client (dual-org)
 ├── ai_config.py           # Azure OpenAI / KeyVault configuration
 ├── keyvault_config.py     # KeyVault helper utilities
+├── launcher.py            # Desktop GUI launcher (tkinter)
+├── corrections.json       # Corrective learning data
 │
 ├── agents/                # AI agent experiments
-├── admin-service/         # Admin dashboard microservice
-│
-├── archive/               # Archived code (old Flask UI, backups, phase summaries)
-│   ├── old_flask_ui/      #   Original Flask/Jinja2 monolith
-│   └── backup_*/          #   Historical snapshots
-│
+├── admin-service/         # Admin dashboard microservice (port 8008)
+├── archive/               # Archived code (old Flask UI, backups)
 └── *.md                   # Project documentation
 ```
 
 ## Key Services
 
-| Service              | Port  | Entry Point                        |
-|----------------------|-------|------------------------------------|
-| **React UI**         | 3001  | `field-portal/ui/` (`npm run dev`) |
-| **Field Portal API** | 8010  | `field-portal/api/main.py`         |
-| **Gateway**          | 8000  | `api_gateway.py`                   |
-| **Admin Service**    | 8020  | `admin-service/`                   |
+| Service              | Port  | Entry Point                                    |
+|----------------------|-------|------------------------------------------------|
+| **Triage UI**        | 3000  | `triage-ui/` (`npm run dev`)                   |
+| **Triage API**       | 8009  | `triage/api/routes.py` (uvicorn)               |
+| **Field Portal UI**  | 3001  | `field-portal/ui/` (`npm run dev`)             |
+| **Field Portal API** | 8010  | `field-portal/api/main.py` (uvicorn)           |
+| **API Gateway**      | 8000  | `api_gateway.py`                               |
+| **Admin Service**    | 8008  | `admin-service/`                               |
 
-## Wizard Flow (9 Steps)
+## Triage Admin Pages (11)
+
+| Page | Description |
+|------|-------------|
+| **Dashboard** | System health, status cards, component health indicators |
+| **Queue** | Work item queue with caching and filters |
+| **Evaluate/Analyze** | AI evaluation with history and detail views |
+| **Rules** | Classification rule management (blade pattern) |
+| **Triggers** | Event trigger configuration (blade pattern) |
+| **Actions** | Action definitions (blade pattern) |
+| **Routes** | Routing rules (blade pattern) |
+| **Triage Teams** | Team management and assignment |
+| **Validation** | Rule validation checks |
+| **Audit Log** | Change history with filters and search |
+| **Eval History** | Historical evaluation results |
+| **Corrections** | Corrective learning CRUD (blade pattern with edit mode) |
+
+## Field Portal Wizard Flow (9 Steps)
 
 1. **Submit** — enter title, description, impact
 2. **Quality Review** — AI scores input quality; user may revise
@@ -70,21 +110,35 @@ C:\Projects\Hack\
 8. **Related UATs** — look up & select related UATs
 9. **Create UAT** — confirm and create work item in ADO
 
-## Authentication (TODO)
+## Azure Container Apps Deployment
 
-MSAL auth for Entra ID is scaffolded in the React UI but not yet enforced.
-Bearer token validation on the backend is the next planned feature.
+All 4 apps deployed to Azure Container Apps in `rg-gcs-dev` (North Central US):
+- Triage UI / API — external + internal ingress
+- Field UI / API — external + internal ingress
+- Cosmos DB (AAD auth), ADO dual-org PAT, AI-Powered analysis enabled
+
+See [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) and the Container Apps section in [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for details.
+
+## Authentication
+
+- **Cosmos DB**: AAD only (cross-tenant, `16b3c013-...` / fdpo tenant)
+- **Azure OpenAI**: AAD only (Cognitive Services OpenAI User role)
+- **Key Vault**: `kv-gcs-dev-gg4a6y` (DefaultAzureCredential)
+- **ADO**: Dual PAT (test org write, production org read)
+- **Field Portal MSAL**: Scaffolded but not yet enforced
 
 ## Documentation
 
 | Document                                       | Description                        |
 |------------------------------------------------|------------------------------------|
-| [`field-portal/README.md`](field-portal/README.md) | Full architecture & setup guide |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md)           | System architecture overview       |
-| [`QUICKSTART.md`](QUICKSTART.md)               | Quick-start guide                  |
-| [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)     | Common issues & solutions          |
-| [`AI_SETUP.md`](AI_SETUP.md)                   | Azure OpenAI configuration         |
-| [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)   | Deployment procedures              |
+| [`PROJECT_STATUS.md`](PROJECT_STATUS.md)           | Full project status & change log    |
+| [`field-portal/README.md`](field-portal/README.md) | Field portal architecture & setup   |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md)               | Microservices architecture overview  |
+| [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md) | Component inventory                  |
+| [`QUICKSTART.md`](QUICKSTART.md)                   | Quick-start guide                    |
+| [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)         | Common issues & solutions            |
+| [`AI_SETUP.md`](AI_SETUP.md)                       | Azure OpenAI configuration           |
+| [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)       | Deployment procedures                |
 
 ## License
 
@@ -94,5 +148,5 @@ data handling requirements.
 ---
 
 **Last Updated**: February 2026  
-**Version**: 4.0 (React SPA + FastAPI rewrite)  
+**Version**: 5.0 (Dual React SPA + FastAPI + Cosmos DB + Azure Container Apps)  
 **Compatibility**: Python 3.10+, Node.js 18+, Modern Browsers

@@ -1,5 +1,5 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 22, 2026
+**Last Updated**: February 23, 2026
 **Status**: ✅ All systems operational — Local + Azure Container Apps deployment live — Triage Management + Field Submission Portal + Cosmos DB + AI classification + ADO dual-org integration
 
 ---
@@ -102,10 +102,10 @@ uat_input.html → searching_uats.html → select_related_uats.html → uat_crea
 ### What Was Built Feb 11 (Triage UI — Separate from Field Flow)
 These are triage team tools, NOT field submission replacements:
 - `triage/api/classify_routes.py` — Standalone classify API (POST /api/v1/classify, /classify/batch)
-- `triage/api/admin_routes.py` — Corrections CRUD + health dashboard API
-- `triage-ui/src/pages/ClassifyPage.jsx` — Triage team can test classifications
-- `triage-ui/src/pages/CorrectionsPage.jsx` — Admin CRUD for corrections.json (NOT field correction flow)
-- `triage-ui/src/pages/HealthPage.jsx` — Component-level health dashboard
+- `triage/api/admin_routes.py` — Corrections CRUD (full CRUD: GET, POST, PUT, DELETE) + health dashboard API
+- `triage-ui/src/pages/CorrectionsPage.jsx` — Admin CRUD for corrections.json with blade pattern (list + detail panel), edit mode (NOT field correction flow)
+- ~~`ClassifyPage.jsx`~~ — Removed Feb 23 (dead feature)
+- ~~`HealthPage.jsx`~~ — Merged into Dashboard Feb 23
 
 ---
 
@@ -129,6 +129,7 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 - **Database**: Azure Cosmos DB (`cosmos-gcs-dev`, serverless, North Central US)
 - **Analysis Engine**: Hybrid pattern matching + LLM classification
 - **Startup**: `python launcher.py` (GUI launcher) OR manual start
+- **Pages** (11): Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections
 
 ### Field Portal (NEW — Feb 12, actively improved through Feb 19)
 - **Backend API**: FastAPI on port 8010 (uvicorn, `field-portal/api/main.py`)
@@ -232,6 +233,64 @@ These are injected automatically by `launcher.py` or must be set manually.
 ### Key Limitation
 - Azure CLI login fails locally (Conditional Access policy error 53003) — use Cloud Shell for `az` commands
 - Database/container creation requires portal or Cloud Shell (RBAC data-plane role doesn't cover control-plane)
+
+---
+
+## Recent Changes (Feb 23, 2026) — Dashboard Merge, Corrections CRUD, Teams, Cleanup
+
+### Feb 23: Major UI Cleanup & Feature Additions ✅
+
+**Dashboard + Health Merge**:
+- Merged HealthPage into Dashboard — single unified view with status cards and health indicators
+- Fixed Key Vault showing "Vault: unknown" — now displays actual vault name (`kv-gcs-dev-gg4a6y`) by importing `KEY_VAULT_URI` constant
+- Added Dashboard CSS for unified layout
+
+**Corrections Page Rewrite**:
+- Rewrote to blade pattern (list + detail panel) matching Rules/Triggers/Actions/Routes
+- Added full edit/update capability — new `PUT /admin/corrections/{index}` backend endpoint
+- Form fields display human-readable values ("Business Engagement" not `business_engagement`), converts back to snake_case on save
+- Full CRUD: create, read, update, delete corrections
+- EntityTable with columns: Original Category, Corrected Category, Intent, Notes
+
+**Classify Page Removed**:
+- Removed entirely — dead feature, nav item, route, and source file deleted
+
+**Triage Teams** (new):
+- Added TriageTeamsPage with team management UI
+- Added TeamFilter and TeamScopeSelect shared components
+- Added `triage_team` model
+
+**Evaluate Page Expansion**:
+- Major expansion with evaluation history and detail views
+
+**Queue Enhancements**:
+- Enhanced queue management with caching and filters
+
+**Entity Pages** (Rules, Triggers, Actions, Routes):
+- FieldCombobox improvements for better field selection
+- Form refinements across all entity types
+
+**Field Portal**:
+- Auth context + NoAuthProvider for flexible auth
+- AnalysisDetailPage enhancements
+
+**Backend**:
+- ADO integration enhancements
+- Cosmos DB config improvements
+- CRUD service and schema updates
+- Admin routes: vault health fix, corrections PUT endpoint
+
+**Infrastructure**:
+- Added Docker containers (Dockerfiles, nginx configs, deploy script)
+- Added `.dockerignore` and `start_dev.ps1` convenience script
+- Updated `.gitignore` — cache dirs, build logs, debug logs now excluded
+- Removed tracked cache/log files from repo
+
+**Dead Code Cleanup**:
+- Deleted: `ClassifyPage.jsx`, `HealthPage.jsx`, `HealthPage.css`
+- Untracked: `cache/ai_cache/classifications_cache.json`, `debug_ica.log`
+
+**Commits**: `52179c2` (main feature commit) + `6b5088f` (corrections display fix) — pushed to `origin/main`
 
 ---
 
@@ -394,6 +453,8 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `6b5088f` | Feb 23 | Corrections display fix — human-readable Pattern/Intent fields |
+| `52179c2` | Feb 23 | Dashboard merge, corrections CRUD, teams, containers, cleanup (63 files) |
 | `0ba2dea` | Feb 20 | Cosmos DB integration — evaluations + corrections storage, ADO ChallengeDetails, new cosmos_client.py |
 | `0fe9c49` | Feb 19 | Field portal cleanup, archiving old Flask UI, documentation updates |
 | `4fc1f9f` | Feb 11 | Classify API, corrections mgmt, health dashboard, 3 React pages, launcher, Cosmos AAD auth |
@@ -425,6 +486,8 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ## Known Working Features
 
 ✅ Triage Management System — full pipeline: ADO fetch → hybrid analysis → Cosmos DB → React UI
+✅ Triage UI — 11 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections
+✅ Corrections — full CRUD with blade pattern, edit mode, human-readable display
 ✅ Desktop launcher GUI (`launcher.py`)
 ✅ Azure Cosmos DB with AAD cross-tenant auth
 ✅ Persistent token cache (no repeated auth prompts across restarts)
@@ -588,7 +651,8 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 ## Git Status
 
 **Branch**: `main`
-**Latest commit**: `0ba2dea` — Cosmos DB integration for field portal evaluations and corrections
+**Latest commit**: `6b5088f` — Corrections display fix (human-readable Pattern/Intent)
+**Previous**: `52179c2` — Dashboard merge, corrections CRUD, teams, containers, cleanup
 
 **All changes committed** — clean working tree.
 
@@ -620,7 +684,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [ ] Retire legacy Flask UI (`:5003`) once field portal is fully validated
 
 ### Triage Management System
-- [ ] Live test the 3 new React pages (ClassifyPage, CorrectionsPage, HealthPage)
+- [x] ClassifyPage — removed (dead feature), HealthPage — merged into Dashboard, CorrectionsPage — rewritten with blade pattern + edit mode
 - [ ] Classification tuning — review accuracy, refine LLM prompt, add corrections
 - [ ] Webhook receiver — ADO pushes events → auto-analyze new items
 - [ ] Analytics dashboard — trends, accuracy, volume metrics
@@ -686,7 +750,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Feb 22, 2026): System is fully operational locally AND deployed to Azure Container Apps. Four container apps live with Cosmos DB, ADO dual-org PAT auth, and AI-Powered analysis.
+**STATUS** (Feb 23, 2026): System is fully operational locally AND deployed to Azure Container Apps. Four container apps live with Cosmos DB, ADO dual-org PAT auth, and AI-Powered analysis. Triage UI has 11 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections. ClassifyPage removed, HealthPage merged into Dashboard.
 
 ---
 
@@ -808,4 +872,4 @@ az containerapp update --name ca-gcs-triage-api --resource-group rg-gcs-dev `
 - `TRIAGE_SYSTEM_DESIGN.md` — Four-layer triage model
 - `AZURE_OPENAI_AUTH_SETUP.md` — Auth details
 
-**Git**: All changes committed and pushed. Latest: `0ba2dea` on `main`.
+**Git**: All changes committed and pushed. Latest: `6b5088f` on `main`.

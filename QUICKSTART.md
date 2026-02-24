@@ -1,256 +1,113 @@
-# Quick Start Guide - Enhanced Issue Tracker System
+# Quick Start Guide — GCS Triage & Field Portal
 
-Get up and running with the Enhanced Issue Tracker System in under 5 minutes!
+Get up and running in under 5 minutes.
 
-## 🚀 Installation (2 minutes)
+## Prerequisites
 
-### Prerequisites Check
-```bash
-python --version    # Ensure Python 3.8+
-pip --version      # Ensure pip is available
+```powershell
+python --version    # Python 3.10+
+node --version      # Node.js 18+
+npm --version       # npm 9+
 ```
 
 ### Install Dependencies
-```bash
-cd c:\Projects\Hack
-pip install flask requests python-dotenv
+```powershell
+cd C:\Projects\Hack
+pip install -r requirements-gateway.txt
+
+cd triage-ui && npm install && cd ..
+cd field-portal\ui && npm install && cd ..
 ```
-
-## ▶️ Start the Application (30 seconds)
-
-### Method 1: Standard Launch
-```bash
-python app.py
-```
-
-### Method 2: Debug Mode
-```bash
-python app.py --debug
-```
-
-### Expected Output
-```
-* Running on http://127.0.0.1:5001
-* Debug mode: on
-* Restarting with stat
-* Debugger is active!
-```
-
-## 🌐 Access the System (15 seconds)
-
-1. **Open your browser**
-2. **Navigate to**: http://127.0.0.1:5001
-3. **You'll see the Quick ICA Analysis form**
-
-## 🎯 First Issue Submission (2 minutes)
-
-### Quick ICA Form
-- Enter a descriptive title (max 125 characters)
-- Real-time character counter shows remaining characters
-- Example: "Cannot access company email on mobile device"
-
-### Step 2: Detailed Description
-- Provide comprehensive issue details
-- Include what you're trying to do, expected vs actual results
-- Example: "I'm trying to set up my work email on my iPhone but getting 'Cannot Get Mail' error"
-
-### Step 3: Impact Statement
-- Describe business/user impact if not resolved
-- Example: "Unable to respond to urgent emails while traveling, affecting client relationships"
-
-### Step 4: MSX Information
-- **Opportunity ID**: Enter relevant opportunity ID (or "N/A")
-- **Milestone ID**: Enter milestone ID (or "N/A")
-
-### Step 5: Review & Submit
-- Review all entered information
-- Edit any section by clicking "Edit" buttons
-- Click "Submit Issue" to proceed
-
-## 🔍 Quality Analysis Process (1 minute)
-
-### Automatic Quality Check
-- System analyzes input completeness (0-100%)
-- Checks for required keywords and content depth
-- Shows progress bar with score
-
-### First Attempt (Score < 80%)
-- **Forced Improvement**: Must add more details
-- **Specific Guidance**: Shows what information is missing
-- **Re-analysis**: Updated score after improvements
-
-### Second Attempt (Any Score)
-- **User Choice**: Improve further or proceed
-- **Warning Dialog**: Shows if proceeding with low quality
-- **Confirmation**: Must confirm to continue with warnings
-
-## 🔎 Enhanced Matching Results (30 seconds)
-
-### Search Process
-- **AI-Powered Query Generation**: Azure OpenAI creates intelligent 3-5 word search queries
-- **Microsoft Learn Documentation**: Smart search with optimized queries
-- **Retirement Information**: Multi-source checking (local JSON + Microsoft Learn + Azure Updates)
-- **Similar Products**: Alternative Azure service suggestions
-- **Regional Options**: Availability by region for specified services
-- **Real-time Progress**: Animated progress bar through 5 search stages
-
-### Retirement Information Display
-- **Collapsible Sections**: Click to expand/collapse retirement details (collapsed by default)
-- **Scrollable Lists**: Max 400px height prevents buttons from being pushed off-screen
-- **Count Badges**: Shows number of relevant retirements found
-- **Smart Filtering**: Word boundary matching ensures only relevant services shown
-- **Online Search Fallback**: If local database empty, searches Microsoft Learn automatically
-
-### Result Types
-1. **Microsoft Learn Docs**: Official documentation links with relevance scores
-2. **Similar Products**: Alternative Azure services with descriptions
-3. **Regional Options**: Availability information for different Azure regions  
-4. **Capacity Guidance**: Quota and limit information if relevant
-5. **Retirement Info**: Service/feature retirement announcements with migration guidance
-
-### Available Actions
-- **Cancel**: Return to home (centered button with proper alignment)
-- **Do Deep Search**: More comprehensive search (may take longer)
-- **Continue and Create UAT**: Proceed to UAT creation after reviewing resources
-- **Back to Summary**: Return to context summary page
-
-## 🛠 Common Tasks
-
-### View System Status
-- Navigate to: http://127.0.0.1:5001/admin
-- Check system health and configuration
-
-### Test Search Function
-- Navigate to: http://127.0.0.1:5001/api/search
-- Test similarity matching with sample queries
-
-### Clear Session Data
-- Close browser completely
-- Restart browser and navigate to system
-- Session will auto-initialize
-
-## 🔧 Quick Troubleshooting
-
-### Application Won't Start
-```bash
-# Check if port 5001 is in use
-netstat -an | findstr :5001
-
-# Try different port
-set FLASK_PORT=5002
-python app.py
-```
-
-### "Cannot Get Mail" on Quality Analysis
-```bash
-# Check console for detailed error
-# Usually indicates missing Azure DevOps configuration
-# System works with local database only
-```
-
-### Session Errors
-1. Clear browser cache
-2. Close all browser windows  
-3. Restart browser
-4. Navigate to http://127.0.0.1:5001
-
-### Azure DevOps 401 Errors
-- Check PAT token validity in `enhanced_matching.py`
-- Verify organization URLs are correct
-- System continues with local database search
-
-## 📱 Mobile Access
-
-### Responsive Design
-- Fully functional on mobile devices
-- Touch-friendly interface
-- All features available on phones/tablets
-
-### Best Practices
-- Use landscape mode for better text input
-- Zoom in for better character counter visibility
-- Save frequently (auto-save is enabled)
-
-## 🎨 Accessibility Features
-
-### Keyboard Navigation
-- Tab through all form fields
-- Enter to submit forms
-- Escape to cancel operations
-
-### Screen Reader Support
-- Proper heading structure
-- Form labels and descriptions
-- Progress announcements
-
-### High Contrast Mode
-- Works with Windows High Contrast
-- Custom accessible color schemes
-- Proper focus indicators
-
-## 📊 Performance Tips
-
-### Optimal Usage
-- **Single Browser Window**: Avoid multiple simultaneous sessions
-- **Regular Submission**: Submit issues promptly for best results
-- **Clear Sessions**: Close browser when finished
-
-### Speed Optimization
-- **Local Database**: Fastest search option
-- **Detailed Input**: Better quality scores = faster processing
-- **Specific Terms**: Use specific technical terms for better matches
-
-## 🆘 Getting Help
-
-### Built-in Help
-- **Tooltips**: Hover over question marks for field help
-- **Character Counters**: Real-time feedback on input limits
-- **Progress Bars**: Visual feedback during processing
-
-### Error Messages
-- **Validation Errors**: Clear messages about what needs fixing
-- **System Errors**: Detailed error information in console
-- **Network Issues**: Automatic fallback to local database
-
-### Console Logging
-```bash
-# View detailed logs while running
-python app.py
-# Watch console for:
-# - Quality analysis scores
-# - Azure DevOps API responses
-# - Session management status
-# - Error details and stack traces
-```
-
-## 🎯 Next Steps
-
-### After First Success
-1. **Explore Admin Panel**: Check system configuration
-2. **Test Different Issue Types**: Try various problem descriptions
-3. **Review Quality Scores**: Understand what makes high-quality submissions
-4. **Check Documentation**: Read full README.md for advanced features
-
-### Advanced Usage
-- **Configure Azure DevOps**: Set up enterprise integration
-- **Customize Quality Thresholds**: Adjust scoring parameters
-- **Add Custom Issues**: Extend local database with organization-specific issues
 
 ---
 
-## 📋 Quick Reference
+## Option 1: Desktop Launcher (Recommended)
 
-| Task | URL | Time |
-|------|-----|------|
-| **Start New Issue** | http://127.0.0.1:5001 | 2-3 min |
-| **Admin Panel** | http://127.0.0.1:5001/admin | 30 sec |
-| **API Testing** | http://127.0.0.1:5001/api/search | 1 min |
-| **System Restart** | `Ctrl+C` then `python app.py` | 30 sec |
+```powershell
+python launcher.py
+```
+
+Click cards to start **Triage**, **Field Portal**, **Input** (legacy), or **Admin**. The launcher handles environment variables, port checks, and opens browsers automatically.
 
 ---
 
-**🎉 You're Ready!** The Enhanced Issue Tracker System is now running and ready for production use.
+## Option 2: Manual Start — Triage System
 
-For detailed documentation, see [README.md](README.md)  
-For project status, see [PROJECT_STATUS.md](PROJECT_STATUS.md)  
-For restart procedures, see [RESTART_GUIDE.md](RESTART_GUIDE.md)
+### Terminal 1 — Triage API (port 8009)
+```powershell
+$env:COSMOS_ENDPOINT="https://cosmos-gcs-dev.documents.azure.com:443/"
+$env:COSMOS_USE_AAD="true"
+$env:COSMOS_TENANT_ID="16b3c013-d300-468d-ac64-7eda0820b6d3"
+$env:PYTHONIOENCODING="utf-8"
+cd C:\Projects\Hack
+python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload
+```
+
+### Terminal 2 — Triage UI (port 3000)
+```powershell
+cd C:\Projects\Hack\triage-ui
+npm run dev
+```
+
+Open **http://localhost:3000** — Dashboard with health status, Queue, Rules, Corrections, etc.
+
+---
+
+## Option 3: Manual Start — Field Portal
+
+### Terminal 1 — Field Portal API (port 8010)
+```powershell
+cd C:\Projects\Hack
+python -m uvicorn "field-portal.api.main:app" --host 0.0.0.0 --port 8010 --reload
+```
+
+### Terminal 2 — Field Portal UI (port 3001)
+```powershell
+cd C:\Projects\Hack\field-portal\ui
+npm run dev
+```
+
+Open **http://localhost:3001** — 9-step issue submission wizard.  
+API docs at **http://localhost:8010/docs**.
+
+---
+
+## Service Overview
+
+| Service              | Port  | URL                          |
+|----------------------|-------|------------------------------|
+| **Triage UI**        | 3000  | http://localhost:3000         |
+| **Triage API**       | 8009  | http://localhost:8009/health  |
+| **Field Portal UI**  | 3001  | http://localhost:3001         |
+| **Field Portal API** | 8010  | http://localhost:8010/docs    |
+| **API Gateway**      | 8000  | http://localhost:8000/health  |
+
+## Triage UI Pages
+
+| Page | Description |
+|------|-------------|
+| Dashboard | Health status, component indicators |
+| Queue | Work item queue with filters |
+| Evaluate/Analyze | AI evaluation with history |
+| Rules / Triggers / Actions / Routes | Configuration blade panels |
+| Triage Teams | Team management |
+| Corrections | Corrective learning CRUD (create, edit, delete) |
+| Validation | Rule validation |
+| Audit Log | Change history |
+| Eval History | Historical evaluations |
+
+## Quick Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Port 8009 in use | `Get-Process python \| Stop-Process -Force` — wait 30s |
+| Cosmos "AuthenticationFailed" | Check env vars: `COSMOS_ENDPOINT`, `COSMOS_USE_AAD`, `COSMOS_TENANT_ID` |
+| AI returns pattern-only | Verify Azure OpenAI config — see [`AI_SETUP.md`](AI_SETUP.md) |
+| 6 login prompts | Fixed — uses AzureCliCredential + cached singletons |
+| Azure CLI login fails (53003) | Use Cloud Shell instead — app uses InteractiveBrowserCredential |
+
+---
+
+For full details see [`PROJECT_STATUS.md`](PROJECT_STATUS.md) and [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+**Last Updated**: February 2026
