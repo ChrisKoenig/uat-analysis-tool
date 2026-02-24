@@ -1,15 +1,8 @@
 # Azure OpenAI Authentication Setup Guide
 
-## Issue Fixed: January 28, 2026
-**Problem**: AI classification stopped working after Key Vault migration (Jan 20) - "AI service temporarily unavailable" with pattern matching fallback.
+> **Last Updated**: February 23, 2026
 
-## Root Causes Identified
-1. **Key Vault migration didn't update authentication code** - `llm_classifier.py` still used API key auth
-2. **Tenant mismatch** - Token from corporate tenant (72f988bf...) but OpenAI resource in different tenant
-3. **Missing role assignment** - User account needed Cognitive Services OpenAI User role
-4. **Wrong deployment name** - Key Vault had `gpt-4o-02` but actual deployment is `gpt-4o-standard`
-5. **Wrong endpoint** - `.env` file had old East endpoint, overriding Key Vault North Central endpoint
-6. **Configuration priority** - `.env` file took precedence over Key Vault
+Reference document for Azure OpenAI resource configuration, authentication, and role assignments used by the Triage and Field Portal systems.
 
 ---
 
@@ -71,46 +64,12 @@ AZURE-OPENAI-USE-AAD = true
 
 ---
 
-## Code Configuration
+## Services Using Azure OpenAI
 
-### llm_classifier.py - Azure AD Authentication
-```python
-# Lines 104-113: Tenant-specific authentication
-if use_aad:
-    from azure.identity import InteractiveBrowserCredential, get_bearer_token_provider
-    
-    # CRITICAL: Must specify tenant ID where OpenAI resource is registered
-    credential = InteractiveBrowserCredential(
-        tenant_id="16b3c013-d300-468d-ac64-7eda0820b6d3"  # fdpo.onmicrosoft.com
-    )
-    
-    token_provider = get_bearer_token_provider(
-        credential,
-        "https://cognitiveservices.azure.com/.default"
-    )
-```
-
-### ai_config.py - Configuration Fields
-```python
-@dataclass
-class AzureOpenAIConfig:
-    endpoint: str
-    api_key: str  # Optional when use_aad=true
-    api_version: str = "2024-08-01-preview"
-    deployment: str = "gpt-4o-standard"  # Classification deployment
-    use_aad: bool = True  # MUST be true (API keys disabled)
-```
-
-### keyvault_config.py - Secret Mappings
-```python
-SECRET_MAPPINGS = {
-    "AZURE_OPENAI_ENDPOINT": "AZURE-OPENAI-ENDPOINT",
-    "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": "AZURE-OPENAI-CLASSIFICATION-DEPLOYMENT",
-    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "AZURE-OPENAI-EMBEDDING-DEPLOYMENT",
-    "AZURE_OPENAI_USE_AAD": "AZURE-OPENAI-USE-AAD",
-    # AZURE_OPENAI_API_KEY intentionally not in Key Vault
-}
-```
+| Service | Port | Usage |
+|---------|------|-------|
+| Triage API | 8009 | Evaluation pipeline AI analysis |
+| Field Portal API | 8010 | Quality evaluation, context analysis |
 
 ---
 
@@ -164,72 +123,12 @@ The `.env` file has been renamed to `.env.backup` to prevent it from overriding 
 
 ---
 
-## Testing & Validation
-
-### Quick Validation Script
-```powershell
-# 1. Check Key Vault configuration
-python check_kv_config.py
-
-# 2. Verify token tenant
-python check_token_tenant.py
-# Expected: Token Tenant: 16b3c013-d300-468d-ac64-7eda0820b6d3
-
-# 3. Run comprehensive test
-python test_ai_integration.py
-# Expected: All steps pass, API call successful
-
-# 4. Start app and test
-.\start_app.ps1
-# Navigate to http://127.0.0.1:5003 and submit test issue
-# Expected: AI classification without yellow warning
-```
-
-### Expected Log Output (Success)
-```
-[LLMClassifier] 🚀 Initializing LLM Classifier...
-[LLMClassifier] 📋 Configuration loaded:
-[LLMClassifier]   Endpoint: https://OpenAI-bp-NorthCentral.openai.azure.com/
-[LLMClassifier]   Use AAD: True
-[LLMClassifier] 🔐 Setting up Azure AD authentication...
-[LLMClassifier]   Tenant ID: 16b3c013-d300-468d-ac64-7eda0820b6d3
-[LLMClassifier] ✅ Using Azure AD authentication
-[LLMClassifier] ✅ Initialization complete!
-```
+## Related Documentation
+- [KEYVAULT_MIGRATION_COMPLETE.md](KEYVAULT_MIGRATION_COMPLETE.md) — Key Vault secret setup
+- [MANAGED_IDENTITY_DEPLOYMENT.md](MANAGED_IDENTITY_DEPLOYMENT.md) — Managed identity deployment
+- [KEYVAULT_PERMISSIONS_SETUP.md](KEYVAULT_PERMISSIONS_SETUP.md) — RBAC permission setup
 
 ---
 
-## Azure Deployment Notes
-
-When deployed to Azure App Service / Container Apps:
-- Remove `tenant_id` parameter from `InteractiveBrowserCredential` (won't work in production)
-- Use `ManagedIdentityCredential` or `DefaultAzureCredential` (will use managed identity)
-- Managed identity `mi-gcs-dev` must have all required role assignments
-- Key Vault configuration remains the same
-- No `.env` file needed in Azure
-
----
-
-## Summary of Changes Made
-
-1. ✅ Updated `llm_classifier.py` to support Azure AD authentication with tenant ID
-2. ✅ Updated `ai_config.py` to include `use_aad` field
-3. ✅ Updated `keyvault_config.py` SECRET_MAPPINGS with OpenAI secrets
-4. ✅ Updated Key Vault secrets with correct endpoint and deployment names
-5. ✅ Assigned Cognitive Services OpenAI User role to user account
-6. ✅ Removed `.env` file to prevent configuration conflicts
-7. ✅ Updated `authenticate_interactive.py` with correct tenant ID
-8. ✅ Created diagnostic scripts: `test_ai_integration.py`, `check_token_tenant.py`, `check_kv_config.py`
-
----
-
-## Related Files
-- Authentication: `llm_classifier.py`, `ai_config.py`, `authenticate_interactive.py`
-- Configuration: `keyvault_config.py`, `.env.backup` (archived)
-- Diagnostics: `test_ai_integration.py`, `check_token_tenant.py`, `check_kv_config.py`
-- Documentation: `KEYVAULT_MIGRATION_COMPLETE.md`, `MANAGED_IDENTITY_DEPLOYMENT.md`
-
----
-
-**Last Updated**: January 28, 2026  
-**Status**: ✅ Working - AI classification operational with Azure AD authentication
+**Last Updated**: February 23, 2026  
+**Status**: ✅ Working — Azure AD authentication operational

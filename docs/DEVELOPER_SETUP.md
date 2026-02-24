@@ -1,6 +1,6 @@
 # Developer Setup Guide
 
-How to get the Triage Management System running locally.
+How to get the Triage Management System and Field Portal running locally.
 
 ---
 
@@ -28,17 +28,27 @@ cd Hack
 ### Backend Dependencies
 
 ```bash
+# Triage API
 pip install -r triage/requirements.txt
+
+# Field Portal API (shared deps, plus httpx)
+pip install httpx
 ```
 
-Key packages: `fastapi`, `uvicorn`, `azure-cosmos`, `azure-identity`, `azure-keyvault-secrets`, `pydantic`, `pytest`
+Key packages: `fastapi`, `uvicorn`, `azure-cosmos`, `azure-identity`, `azure-keyvault-secrets`, `pydantic`, `pytest`, `httpx`
 
 ### Frontend Dependencies
 
 ```bash
+# Triage UI
 cd triage-ui
 npm install
 cd ..
+
+# Field Portal UI
+cd field-portal/ui
+npm install
+cd ../..
 ```
 
 ---
@@ -78,7 +88,7 @@ If you want persistent storage, set up Cosmos DB:
 
 ## Running the Application
 
-### Start Backend API
+### Start Triage API
 
 ```bash
 python -m triage.triage_service
@@ -92,10 +102,9 @@ uvicorn triage.triage_service:app --port 8009 --reload
 
 The API starts on **port 8009** with:
 - Swagger UI: http://localhost:8009/docs
-- ReDoc: http://localhost:8009/redoc
 - Health check: http://localhost:8009/health
 
-### Start Frontend
+### Start Triage UI
 
 ```bash
 cd triage-ui
@@ -104,7 +113,26 @@ npm run dev
 
 The React app starts on **port 3000** and proxies API calls to port 8009.
 
-### Start Both (PowerShell)
+### Start Field Portal API
+
+```bash
+python -m uvicorn field-portal.api.main:app --host 0.0.0.0 --port 8010 --reload
+```
+
+The API starts on **port 8010** with:
+- Swagger UI: http://localhost:8010/docs
+- Health check: http://localhost:8010/health
+
+### Start Field Portal UI
+
+```bash
+cd field-portal/ui
+npm run dev
+```
+
+The React app starts on **port 3001** and proxies API calls to port 8010.
+
+### Start All (PowerShell)
 
 ```powershell
 .\start_services.ps1
@@ -116,50 +144,33 @@ The React app starts on **port 3000** and proxies API calls to port 8009.
 
 ```
 Hack/
-├── triage/                      # Backend Python package
+├── triage/                      # Triage Backend (Python package)
 │   ├── api/                     #   FastAPI routes + Pydantic schemas
-│   │   ├── routes.py            #   All API endpoints
-│   │   └── schemas.py           #   Request/response models
-│   ├── config/                  #   Configuration
-│   │   ├── cosmos_config.py     #   Cosmos DB connection + containers
-│   │   ├── memory_store.py      #   In-memory fallback storage
-│   │   └── logging_config.py    #   Centralized logging setup
+│   ├── config/                  #   Configuration (Cosmos DB, logging)
 │   ├── engines/                 #   Core evaluation engines
-│   │   ├── rules_engine.py      #   Layer 1: Rule evaluation (16 operators)
-│   │   ├── trigger_engine.py    #   Layer 2: Trigger walking (AND/OR/NOT)
-│   │   └── routes_engine.py     #   Layer 3: Route action execution
 │   ├── models/                  #   Data models (dataclasses)
-│   │   ├── rule.py              #   Rule entity
-│   │   ├── trigger.py           #   Trigger entity
-│   │   ├── action.py            #   Action entity
-│   │   ├── route.py             #   Route entity
-│   │   ├── evaluation.py        #   Evaluation result
-│   │   ├── analysis_result.py   #   Analysis engine output
-│   │   ├── field_schema.py      #   ADO field definitions
-│   │   └── audit_entry.py       #   Audit log record
 │   ├── services/                #   Business logic services
-│   │   ├── crud_service.py      #   Generic CRUD operations
-│   │   ├── evaluation_service.py#   Evaluation pipeline orchestration
-│   │   ├── audit_service.py     #   Audit trail logging
-│   │   ├── ado_client.py        #   ADO API adapter (dual-org)
-│   │   ├── ado_writer.py        #   ADO write operations
-│   │   └── webhook_receiver.py  #   Service Hook processor
-│   ├── tests/                   #   Test suite (313 tests)
-│   ├── triage_service.py        #   Entry point (uvicorn startup)
+│   ├── tests/                   #   Test suite (313+ tests)
 │   └── requirements.txt         #   Python dependencies
 │
-├── triage-ui/                   # Frontend React application
+├── triage-ui/                   # Triage Frontend (React)
 │   ├── src/
-│   │   ├── App.jsx              #   Root component + routing
-│   │   ├── pages/               #   10 page components
+│   │   ├── pages/               #   11 page components
 │   │   ├── components/          #   Shared UI components
-│   │   ├── api/triageApi.js     #   API client functions
-│   │   └── utils/               #   Constants, helpers
-│   ├── package.json
+│   │   └── api/triageApi.js     #   API client
 │   └── vite.config.js
 │
+├── field-portal/                # Field Portal
+│   ├── api/                     #   FastAPI backend (9-step wizard)
+│   │   ├── main.py              #   App entry, CORS, lifespan
+│   │   ├── routes.py            #   All wizard API endpoints
+│   │   └── cosmos_client.py     #   Cosmos DB integration
+│   └── ui/                      #   React SPA (9-step wizard)
+│       ├── src/pages/           #   Wizard step components
+│       └── vite.config.js
+│
 ├── docs/                        # Documentation
-├── TRIAGE_SYSTEM_DESIGN.md      # System design document
+├── infrastructure/              # Azure Bicep templates
 └── keyvault_config.py           # Azure Key Vault configuration
 ```
 
@@ -175,10 +186,15 @@ python -m pytest triage/tests/ -q
 
 Expected: `313 passed` (runs in ~2 seconds).
 
-### Build Frontend
+### Build Frontends
 
 ```bash
+# Triage UI
 cd triage-ui
+npx vite build
+
+# Field Portal UI
+cd field-portal/ui
 npx vite build
 ```
 

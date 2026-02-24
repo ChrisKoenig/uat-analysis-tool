@@ -9,24 +9,26 @@ Your application now supports **both local development and production deployment
 ```
 Your Machine
   └─ DefaultAzureCredential
-      ├─ Azure PowerShell (authenticated)
-      ├─ Azure CLI (if available)
+      ├─ Azure CLI / PowerShell (authenticated)
       └─ VS Code (if available)
          ↓
     Key Vault (kv-gcs-dev-gg4a6y)
          ↓
-    Secrets retrieved for app
+    Triage API (port 8009) + Field Portal API (port 8010)
+         ↓
+    Cosmos DB (triage-management) + Azure OpenAI
 ```
 
 ### Production Deployment (Configured)
 ```
 Azure Container App / App Service
-  └─ System-Assigned or User-Assigned Identity
-      └─ mi-gcs-dev
+  └─ User-Assigned Identity: mi-gcs-dev
          ↓
     Key Vault (kv-gcs-dev-gg4a6y)
          ↓
-    Secrets retrieved automatically
+    Triage API + Field Portal API
+         ↓
+    Cosmos DB + Azure OpenAI
 ```
 
 ## Setup Instructions
@@ -216,7 +218,10 @@ The managed identity `mi-gcs-dev` has been granted:
 
 ## Documentation
 
-- **Key Vault Config:** [keyvault_config.py](keyvault_config.py)
-- **Storage Helper:** [blob_storage_helper.py](blob_storage_helper.py)
-- **Migration Summary:** [KEYVAULT_MIGRATION_COMPLETE.md](KEYVAULT_MIGRATION_COMPLETE.md)
-- **Permissions Guide:** [KEYVAULT_PERMISSIONS_SETUP.md](KEYVAULT_PERMISSIONS_SETUP.md)
+- [KEYVAULT_MIGRATION_COMPLETE.md](KEYVAULT_MIGRATION_COMPLETE.md) — Key Vault integration details
+- [KEYVAULT_PERMISSIONS_SETUP.md](KEYVAULT_PERMISSIONS_SETUP.md) — RBAC permission setup
+- [AZURE_OPENAI_AUTH_SETUP.md](AZURE_OPENAI_AUTH_SETUP.md) — OpenAI resource config
+
+---
+
+**Last Updated**: February 23, 2026

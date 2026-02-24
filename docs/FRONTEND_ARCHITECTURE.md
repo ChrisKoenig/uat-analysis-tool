@@ -1,6 +1,8 @@
 # Frontend Architecture
 
-Overview of the React frontend for the Triage Management System.
+Overview of the React frontends for the Triage Management System and Field Portal.
+
+Last Updated: February 23, 2026
 
 ---
 
@@ -38,6 +40,7 @@ triage-ui/src/
 │   ├── QueuePage.jsx/.css       # ADO triage queue browser
 │   ├── EvalHistoryPage.jsx/.css # Evaluation history viewer
 │   ├── ValidationPage.jsx/.css  # System-wide validation warnings
+│   ├── CorrectionsPage.jsx/.css # Corrections review + edit
 │   └── AuditPage.jsx/.css       # Audit log viewer
 │
 ├── components/
@@ -81,9 +84,10 @@ All routes are defined in `App.jsx` using React Router's lazy loading:
 | `/queue` | `QueuePage` | ADO triage queue — Analysis + Triage dual-tab view |
 | `/history` | `EvalHistoryPage` | View past evaluation results |
 | `/validation` | `ValidationPage` | System validation warnings |
+| `/corrections` | `CorrectionsPage` | Review and edit analysis corrections |
 | `/audit` | `AuditPage` | Audit trail viewer |
 
-Pages are code-split via `React.lazy()` — each page loads only when navigated to.
+11 pages total, code-split via `React.lazy()` — each page loads only when navigated to.
 
 ---
 
@@ -230,3 +234,41 @@ npx vite preview
 ```
 
 Build output goes to `triage-ui/dist/` (76 modules, ~180KB gzipped).
+
+---
+
+## Field Portal UI
+
+The Field Portal is a separate React SPA under `field-portal/ui/`.
+
+### Tech Stack
+
+Same as Triage UI — React 18+, Vite, React Router, CSS Modules.
+Adds **MSAL** (`@azure/msal-browser` / `@azure/msal-react`) for Azure AD authentication.
+
+### Architecture
+
+```
+field-portal/ui/src/
+├── App.jsx                  # Root component, MSAL provider, routing
+├── main.jsx                 # React DOM entry
+├── pages/                   # 9-step wizard pages
+├── components/              # Shared UI components
+├── api/                     # API client (calls port 8010)
+└── auth/                    # MSAL configuration + auth helpers
+```
+
+### Key Features
+
+- **9-step assessment wizard** for field engineers to submit structured assessments
+- **MSAL authentication** — users sign in via Azure AD; tokens sent to API
+- **Cosmos DB persistence** — assessments stored in dedicated containers
+- Vite proxies `/api` to `http://localhost:8010` in development
+
+### Build & Run
+
+```bash
+cd field-portal/ui
+npm run dev      # Development — port 3001
+npx vite build   # Production build
+```

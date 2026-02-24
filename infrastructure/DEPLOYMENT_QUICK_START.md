@@ -1,4 +1,6 @@
-# GCS Infrastructure - Quick Start Guide
+# Infrastructure — Quick Start Guide
+
+Last Updated: February 23, 2026
 
 ## Option 1: Deploy Using Azure Portal (Recommended)
 
@@ -11,7 +13,7 @@
    - **Region:** North Central US
    - **Tags:**
      - Environment: Development
-     - Project: GCS
+     - Project: Triage Management
      - Owner: bprice@microsoft.com
 4. Click **Review + create** > **Create**
 
@@ -23,7 +25,7 @@
 5. Fill in parameters:
    - **Location:** northcentralus
    - **Environment:** dev
-   - **ProjectName:** gcs
+   - **ProjectName:** triage
    - **Owner:** bprice@microsoft.com
 6. Click **Review + create** > **Create**
 
@@ -69,13 +71,13 @@
 | Resource | Name | Purpose |
 |----------|------|---------|
 | Resource Group | `rg-gcs-dev` | Container for all resources |
-| Storage Account | `stgcsdevevXXXXXX` | Blob storage for data |
-| Blob Container | `gcs-data` | Data storage container |
+| Cosmos DB Account | `cosmos-gcs-dev` | NoSQL database (triage-management DB) |
 | Log Analytics | `log-gcs-dev` | Centralized logging (730-day retention) |
 | App Insights | `appi-gcs-dev` | Metrics and monitoring (730-day retention) |
+| Key Vault | `kv-gcs-dev-XXXXXX` | Secrets management (Cosmos, OpenAI, storage) |
 | Container Registry | `acrgcsdevXXXXXX` | Docker image storage (Standard SKU) |
-| Key Vault | `kv-gcs-dev-XXXXXX` | Secrets management |
 | Container Apps Env | `cae-gcs-dev` | Container hosting environment |
+| Storage Account | `stgcsdevevXXXXXX` | Blob storage (secondary data) |
 
 **Total Cost:** ~$183-417/month
 
@@ -127,9 +129,9 @@ AZURE_KEY_VAULT_URI=https://<keyvault-name>.vault.azure.net/
 ## Next Steps After Infrastructure is Created
 
 1. ✅ Infrastructure deployed
-2. ⏭️ Store secrets in Key Vault (Phase 1 continued)
-3. ⏭️ Migrate JSON data to Blob Storage (Phase 2)
-4. ⏭️ Start building API Gateway (Phase 3)
+2. ⏭️ Store secrets in Key Vault (see KEYVAULT_MIGRATION_COMPLETE.md)
+3. ⏭️ Configure Cosmos DB containers (triage-management database)
+4. ⏭️ Deploy Triage API (port 8009) and Field Portal API (port 8010)
 
 ---
 
@@ -152,5 +154,6 @@ AZURE_KEY_VAULT_URI=https://<keyvault-name>.vault.azure.net/
 ## Need Help?
 
 **Created:** January 17, 2026  
+**Last Updated:** February 23, 2026  
 **Owner:** bprice@microsoft.com  
-**Documentation:** See [GCS_ARCHITECTURE.md](../GCS_ARCHITECTURE.md)
+**Documentation:** See [DEPLOYMENT_OPERATIONS.md](../docs/DEPLOYMENT_OPERATIONS.md)

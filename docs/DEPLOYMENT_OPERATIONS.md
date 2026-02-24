@@ -12,8 +12,10 @@ No external services required. The system auto-detects the environment:
 
 | Component | How to Start | Port |
 |-----------|-------------|------|
-| Backend API | `python -m triage.triage_service` | 8009 |
-| Frontend | `cd triage-ui && npm run dev` | 3000 |
+| Triage API | `python -m triage.triage_service` | 8009 |
+| Triage UI | `cd triage-ui && npm run dev` | 3000 |
+| Field Portal API | `python -m uvicorn field-portal.api.main:app --port 8010` | 8010 |
+| Field Portal UI | `cd field-portal/ui && npm run dev` | 3001 |
 | Storage | In-memory (automatic when `COSMOS_ENDPOINT` is not set) | — |
 
 ### With Cosmos DB
@@ -30,18 +32,21 @@ For persistent storage:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌──────────────┐
-│ React Frontend  │────▶│ Triage API      │────▶│ Cosmos DB    │
+│ Triage UI       │────▶│ Triage API      │────▶│ Cosmos DB    │
 │ (port 3000)     │     │ (port 8009)     │     │ 8 containers │
 └─────────────────┘     │ FastAPI/Uvicorn │     └──────────────┘
                         └────────┬────────┘
+                                 │
+┌─────────────────┐     ┌────────▼────────┐
+│ Field Portal UI │────▶│ Field Portal API│
+│ (port 3001)     │     │ (port 8010)     │
+└─────────────────┘     └────────┬────────┘
                                  │
                         ┌────────▼────────┐
                         │ Azure DevOps    │
                         │ (read/write)    │
                         └─────────────────┘
 ```
-
-The triage system runs alongside existing microservices on ports 8000–8008.
 
 ---
 
@@ -91,11 +96,17 @@ Fallback: environment variables when Key Vault is unavailable.
 ### Individual Services
 
 ```bash
-# Backend only
+# Triage Backend
 python -m triage.triage_service
 
-# Frontend only
+# Triage Frontend
 cd triage-ui && npm run dev
+
+# Field Portal Backend
+python -m uvicorn field-portal.api.main:app --port 8010 --reload
+
+# Field Portal Frontend
+cd field-portal/ui && npm run dev
 
 # Backend with debug logging
 $env:TRIAGE_LOG_LEVEL = "DEBUG"
@@ -105,14 +116,19 @@ python -m triage.triage_service
 ### Verify Startup
 
 ```bash
-# API health check
+# Triage API health check
 curl http://localhost:8009/health
 
-# Swagger UI
-# Open http://localhost:8009/docs
+# Field Portal API health check
+curl http://localhost:8010/health
 
-# Frontend
-# Open http://localhost:3000
+# Swagger UIs
+# Triage: http://localhost:8009/docs
+# Field Portal: http://localhost:8010/docs
+
+# Frontends
+# Triage UI: http://localhost:3000
+# Field Portal: http://localhost:3001
 ```
 
 ---

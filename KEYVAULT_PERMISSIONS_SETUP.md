@@ -1,9 +1,9 @@
 # Azure Key Vault RBAC Permission Setup
 
-## Issue
-Your user account needs permissions to write secrets to the Key Vault `kv-gcs-dev-gg4a6y`.
+> **Last Updated**: February 23, 2026
 
-Error: `Caller is not authorized to perform action Microsoft.KeyVault/vaults/secrets/setSecret/action`
+## When You Need This
+Your user account needs permissions to read/write secrets in Key Vault `kv-gcs-dev-gg4a6y`, which is used by the Triage API (port 8009) and Field Portal API (port 8010).
 
 ## Solution Options
 
@@ -56,8 +56,10 @@ New-AzRoleAssignment `
 ## After Granting Permissions
 
 1. Wait 2-3 minutes for RBAC propagation
-2. Run: `python migrate_secrets_to_keyvault.py`
-3. The secrets will be uploaded successfully
+2. Start services:
+   - Triage API: `python -m uvicorn triage.api.routes:app --port 8009`
+   - Field Portal API: `python -m uvicorn field-portal.api.main:app --port 8010`
+3. Both services load secrets from Key Vault at startup via `keyvault_config.py`
 
 ## Key Vault Details
 

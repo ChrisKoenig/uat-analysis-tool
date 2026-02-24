@@ -146,10 +146,8 @@ system (`16b3c013-d300-468d-ac64-7eda0820b6d3`).
 
 - **Python 3.10+** with `pip`
 - **Node.js 18+** with `npm`
-- Azure DevOps PAT tokens for UAT and TFT organizations
-- Azure OpenAI endpoint + credentials (via KeyVault or env vars)
+- Azure OpenAI endpoint + credentials (via Key Vault or env vars)
 - Azure Cosmos DB access (AAD credentials with read/write on `triage-management` DB)
-- Microservice gateway running on port 8000 (for quality/context/search)
 
 ## Quick Start
 
@@ -166,28 +164,21 @@ cd field-portal\ui
 npm install
 ```
 
-### 3. Start the microservice gateway (port 8000)
-
-```powershell
-cd C:\Projects\Hack
-python api_gateway.py
-```
-
-### 4. Start the FastAPI backend (port 8010)
+### 3. Start the FastAPI backend (port 8010)
 
 ```powershell
 cd C:\Projects\Hack
 python -m uvicorn field-portal.api.main:app --host 0.0.0.0 --port 8010 --reload
 ```
 
-### 5. Start the React dev server (port 3001)
+### 4. Start the React dev server (port 3001)
 
 ```powershell
 cd field-portal\ui
 npm run dev
 ```
 
-### 6. Open the app
+### 5. Open the app
 
 Navigate to **http://localhost:3001** in your browser.
 
@@ -207,7 +198,7 @@ All backend configuration lives in [`api/config.py`](api/config.py):
 
 | Setting                     | Default | Description                                   |
 |-----------------------------|---------|-----------------------------------------------|
-| `API_GATEWAY_URL`           | `:8000` | Microservice gateway base URL                 |
+| `API_GATEWAY_URL`           | `:8010` | Backend base URL (self-reference for internal calls) |
 | `FIELD_PORTAL_PORT`         | `8010`  | This API's port                               |
 | `TEMP_STORAGE_TTL`          | `3600`  | Session expiry (seconds)                      |
 | `QUALITY_BLOCK_THRESHOLD`   | `50`    | Quality score below this blocks submission    |
@@ -215,11 +206,6 @@ All backend configuration lives in [`api/config.py`](api/config.py):
 | `UAT_SEARCH_DAYS`           | `180`   | How far back to search for UATs               |
 | `UAT_MAX_SELECTED`          | `5`     | Max related UATs a user can link              |
 | `TFT_SIMILARITY_THRESHOLD`  | `0.6`   | Cosine-similarity cutoff for TFT features     |
-
-## Archived UI
-
-The original Flask/Jinja2 monolith UI has been archived to
-`archive/old_flask_ui/` and is no longer used. It is kept for reference only.
 
 ## License
 

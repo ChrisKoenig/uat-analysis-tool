@@ -1,19 +1,15 @@
-# Key Vault Integration - Complete Summary
-**Date:** January 20, 2026  
-**Status:** ✅ Successfully Completed
+# Key Vault Integration — Summary
+**Originally Completed:** January 20, 2026  
+**Last Updated:** February 23, 2026  
+**Status:** ✅ Active
 
 ## Overview
-Successfully migrated from local `.env.azure` secrets to Azure Key Vault secure secret management, following Microsoft security best practices.
+All secrets are stored in Azure Key Vault, following Microsoft security best practices. The Triage API (port 8009) and Field Portal API (port 8010) both load configuration from Key Vault via `keyvault_config.py`.
 
 ## What Was Accomplished
 
-### 1. ✅ Archive Old Application
-- Moved monolithic `app.py` to `archive/app_monolithic_20260120_121025/`
-- Renamed `app_microservices.py` → `app.py` (now the primary application)
-- **Going forward**: Only microservices architecture will be maintained
-
-### 2. ✅ Secrets Migrated to Key Vault
-Successfully uploaded **5 secrets** to Key Vault `kv-gcs-dev-gg4a6y`:
+### 1. ✅ Secrets in Key Vault
+All secrets stored in Key Vault `kv-gcs-dev-gg4a6y`:
 
 | Secret Name | Purpose |
 |-------------|---------|
@@ -23,23 +19,14 @@ Successfully uploaded **5 secrets** to Key Vault `kv-gcs-dev-gg4a6y`:
 | `azure-app-insights-connection-string` | AppInsights connection |
 | `azure-container-registry-password` | Container registry auth |
 
-### 3. ✅ Code Updated for Key Vault Integration
+### 2. ✅ Code Integration
 
-**Files Modified:**
-- `app.py` - Added Key Vault configuration loading
-- `api_gateway.py` - Retrieve Application Insights secrets from Key Vault
-- `blob_storage_helper.py` - Retrieve storage secrets from Key Vault
-- All helper functions now use Key Vault
+Key Vault is consumed by:
+- `keyvault_config.py` — Central Key Vault configuration module
+- `triage/config/cosmos_config.py` — Cosmos DB connection (uses Key Vault for endpoint)
+- `field-portal/api/cosmos_client.py` — Field Portal Cosmos DB access
 
-**New Files Created:**
-- `keyvault_config.py` - Central Key Vault configuration module
-- `migrate_secrets_to_keyvault.py` - One-time migration script
-- `.env.azure.clean` - Template with non-secret values only
-- `test_keyvault_integration.ps1` - Integration test script
-- `configure_keyvault_security.ps1` - Security configuration script
-- `add_ip_to_keyvault.ps1` - Firewall management helper
-
-### 4. ✅ Authentication & Authorization
+### 3. ✅ Authentication & Authorization
 - **RBAC Role**: Key Vault Secrets Officer assigned to user account
 - **Network Security**: IP address added to Key Vault firewall
 - **Authentication**: Using DefaultAzureCredential (Azure PowerShell)
@@ -47,27 +34,23 @@ Successfully uploaded **5 secrets** to Key Vault `kv-gcs-dev-gg4a6y`:
 ## Current Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│   GCS Application (Microservices)               │
-│                                                  │
-│   - app.py (Flask, port 5003)                   │
-│   - API Gateway (FastAPI, port 8000)            │
-│   - Context Analyzer (port 8001)                │
-│   - Search Service (port 8002)                  │
-│   - Enhanced Matching (port 8003)               │
-└──────────────────┬──────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│   Triage API (FastAPI, port 8009)                │
+│   Field Portal API (FastAPI, port 8010)          │
+└──────────────────┬───────────────────────────────┘
                    │
                    │ keyvault_config.py
-                   │ (DefaultAzureCredential)
+                   │ (DefaultAzureCredential / AAD)
                    ▼
 ┌──────────────────────────────────────────────────┐
 │   Azure Key Vault (kv-gcs-dev-gg4a6y)           │
 │   https://kv-gcs-dev-gg4a6y.vault.azure.net/    │
 │                                                  │
 │   Secrets:                                       │
+│   ✓ Cosmos DB endpoint                          │
+│   ✓ Azure OpenAI config                         │
 │   ✓ Storage connection string                   │
 │   ✓ App Insights keys                           │
-│   ✓ Container registry password                 │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -98,97 +81,26 @@ Successfully uploaded **5 secrets** to Key Vault `kv-gcs-dev-gg4a6y`:
 ✓ Application Insights integration working
 ```
 
-## Next Steps (Not Yet Complete)
+## Next Steps
 
-### Task 5: Enable Managed Identity
-**Priority:** High for production deployment
-- Replace DefaultAzureCredential with Managed Identity
-- Eliminates need for any authentication in code
-- Recommended for Container Apps / App Service deployment
+### Managed Identity for Production
+- See [MANAGED_IDENTITY_DEPLOYMENT.md](MANAGED_IDENTITY_DEPLOYMENT.md) for `mi-gcs-dev` setup
+- Container Apps / App Service deployment with no secrets in code
 
-**Implementation:**
-```python
-from azure.identity import ManagedIdentityCredential
-credential = ManagedIdentityCredential()
-```
+### Key Vault Auditing
+- Enable Diagnostic Settings → AuditEvent + AllMetrics → Log Analytics `log-gcs-dev`
+- Enable Microsoft Defender for Key Vault
+- Configure access alerts
 
-### Task 6: Configure Key Vault Auditing
-**Priority:** High for compliance
+## Key Files
 
-**Manual Steps Required:**
-1. **Diagnostic Settings**
-   - Portal: Key Vault → Diagnostic settings → Add
-   - Enable: AuditEvent, AllMetrics
-   - Send to: Log Analytics workspace `log-gcs-dev`
-
-2. **Microsoft Defender for Key Vault**
-   - Portal: Defender for Cloud → Enable Key Vault plan
-   - Configure email alerts
-
-3. **Azure Monitor Alerts**
-   - Alert on: Failed access (403), unusual patterns, secret changes
-   - Notification: Email/Teams/PagerDuty
-
-**Script:** `.\configure_keyvault_security.ps1` (provides guidance)
-
-### Task 7: Implement Additional Security Best Practices
-- [ ] Configure private endpoint (higher security)
-- [ ] Implement key rotation policies
-- [ ] Set up automated secret expiration
-- [ ] Regular access reviews
-- [ ] Compliance reporting
-
-### Task 8: Final Testing & Validation
-- [ ] End-to-end application testing
-- [ ] Verify audit logs in Log Analytics
-- [ ] Test secret rotation procedures
-- [ ] Document runbook for operations
-
-## Commands Reference
-
-### Test Key Vault Integration
-```powershell
-.\test_keyvault_integration.ps1
-```
-
-### Start Application with Key Vault
-```powershell
-.\start_app.ps1
-```
-
-### Configure Security (Manual Steps)
-```powershell
-.\configure_keyvault_security.ps1
-```
-
-### Query Audit Logs (Log Analytics)
-```kusto
-AzureDiagnostics
-| where ResourceType == "VAULTS"
-| where OperationName == "SecretGet"
-| project TimeGenerated, CallerIPAddress, requestUri_s, resultSignature_s
-| order by TimeGenerated desc
-```
-
-## Files Modified
-
-### Core Application Files
-- `app.py` - Main Flask application
-- `api_gateway.py` - API Gateway service
-- `blob_storage_helper.py` - Storage integration
-
-### Configuration Files
-- `.env.azure` - Now contains only non-secret config
-- `.env.azure.clean` - Template for new deployments
-
-### New Modules
-- `keyvault_config.py` - Key Vault integration layer
-- `migrate_secrets_to_keyvault.py` - Migration utility
-
-### Scripts
-- `test_keyvault_integration.ps1` - Integration tests
-- `configure_keyvault_security.ps1` - Security configuration
-- `add_ip_to_keyvault.ps1` - Firewall management
+| File | Purpose |
+|------|---------|
+| `keyvault_config.py` | Central Key Vault integration module |
+| `triage/config/cosmos_config.py` | Cosmos DB connection (reads KV) |
+| `field-portal/api/cosmos_client.py` | Field Portal Cosmos DB access |
+| `configure_keyvault_security.ps1` | Security configuration script |
+| `add_ip_to_keyvault.ps1` | Firewall management helper |
 
 ## Security Compliance
 
@@ -209,11 +121,15 @@ AzureDiagnostics
 - ✅ Audit trail capability
 - ✅ Disaster recovery (soft delete)
 
-## Documentation
+## Related Documentation
 
-- **Permissions Setup:** [KEYVAULT_PERMISSIONS_SETUP.md](KEYVAULT_PERMISSIONS_SETUP.md)
-- **Microsoft Baseline:** https://learn.microsoft.com/security/benchmark/azure/baselines/key-vault-security-baseline
-- **Key Vault Best Practices:** https://learn.microsoft.com/azure/key-vault/general/best-practices
+- [AZURE_OPENAI_AUTH_SETUP.md](AZURE_OPENAI_AUTH_SETUP.md) — OpenAI resource configuration
+- [KEYVAULT_PERMISSIONS_SETUP.md](KEYVAULT_PERMISSIONS_SETUP.md) — RBAC permission setup
+- [MANAGED_IDENTITY_DEPLOYMENT.md](MANAGED_IDENTITY_DEPLOYMENT.md) — Production identity setup
+
+---
+
+**Last Updated**: February 23, 2026
 
 ## Support & Troubleshooting
 
@@ -248,6 +164,4 @@ AzureDiagnostics
 
 ## Summary
 
-**Mission Accomplished!** Your application now uses Azure Key Vault for secure secret management, following Microsoft security best practices. The microservices architecture is the primary application going forward, with all secrets safely stored in Key Vault.
-
-**Immediate Next Step:** Configure audit logging via Azure Portal (Task 6) to complete the security implementation.
+All secrets are securely stored in Azure Key Vault with RBAC access control. Both the Triage API and Field Portal API load configuration from Key Vault at startup via `keyvault_config.py`. No secrets exist in code or `.env` files.
