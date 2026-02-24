@@ -57,7 +57,34 @@ function formatCategory(cat) {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-/* Look up the display label from CATEGORY_OPTIONS; fall back to formatCategory */
+/* ── Intent Options (must match EvaluatePage INTENT_OPTIONS) ── */
+const INTENT_OPTIONS = [
+  { group: 'Support', items: [
+    { value: 'seeking_guidance', label: 'Seeking Guidance' },
+    { value: 'reporting_issue', label: 'Reporting Issue' },
+    { value: 'troubleshooting', label: 'Troubleshooting' },
+    { value: 'configuration_help', label: 'Configuration Help' },
+  ]},
+  { group: 'Requests', items: [
+    { value: 'requesting_feature', label: 'Requesting Feature' },
+    { value: 'requesting_service', label: 'Requesting Service' },
+    { value: 'capacity_request', label: 'Capacity Request' },
+  ]},
+  { group: 'Business', items: [
+    { value: 'business_engagement', label: 'Business Engagement' },
+    { value: 'escalation_request', label: 'Escalation Request' },
+  ]},
+  { group: 'Specialized', items: [
+    { value: 'compliance_support', label: 'Compliance Support' },
+    { value: 'sovereignty_concern', label: 'Sovereignty Concern' },
+    { value: 'roadmap_inquiry', label: 'Roadmap Inquiry' },
+    { value: 'sustainability_inquiry', label: 'Sustainability Inquiry' },
+    { value: 'need_migration_help', label: 'Migration Help' },
+    { value: 'best_practices', label: 'Best Practices' },
+  ]},
+];
+
+/* Look up display label from grouped options; fall back to formatCategory */
 function categoryLabel(val) {
   for (const g of CATEGORY_OPTIONS) {
     for (const item of g.items) {
@@ -67,15 +94,20 @@ function categoryLabel(val) {
   return formatCategory(val);
 }
 
-function toSnakeCase(str) {
-  return (str || '').trim().toLowerCase().replace(/\s+/g, '_');
+function intentLabel(val) {
+  for (const g of INTENT_OPTIONS) {
+    for (const item of g.items) {
+      if (item.value === val) return item.label;
+    }
+  }
+  return formatCategory(val);
 }
 
 const EMPTY_FORM = {
   original_text: '',
-  pattern: '',
   original_category: '',
   corrected_category: '',
+  original_intent: '',
   corrected_intent: '',
   correction_notes: '',
 };
@@ -124,10 +156,10 @@ export default function CorrectionsPage({ addToast }) {
     setSelected(item);
     setForm({
       original_text: item.original_text || '',
-      pattern: formatCategory(item.pattern),
       original_category: item.original_category || '',
       corrected_category: item.corrected_category || '',
-      corrected_intent: formatCategory(item.corrected_intent),
+      original_intent: item.pattern || '',
+      corrected_intent: item.corrected_intent || '',
       correction_notes: item.correction_notes || '',
     });
     setFormMode('edit');
@@ -149,9 +181,9 @@ export default function CorrectionsPage({ addToast }) {
     try {
       const payload = {
         ...form,
-        pattern: toSnakeCase(form.pattern),
-        corrected_intent: toSnakeCase(form.corrected_intent),
+        pattern: form.original_intent,
       };
+      delete payload.original_intent;
       if (formMode === 'edit' && selected != null) {
         await api.updateCorrection(selected._index, payload);
         addToast?.('Correction updated', 'success');
@@ -209,10 +241,16 @@ export default function CorrectionsPage({ addToast }) {
       render: (val) => <strong>{categoryLabel(val)}</strong>,
     },
     {
-      key: 'corrected_intent',
-      label: 'Intent',
+      key: 'pattern',
+      label: 'Original Intent',
       width: '18%',
-      render: (val) => val ? formatCategory(val) : <span className="text-muted">—</span>,
+      render: (val) => val ? intentLabel(val) : <span className="text-muted">—</span>,
+    },
+    {
+      key: 'corrected_intent',
+      label: 'Corrected Intent',
+      width: '18%',
+      render: (val) => val ? intentLabel(val) : <span className="text-muted">—</span>,
     },
     {
       key: 'correction_notes',
@@ -314,23 +352,37 @@ export default function CorrectionsPage({ addToast }) {
                   </div>
 
                   <div className="corrections-field">
-                    <label>Pattern</label>
-                    <input
-                      type="text"
-                      value={form.pattern}
-                      onChange={(e) => updateForm('pattern', e.target.value)}
-                      placeholder="e.g., Service Availability Query"
-                    />
+                    <label>Original Intent</label>
+                    <select
+                      value={form.original_intent}
+                      onChange={(e) => updateForm('original_intent', e.target.value)}
+                    >
+                      <option value="">Select...</option>
+                      {INTENT_OPTIONS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.items.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="corrections-field">
                     <label>Corrected Intent</label>
-                    <input
-                      type="text"
+                    <select
                       value={form.corrected_intent}
                       onChange={(e) => updateForm('corrected_intent', e.target.value)}
-                      placeholder="e.g., Regional Availability"
-                    />
+                    >
+                      <option value="">Select...</option>
+                      {INTENT_OPTIONS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.items.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="corrections-field full-width">
