@@ -702,8 +702,9 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [x] Managed Identity — `id-gcs-containerapp` used for Cosmos + OpenAI AAD auth in containers
 - [x] ADO integration in containers — Dual PAT approach (test org write, production org read)
 - [x] AI analysis in containers — OpenAI env vars set, AI-Powered mode confirmed
+- [ ] **Cosmos DB private networking** — Public access disabled per company policy (Feb 24). Local dev and Container Apps need Private Endpoint or VNet integration to reach `cosmos-gcs-dev`. Current workaround: none (blocked).
+- [ ] **Key Vault private networking** — Public access disabled per company policy (Feb 24). Local dev and Container Apps need Private Endpoint or VNet integration to reach `kv-gcs-dev-gg4a6y`. Container Apps currently use env vars as workaround.
 - [ ] Rebuild container images — debug log hardcoded path fix needs redeployment
-- [ ] Fix Key Vault networking — Container Apps blocked by IP firewall (using env vars as workaround)
 - [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
 - [ ] Copilot API plugin — field portal API already has OpenAPI spec at :8010/docs
 - [ ] Custom domain / SSL for container apps
