@@ -165,9 +165,28 @@ The Queue page combines **analysis** and **triage** workflows into a dual-tab in
 
 A **toolbar row** sits above the tabs with action buttons (Refresh, Analyze/Evaluate). Action buttons use neutral gray styling (`btn-toolbar`) to visually separate them from the colored tab navigation.
 
+#### Dynamic Columns
+
+Columns are **loaded dynamically** from the ADO saved query associated with each tab — no hardcoded column layout. A step-by-step progress indicator shows: Authenticating → Fetching queries → Loading items → Processing.
+
+All columns are **resizable** (drag the right edge) and support:
+- **Click-to-sort** — ascending, then descending
+- **Excel-like filter dropdown** — funnel icon (▼) opens a checkbox list of unique values
+- **Clear All Filters (✕)** — toolbar button resets all column filters at once
+
+Filter dropdowns use `displayValue()` to show formatted text matching grid cells (e.g., "Requesting Feature" not `requesting_feature`).
+
+#### Data Pipeline
+
+```
+tabItems → filteredItems (column filters) → sortedItems → paginatedItems
+```
+
+Tab data is cached per-query in `queueCache.js` to avoid redundant ADO calls when switching tabs.
+
 #### AI Availability Check
 
-Before running analysis, the UI calls `getAnalysisEngineStatus()`. If the AI engine is unavailable (`aiAvailable: false`), a confirmation dialog warns the user that analysis will use pattern-only mode. The user can proceed or cancel.
+Before analysis, the UI calls `getAnalysisEngineStatus()`. If unavailable, a **toast notification** and **inline warning banner** inform the user (non-blocking — no popup dialog). The Analyze button shows a spinner **immediately** on click for instant feedback.
 
 #### Analysis Progress Panel
 
@@ -197,10 +216,14 @@ Clicking a work item's analysis indicator opens a slide-out panel with:
 
 ### Evaluation Flow
 
-1. User enters work item IDs on the Evaluate page
-2. Clicks "Evaluate" or "Test (Dry Run)"
-3. Results show matched trigger, applied route, rule results, and field changes
-4. For live evaluations, "Apply to ADO" writes changes back
+1. User selects work items on the Triage tab or enters IDs on the Evaluate page
+2. Clicks "Dry Run" or "Evaluate"
+3. Results **auto-expand** inline below each evaluated row (multi-expand via `expandedIds` Set)
+4. Rule chips show **human-readable names** from the backend `ruleNames` map (hover for ID tooltip)
+5. **Click any row** with results to toggle expansion; **Expand All / Collapse All** button in summary header
+6. Expanded rows have a green left border and blue highlight
+7. For live evaluations, "Apply to ADO" writes changes back
+8. After analysis, results are merged into cache via `updateCachedAnalysis()` — no full ADO reload
 
 ### Data Display
 

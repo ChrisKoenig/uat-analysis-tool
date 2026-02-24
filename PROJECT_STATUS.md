@@ -1,5 +1,5 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 23, 2026
+**Last Updated**: February 24, 2026
 **Status**: ✅ All systems operational — Local + Azure Container Apps deployment live — Triage Management + Field Submission Portal + Cosmos DB + AI classification + ADO dual-org integration
 
 ---
@@ -233,6 +233,45 @@ These are injected automatically by `launcher.py` or must be set manually.
 ### Key Limitation
 - Azure CLI login fails locally (Conditional Access policy error 53003) — use Cloud Shell for `az` commands
 - Database/container creation requires portal or Cloud Shell (RBAC data-plane role doesn't cover control-plane)
+
+---
+
+## Recent Changes (Feb 24, 2026) — Queue UX Overhaul: Dynamic Columns, Filtering, Analysis & Evaluation
+
+### Dynamic Grid Columns (`797c889`)
+- Queue table columns now **load dynamically** from the ADO saved query associated with each tab
+- Removed hardcoded 18-column layout — grid adapts to whatever fields ADO returns
+- Added **step-by-step loading progress** indicator (Authenticating → Fetching queries → Loading items → Processing)
+
+### Column Resize Handles + Excel-Like Filtering (`b6fc456`)
+- All columns are **resizable** via drag handles on the header right edge
+- Each column header has a **funnel icon (▼)** that opens an Excel-like filter dropdown
+- Filter dropdowns show checkboxes for each unique value in the column
+- **Clear All Filters (✕)** button appears in the toolbar when any filter is active
+
+### Filter Display Values (`480543f`)
+- Filter dropdown values now show **formatted display text** matching the grid cells (e.g., "Requesting Feature" instead of `requesting_feature`)
+- Added `displayValue()` and `rawCellValue()` helpers for consistent value formatting
+
+### Unicode Fixes (`9b919f8`, `01a21d3`)
+- Fixed filter button and clear-filters button rendering raw unicode strings instead of symbols
+- Changed to JSX expressions using `'\u25BC'` / `'\u2715'` syntax
+
+### Analyze Selected — Instant Feedback (`f17ca41`)
+- **Instant button feedback**: `analyzing=true` set immediately on click (before AI status check)
+- **Non-blocking AI status**: Replaced `window.confirm()` popup with toast notification + inline warning banner
+- **Smart cache update**: After analysis completes, results are merged into cached data via `updateCachedAnalysis()` instead of clearing the entire cache and forcing a full ADO reload
+- Grid scroll position and selection state are preserved after analysis
+
+### Evaluation Result Visibility (`10e9713`)
+- **Auto-expand**: All evaluated rows expand automatically after dry run completes — no scrolling to find results
+- **Rule names**: Rule chips display human-readable names (e.g., "Retirement Match") from the backend `ruleNames` map instead of raw IDs like `rule-8f7d5486`. Tooltip shows the ID for reference.
+- **Row click toggles expansion**: Click any row with results to toggle it open/closed
+- **Multi-expand**: Converted from single `expandedId` to `expandedIds` Set — multiple rows can be expanded simultaneously
+- **Expand All / Collapse All**: Toggle button in the bulk summary header
+- **Visual indicators**: Rows with results show pointer cursor + hover highlight; expanded rows get a green left border
+
+**Commits**: `797c889` → `b6fc456` → `9b919f8` → `01a21d3` → `480543f` → `f17ca41` → `10e9713` — all pushed to `origin/main`
 
 ---
 

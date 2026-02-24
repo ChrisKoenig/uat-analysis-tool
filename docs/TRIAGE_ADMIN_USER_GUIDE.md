@@ -3,7 +3,7 @@
 How to use the Triage Management System to manage work-item routing rules,
 run evaluations, and operate the triage queue.
 
-Last Updated: February 23, 2026
+Last Updated: February 24, 2026
 
 ---
 
@@ -46,32 +46,68 @@ The Queue is where day-to-day triage work happens. It has two tabs:
 
 Items that have been Approved, Overridden, or Redirected are hidden from the queue.
 
+### Dynamic Columns
+
+The queue table columns are **loaded dynamically** from the ADO saved query
+associated with each tab. Instead of a fixed set of columns, the grid adapts to
+whatever fields the saved query returns. A step-by-step loading progress
+indicator shows the data-load stages (Authenticating → Fetching queries →
+Loading items → Processing).
+
+All columns are **resizable** — drag the right edge of any column header to
+adjust its width.
+
 ### Filtering and Sorting
 
 - Use the **Team** dropdown to filter items by triage team.
-- Click any column header to sort ascending; click again for descending.
-- The toolbar shows: total items, selected count, and pagination controls.
+- Click any **column header** to sort ascending; click again for descending.
+- Click the **funnel icon (▼)** on any column header to open an **Excel-like
+  filter dropdown**. Check or uncheck values to filter the grid. The dropdown
+  shows **formatted display values** matching what you see in the grid cells
+  (e.g., "Requesting Feature" not `requesting_feature`).
+- A **Clear All Filters (✕)** button appears in the toolbar when any column
+  filter is active. Click it to reset all column filters at once.
+- The toolbar shows: total items, selected count, active filter count, and
+  pagination controls.
 
 ### Running AI Analysis (Analysis Tab)
 
 1. Select items using the checkboxes in the first column.
 2. Click **🧠 Analyze Selected**.
+   - The button changes to a disabled spinner **immediately** — no delay while
+     the AI status is checked.
+   - If the AI service is unavailable, a **toast notification** and an inline
+     **warning banner** appear (non-blocking — you are never interrupted by a
+     popup dialog).
 3. A progress panel appears showing:
    - Overall progress bar with percentage.
    - Per-item status cards: queued → analyzing (spinner) → done / failed.
    - Completed items show category, intent, confidence, and source inline.
-4. When done, review the results, then click **✅ Ready for Triage** to move
-   selected items to the Triage tab.
+4. When analysis finishes, results are **merged into the existing cache** — the
+   grid does not reload all items from ADO, so your scroll position and
+   selection state are preserved.
+5. Review the results, then click **✅ Ready for Triage** to move selected items
+   to the Triage tab.
 
 ### Running Evaluations (Triage Tab)
 
 1. Select items using the checkboxes.
 2. Click **🧪 Dry Run Selected** to preview what would happen without writing to
    ADO.
-3. Review the inline results: matched trigger, applied route, rule outcomes
-   (✓/✗), and field changes (Field / From / To).
-4. When satisfied, click **⚡ Evaluate Selected** to apply changes to ADO.
-5. Use **↩️ Return to Analysis** to send items back for re-analysis if needed.
+3. All evaluated rows **auto-expand** to show results inline — no scrolling
+   required.
+4. Review the inline results for each item:
+   - **Analysis State badge** — the proposed state after evaluation.
+   - **Matched Trigger** and **Applied Route** tags.
+   - **Rule chips** — green ✓ (passed) or red ✗ (failed) per rule. Chips show
+     the **human-readable rule name** (e.g., "Retirement Match"), not the
+     internal ID. Hover over a chip to see the rule ID in a tooltip.
+   - **Field Changes** — table showing Field / From / To values.
+5. **Click any row** with results to toggle its expansion open or closed.
+6. Use the **Expand All / Collapse All** button in the summary header to toggle
+   all result rows at once.
+7. When satisfied, click **⚡ Evaluate Selected** to apply changes to ADO.
+8. Use **↩️ Return to Analysis** to send items back for re-analysis if needed.
 
 ### Viewing Analysis Details
 
@@ -90,8 +126,8 @@ Items without analysis show a gray dot.
 
 ### Column Reference
 
-The queue table shows 18 columns, all resizable. Column positions are saved to
-your browser. Key columns:
+The queue table columns are **dynamic** — they come from the ADO saved query for
+the active tab. Common columns include:
 
 | Column | Description |
 |--------|-------------|
@@ -101,7 +137,11 @@ your browser. Key columns:
 | Category / Intent | AI-assigned classification |
 | Commitment | Committed, Uncommitted, or Best Case |
 | MS Status | On Track, Blocked, At Risk, or Completed |
+| Requesting Feature | The associated TFT feature |
 | 💬 | Comment count |
+
+Additional columns appear if the ADO saved query includes them. All columns
+support sorting, filtering, and resizing.
 
 ### Analysis State Reference
 
