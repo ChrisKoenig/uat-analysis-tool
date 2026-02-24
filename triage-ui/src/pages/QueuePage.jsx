@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import * as api from '../api/triageApi';
-import { getCachedQueue, setCachedQueue, clearQueueCache } from '../api/queueCache';
+import { getCachedQueue, setCachedQueue, clearQueueCache, updateCachedAnalysis } from '../api/queueCache';
 import { formatDate, truncate } from '../utils/helpers';
 import './QueuePage.css';
 
@@ -647,29 +647,7 @@ export default function QueuePage({ addToast }) {
       return;
     }
 
-    // Check AI availability before starting
-    try {
-      const status = await api.getAnalysisEngineStatus();
-      if (!status.aiAvailable) {
-        const proceed = window.confirm(
-          `⚠️ AI Analysis Engine is not available.\n\n` +
-          `Mode: ${status.mode}\n` +
-          `${status.error ? `Error: ${status.error}\n\n` : '\n'}` +
-          `Analysis will use pattern matching only, which provides lower ` +
-          `confidence results without LLM-powered reasoning.\n\n` +
-          `Do you want to continue with pattern-only analysis?`
-        );
-        if (!proceed) return;
-      }
-    } catch {
-      // If status check fails, warn and let user decide
-      const proceed = window.confirm(
-        `⚠️ Unable to check analysis engine status.\n\n` +
-        `The AI service may be unavailable. Continue anyway?`
-      );
-      if (!proceed) return;
-    }
-
+    // ── Immediate feedback: disable button + show progress panel ──
     // Build progress tracker with titles from loaded items
     const progressItems = ids.map((id) => {
       const item = items.find((i) => i.id === id);
@@ -685,14 +663,32 @@ export default function QueuePage({ addToast }) {
       };
     });
 
+    setAnalyzing(true);  // disable button immediately (prevents double-click)
     setAnalysisProgress({
       total: ids.length,
       completed: 0,
       failed: 0,
       currentId: null,
       items: progressItems,
+      engineNote: null,  // populated after status check
     });
-    setAnalyzing(true);
+
+    // ── Check AI availability (non-blocking — no confirm dialog) ──
+    let aiNote = null;
+    try {
+      const status = await api.getAnalysisEngineStatus();
+      if (!status.aiAvailable) {
+        aiNote = `AI engine unavailable (${status.mode}) — using pattern matching`;
+        addToast?.(aiNote, 'warning');
+      }
+    } catch {
+      aiNote = 'Unable to check AI engine — proceeding with available mode';
+      addToast?.(aiNote, 'warning');
+    }
+
+    if (aiNote) {
+      setAnalysisProgress((prev) => prev ? { ...prev, engineNote: aiNote } : prev);
+    }
 
     let completed = 0;
     let failed = 0;
@@ -768,13 +764,17 @@ export default function QueuePage({ addToast }) {
       failed > 0 ? 'warning' : 'success'
     );
 
-    // Refresh analysis map for all processed items
+    // Refresh analysis map for all processed items and update the cache
+    // (analysis only writes to Cosmos — ADO items are unchanged, so we
+    //  update the cached analysisMap rather than clearing the entire cache,
+    //  which would force a slow full ADO re-query.)
     try {
       const analysisData = await api.getAnalysisBatch(ids);
-      setAnalysisMap((prev) => ({ ...prev, ...(analysisData.results || {}) }));
+      const updates = analysisData.results || {};
+      setAnalysisMap((prev) => ({ ...prev, ...updates }));
+      updateCachedAnalysis(activeQueryId, updates);
     } catch { /* non-fatal */ }
 
-    clearQueueCache(); // data changed — invalidate
     setAnalyzing(false);
   };
 
@@ -805,7 +805,7 @@ export default function QueuePage({ addToast }) {
         )
       );
       setSelectedIds(new Set());
-      clearQueueCache(); // data changed — invalidate
+      clearQueueCache(activeQueryId); // invalidate this query's cache only
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
@@ -861,7 +861,7 @@ export default function QueuePage({ addToast }) {
       addToast?.(err.message, 'error');
     } finally {
       setApplying(null);
-      clearQueueCache(); // ADO was written — stale cache
+      clearQueueCache(activeQueryId); // ADO fields changed — invalidate this query's cache
     }
   };
 
@@ -1171,6 +1171,13 @@ export default function QueuePage({ addToast }) {
                 </button>
               )}
             </div>
+
+            {/* Engine note (shown when AI is unavailable) */}
+            {analysisProgress.engineNote && (
+              <div className="analysis-engine-note">
+                ⚠️ {analysisProgress.engineNote}
+              </div>
+            )}
 
             {/* Overall progress bar */}
             <div className="analysis-progress-bar-section">

@@ -57,3 +57,18 @@ export function clearQueueCache(key) {
     _cacheMap.clear();
   }
 }
+
+/**
+ * Merge new analysis results into an existing cached entry's analysisMap
+ * without invalidating the entire cache (avoids a full ADO re-query).
+ *
+ * @param {string} key          — the ADO query ID
+ * @param {Object} analysisUpdates — { "12345": { category, intent, … }, … }
+ */
+export function updateCachedAnalysis(key, analysisUpdates) {
+  if (!key || !analysisUpdates) return;
+  const entry = _cacheMap.get(key);
+  if (!entry) return;
+  entry.analysisMap = { ...entry.analysisMap, ...analysisUpdates };
+  entry.timestamp = Date.now(); // refresh TTL so it doesn't expire immediately
+}

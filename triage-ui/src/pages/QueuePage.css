@@ -883,6 +883,17 @@
   font-size: 16px;
 }
 
+/* Engine warning note */
+.analysis-engine-note {
+  margin: 0 24px;
+  padding: 8px 12px;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* Progress bar */
 .analysis-progress-bar-section {
   padding: 16px 24px 12px;
