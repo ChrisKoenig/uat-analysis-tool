@@ -547,12 +547,13 @@ export default function EvaluatePage({ addToast }) {
 
             {/* Domain Entities */}
             {(detail.azureServices?.length > 0 || detail.technologies?.length > 0 ||
-              detail.detectedProducts?.length > 0 || detail.regions?.length > 0) && (
+              detail.detectedProducts?.length > 0 || detail.regions?.length > 0 ||
+              detail.technicalAreas?.length > 0 || detail.complianceFrameworks?.length > 0) && (
               <div className="fp-entities-section">
                 <strong>Domain Entities Detected:</strong>
                 <div className="fp-entities">
                   {detail.azureServices?.length > 0 && (
-                    <CollapsibleEntitySection title="Azure Services" count={detail.azureServices.length}>
+                    <CollapsibleEntitySection title="Azure & Modern Work Services" count={detail.azureServices.length}>
                       <div>{detail.azureServices.map((s, i) => <AnalysisBadge key={i} bg="#deecf9" color="#0078d4">{s}</AnalysisBadge>)}</div>
                     </CollapsibleEntitySection>
                   )}
@@ -567,8 +568,18 @@ export default function EvaluatePage({ addToast }) {
                     </CollapsibleEntitySection>
                   )}
                   {detail.regions?.length > 0 && (
-                    <CollapsibleEntitySection title="Regions" count={detail.regions.length}>
+                    <CollapsibleEntitySection title="Regions / Locations" count={detail.regions.length}>
                       <div>{detail.regions.map((r, i) => <AnalysisBadge key={i} bg="#d6eaf8" color="#2471a3">{r}</AnalysisBadge>)}</div>
+                    </CollapsibleEntitySection>
+                  )}
+                  {detail.technicalAreas?.length > 0 && (
+                    <CollapsibleEntitySection title="Technical Areas" count={detail.technicalAreas.length}>
+                      <div>{detail.technicalAreas.map((a, i) => <AnalysisBadge key={i} bg="#fce4ec" color="#c0392b">{a}</AnalysisBadge>)}</div>
+                    </CollapsibleEntitySection>
+                  )}
+                  {detail.complianceFrameworks?.length > 0 && (
+                    <CollapsibleEntitySection title="Compliance Frameworks" count={detail.complianceFrameworks.length}>
+                      <div>{detail.complianceFrameworks.map((f, i) => <AnalysisBadge key={i} bg="#fff9c4" color="#f57f17">{f}</AnalysisBadge>)}</div>
                     </CollapsibleEntitySection>
                   )}
                 </div>

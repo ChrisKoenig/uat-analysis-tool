@@ -1621,10 +1621,10 @@ export default function QueuePage({ addToast }) {
                   </section>
                 )}
 
-                {/* Azure Services */}
+                {/* Azure & Modern Work Services */}
                 {analysisDetail.azureServices?.length > 0 && (
                   <section className="analysis-section">
-                    <h4>Azure Services</h4>
+                    <h4>Azure & Modern Work Services</h4>
                     <div className="analysis-tags">
                       {analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag tag-service">{s}</span>)}
                     </div>
@@ -1647,6 +1647,26 @@ export default function QueuePage({ addToast }) {
                     <h4>Technical Areas</h4>
                     <div className="analysis-tags">
                       {analysisDetail.technicalAreas.map((a, i) => <span key={i} className="analysis-tag tag-area">{a}</span>)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Regions / Locations */}
+                {analysisDetail.regions?.length > 0 && (
+                  <section className="analysis-section">
+                    <h4>Regions / Locations</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.regions.map((r, i) => <span key={i} className="analysis-tag tag-region">{r}</span>)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Compliance Frameworks */}
+                {analysisDetail.complianceFrameworks?.length > 0 && (
+                  <section className="analysis-section">
+                    <h4>Compliance Frameworks</h4>
+                    <div className="analysis-tags">
+                      {analysisDetail.complianceFrameworks.map((f, i) => <span key={i} className="analysis-tag tag-compliance">{f}</span>)}
                     </div>
                   </section>
                 )}

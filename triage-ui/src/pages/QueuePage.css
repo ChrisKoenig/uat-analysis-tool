@@ -1382,11 +1382,13 @@
 }
 
 /* Tag color variations */
-.analysis-tag.tag-concept  { background: #e3f2fd; color: #1565c0; }
-.analysis-tag.tag-service  { background: #e8f5e9; color: #2e7d32; }
-.analysis-tag.tag-tech     { background: #f3e5f5; color: #7b1fa2; }
-.analysis-tag.tag-area     { background: #fff3e0; color: #e65100; }
-.analysis-tag.tag-product  { background: #fce4ec; color: #c62828; }
+.analysis-tag.tag-concept    { background: #e3f2fd; color: #1565c0; }
+.analysis-tag.tag-service    { background: #e8f5e9; color: #2e7d32; }
+.analysis-tag.tag-tech       { background: #f3e5f5; color: #7b1fa2; }
+.analysis-tag.tag-area       { background: #fff3e0; color: #e65100; }
+.analysis-tag.tag-product    { background: #fce4ec; color: #c62828; }
+.analysis-tag.tag-region     { background: #e0f2f1; color: #00695c; }
+.analysis-tag.tag-compliance { background: #fff9c4; color: #f57f17; }
 
 /* Text blocks */
 .analysis-text {

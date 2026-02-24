@@ -807,6 +807,10 @@ def _map_hybrid_to_analysis_result(
 
     ts = utc_now()
     date_str = datetime.datetime.utcnow().strftime("%Y%m%d")
+
+    # Extract domain_entities dict from hybrid result (azure_services, regions, etc.)
+    _de = getattr(hybrid_result, "domain_entities", None) or {}
+
     return AnalysisResult(
         id=f"analysis-{work_item_id}-{date_str}",
         workItemId=work_item_id,
@@ -825,7 +829,13 @@ def _map_hybrid_to_analysis_result(
             p.get("name", str(p)) if isinstance(p, dict) else str(p)
             for p in (getattr(hybrid_result, "pattern_features", {}) or {}).get("detected_products", [])
         ],
-        azureServices=[],
+        azureServices=_de.get("azure_services", []),
+        complianceFrameworks=_de.get("compliance_frameworks", []),
+        technologies=_de.get("technologies", []),
+        regions=_de.get("regions", []),
+        businessDomains=_de.get("business_domains", []),
+        technicalAreas=_de.get("technical_areas", []),
+        discoveredServices=_de.get("discovered_services", []),
         keyConcepts=getattr(hybrid_result, "key_concepts", None) or [],
         semanticKeywords=getattr(hybrid_result, "semantic_keywords", None) or [],
         contextSummary=getattr(hybrid_result, "context_summary", "") or "",
@@ -1687,9 +1697,12 @@ async def list_fields(
             {"id": "Analysis.TechnicalComplexity", "displayName": "Technical Complexity",  "type": "string",  "description": "Technical complexity level (high / medium / low)"},
             {"id": "Analysis.UrgencyLevel",        "displayName": "Urgency Level",        "type": "string",  "description": "Urgency level (high / medium / low)"},
             {"id": "Analysis.Products",            "displayName": "Detected Products",    "type": "list",    "description": "Azure products mentioned in the work item"},
-            {"id": "Analysis.Services",            "displayName": "Azure Services",       "type": "list",    "description": "Azure service names detected"},
-            {"id": "Analysis.Regions",             "displayName": "Regions",              "type": "list",    "description": "Azure regions mentioned"},
+            {"id": "Analysis.Services",            "displayName": "Azure & Modern Work Services", "type": "list", "description": "Azure and Modern Work service names detected (e.g., Route Server, Teams, SharePoint)"},
+            {"id": "Analysis.Regions",             "displayName": "Regions / Locations",  "type": "list",    "description": "Geographic regions and Azure regions mentioned"},
             {"id": "Analysis.Technologies",        "displayName": "Technologies",         "type": "list",    "description": "Technologies referenced in the work item"},
+            {"id": "Analysis.TechnicalAreas",      "displayName": "Technical Areas",      "type": "list",    "description": "Service categories (e.g., networking, security, ai_ml, modern_work)"},
+            {"id": "Analysis.ComplianceFrameworks", "displayName": "Compliance Frameworks", "type": "list",   "description": "Compliance frameworks mentioned (NIST, ISO, HIPAA, etc.)"},
+            {"id": "Analysis.DiscoveredServices",  "displayName": "Discovered Services",  "type": "list",    "description": "Services validated via Microsoft Learn API lookup"},
             {"id": "Analysis.KeyConcepts",         "displayName": "Key Concepts",         "type": "list",    "description": "Key concepts extracted from the work item"},
             {"id": "Analysis.SemanticKeywords",    "displayName": "Semantic Keywords",    "type": "list",    "description": "Keywords for search and matching"},
             {"id": "Analysis.ContextSummary",      "displayName": "Context Summary",      "type": "string",  "description": "Brief AI-generated summary of the work item"},

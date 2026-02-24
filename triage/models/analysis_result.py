@@ -110,6 +110,7 @@ class AnalysisResult:
     regions: List[str] = field(default_factory=list)
     businessDomains: List[str] = field(default_factory=list)
     technicalAreas: List[str] = field(default_factory=list)
+    discoveredServices: List[str] = field(default_factory=list)
     
     # -------------------------------------------------------------------------
     # Semantic Context
@@ -200,6 +201,9 @@ class AnalysisResult:
             "Services": self.azureServices,
             "Regions": self.regions,
             "Technologies": self.technologies,
+            "TechnicalAreas": self.technicalAreas,
+            "ComplianceFrameworks": self.complianceFrameworks,
+            "DiscoveredServices": self.discoveredServices,
             "KeyConcepts": self.keyConcepts,
             "SemanticKeywords": self.semanticKeywords,
             "ContextSummary": self.contextSummary,
