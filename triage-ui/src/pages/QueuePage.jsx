@@ -503,22 +503,47 @@ export default function QueuePage({ addToast }) {
 
   // ── Column Filter Logic ──────────────────────────────────────
 
+  /**
+   * Convert a raw cell value to its display string, matching what renderCell shows.
+   * This keeps the filter dropdown values consistent with the grid text.
+   */
+  const displayValue = useCallback((colKey, rawVal) => {
+    if (rawVal === undefined || rawVal === null || rawVal === '') return '(Blank)';
+
+    // Analysis columns: underscores → spaces
+    if (colKey === 'analysis.category' || colKey === 'analysis.intent') {
+      return String(rawVal).replace(/_/g, ' ');
+    }
+
+    // ROBAnalysisState: blank → "Pending"
+    if (colKey === 'Custom.ROBAnalysisState' && !rawVal) return 'Pending';
+
+    // Date strings → formatted
+    if (typeof rawVal === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(rawVal)) {
+      return formatDate(rawVal);
+    }
+
+    return String(rawVal);
+  }, []);
+
+  /** Read the raw value for a column from an item */
+  const rawCellValue = useCallback((colKey, item) => {
+    if (colKey.startsWith('analysis.')) {
+      return analysisMap[String(item.id)]?.[colKey.replace('analysis.', '')];
+    }
+    return item.fields?.[colKey];
+  }, [analysisMap]);
+
   /** Unique display values for the currently-open filter column */
   const filterValues = useMemo(() => {
     if (!filterOpen) return [];
     const colKey = filterOpen.colKey;
     const vals = new Set();
     for (const item of tabItems) {
-      let v;
-      if (colKey.startsWith('analysis.')) {
-        v = analysisMap[String(item.id)]?.[colKey.replace('analysis.', '')];
-      } else {
-        v = item.fields?.[colKey];
-      }
-      vals.add(v === undefined || v === null || v === '' ? '(Blank)' : String(v));
+      vals.add(displayValue(colKey, rawCellValue(colKey, item)));
     }
     return [...vals].sort((a, b) => a.localeCompare(b));
-  }, [filterOpen, tabItems, analysisMap]);
+  }, [filterOpen, tabItems, displayValue, rawCellValue]);
 
   /** Filter values narrowed by the search box inside the dropdown */
   const visibleFilterValues = useMemo(() => {
@@ -533,17 +558,10 @@ export default function QueuePage({ addToast }) {
     if (active.length === 0) return tabItems;
     return tabItems.filter((item) =>
       active.every(([colKey, allowed]) => {
-        let v;
-        if (colKey.startsWith('analysis.')) {
-          v = analysisMap[String(item.id)]?.[colKey.replace('analysis.', '')];
-        } else {
-          v = item.fields?.[colKey];
-        }
-        const display = v === undefined || v === null || v === '' ? '(Blank)' : String(v);
-        return allowed.has(display);
+        return allowed.has(displayValue(colKey, rawCellValue(colKey, item)));
       })
     );
-  }, [tabItems, filters, analysisMap]);
+  }, [tabItems, filters, displayValue, rawCellValue]);
 
 
   // ── Sorting ──────────────────────────────────────────────────
