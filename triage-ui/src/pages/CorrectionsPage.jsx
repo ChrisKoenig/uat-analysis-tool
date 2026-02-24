@@ -33,6 +33,10 @@ function formatCategory(cat) {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
+function toSnakeCase(str) {
+  return (str || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
 const EMPTY_FORM = {
   original_text: '',
   pattern: '',
@@ -86,10 +90,10 @@ export default function CorrectionsPage({ addToast }) {
     setSelected(item);
     setForm({
       original_text: item.original_text || '',
-      pattern: item.pattern || '',
+      pattern: formatCategory(item.pattern),
       original_category: item.original_category || '',
       corrected_category: item.corrected_category || '',
-      corrected_intent: item.corrected_intent || '',
+      corrected_intent: formatCategory(item.corrected_intent),
       correction_notes: item.correction_notes || '',
     });
     setFormMode('edit');
@@ -109,11 +113,16 @@ export default function CorrectionsPage({ addToast }) {
     }
     setSubmitting(true);
     try {
+      const payload = {
+        ...form,
+        pattern: toSnakeCase(form.pattern),
+        corrected_intent: toSnakeCase(form.corrected_intent),
+      };
       if (formMode === 'edit' && selected != null) {
-        await api.updateCorrection(selected._index, form);
+        await api.updateCorrection(selected._index, payload);
         addToast?.('Correction updated', 'success');
       } else {
-        await api.addCorrection(form);
+        await api.addCorrection(payload);
         addToast?.('Correction added', 'success');
       }
       setFormMode(null);
@@ -268,7 +277,7 @@ export default function CorrectionsPage({ addToast }) {
                       type="text"
                       value={form.pattern}
                       onChange={(e) => updateForm('pattern', e.target.value)}
-                      placeholder="e.g., service_availability_query"
+                      placeholder="e.g., Service Availability Query"
                     />
                   </div>
 
@@ -278,7 +287,7 @@ export default function CorrectionsPage({ addToast }) {
                       type="text"
                       value={form.corrected_intent}
                       onChange={(e) => updateForm('corrected_intent', e.target.value)}
-                      placeholder="e.g., regional_availability"
+                      placeholder="e.g., Regional Availability"
                     />
                   </div>
 
