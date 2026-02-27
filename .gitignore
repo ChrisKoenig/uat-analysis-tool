@@ -71,6 +71,8 @@ cache/
 
 # Build artifacts
 build_log.txt
+*.zip
+infrastructure/deploy/packages/
 
 # Logs
 *.log
