@@ -194,7 +194,9 @@ class EnhancedMatchingConfig:
             print(f"[UAT Auth] Could not reuse AzureDevOpsConfig credential: {e}", flush=True)
 
         # 3. Managed Identity (container / cloud)
-        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID")
+        # Falls back to AZURE_CLIENT_ID if ADO_MANAGED_IDENTITY_CLIENT_ID is not set
+        # (same pattern as ado_integration.py get_credential)
+        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID") or os.environ.get("AZURE_CLIENT_ID")
         if ado_mi_client_id:
             try:
                 credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
@@ -229,7 +231,7 @@ class EnhancedMatchingConfig:
         Returns:
             Tuple of (credential, token) for TFT Azure DevOps authentication
         """
-        from azure.identity import InteractiveBrowserCredential
+        from azure.identity import InteractiveBrowserCredential, ManagedIdentityCredential
         
         # First check if TFT credential is already cached
         if EnhancedMatchingConfig._tft_credential is not None and EnhancedMatchingConfig._tft_token is not None:
@@ -247,6 +249,20 @@ class EnhancedMatchingConfig:
                 return EnhancedMatchingConfig._uat_credential, token.token
             except Exception as e:
                 print(f"⚠️  [TFT Auth] Cannot reuse UAT credential for TFT: {e}")
+        
+        # Managed Identity (container / cloud) — same pattern as get_uat_credential
+        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID") or os.environ.get("AZURE_CLIENT_ID")
+        if ado_mi_client_id:
+            try:
+                print(f"🔐 [TFT Auth] Trying Managed Identity (client_id={ado_mi_client_id[:8]}...)...")
+                credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
+                token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+                print("✅ [TFT Auth] Managed Identity successful")
+                EnhancedMatchingConfig._tft_credential = credential
+                EnhancedMatchingConfig._tft_token = token.token
+                return credential, token.token
+            except Exception as e:
+                print(f"⚠️  [TFT Auth] Managed Identity failed: {e}")
         
         # Try Azure CLI (no prompts)
         try:

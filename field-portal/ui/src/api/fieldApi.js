@@ -2,13 +2,38 @@
  * Field Portal API Client
  *
  * Typed functions for each step of the 9-step flow.
- * All calls go through the Vite proxy → FastAPI :8010.
+ * Uses runtime config from /config.json for the API base URL so the
+ * same build works in local dev (Vite proxy) and App Service (cross-origin).
  *
  * Auth: call setTokenGetter(fn) once at app init so every request
  * includes an Authorization: Bearer <token> header.
  */
 
-const BASE = '/api/field';
+/**
+ * Resolve the API base URL.
+ * In production the React build is served from a DIFFERENT domain than the
+ * API, so we read the base from /config.json (written by the build script).
+ * Falls back to '' (relative, works with Vite proxy in dev).
+ */
+let _apiBase = null;
+
+async function getApiBaseUrl() {
+  if (_apiBase !== null) return _apiBase;
+  try {
+    const resp = await fetch('/config.json');
+    if (resp.ok) {
+      const cfg = await resp.json();
+      _apiBase = cfg?.api?.baseUrl ?? '';
+    } else {
+      _apiBase = '';
+    }
+  } catch {
+    _apiBase = '';
+  }
+  return _apiBase;
+}
+
+const API_PATH = '/api/field';
 
 /** Stores the async function that returns a bearer token. */
 let _getToken = null;
@@ -22,7 +47,8 @@ export function setTokenGetter(fn) {
 }
 
 async function request(endpoint, options = {}) {
-  const url = `${BASE}${endpoint}`;
+  const base = await getApiBaseUrl();
+  const url = `${base}${API_PATH}${endpoint}`;
   const headers = { 'Content-Type': 'application/json', ...options.headers };
 
   // Attach bearer token if available

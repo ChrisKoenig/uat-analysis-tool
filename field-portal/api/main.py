@@ -162,6 +162,55 @@ app.add_middleware(
 app.include_router(router)
 
 
+# ── Health endpoint (root level for App Service probe) ──
+@app.get("/health", tags=["Meta"])
+async def root_health():
+    """Root-level health endpoint for App Service health probes.
+
+    Delegates to the detailed /api/field/health endpoint on the router.
+    This avoids duplicating health logic while giving App Service a
+    simple top-level URL to probe.
+    """
+    import time as _t
+    _t0 = _t.time()
+    status = "ok"
+    components = {}
+
+    # Gateway reachability
+    try:
+        gw = get_gateway()
+        gw_ok = await gw.check_health()
+        components["gateway"] = "ok" if gw_ok else "degraded"
+        if not gw_ok:
+            status = "degraded"
+    except Exception:
+        components["gateway"] = "degraded"
+        status = "degraded"
+
+    # KeyVault
+    try:
+        from keyvault_config import check_reachable
+        kv_ok, _ = check_reachable(timeout_seconds=2.0)
+        components["key_vault"] = "ok" if kv_ok else "degraded"
+    except Exception:
+        components["key_vault"] = "unknown"
+
+    # AI config
+    try:
+        from ai_config import get_config as _get_ai
+        cfg = _get_ai()
+        components["ai"] = "ok" if cfg.azure_openai.endpoint else "degraded"
+    except Exception:
+        components["ai"] = "degraded"
+
+    return {
+        "service": "Field Portal API",
+        "status": status,
+        "components": components,
+        "response_time_ms": round((_t.time() - _t0) * 1000),
+    }
+
+
 # ── Root endpoint ──
 @app.get("/", tags=["Meta"])
 async def root():

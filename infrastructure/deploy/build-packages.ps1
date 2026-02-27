@@ -116,6 +116,14 @@ if ($Target -eq "all" -or $Target -eq "field-api") {
     # Copy field-portal/api/ as "api/" package at root
     Copy-Item (Join-Path $repoRoot "field-portal" "api") (Join-Path $staging "api") -Recurse
 
+    # Copy triage config package (cosmos_client.py imports triage.config.cosmos_config)
+    $triageConfigDst = Join-Path $staging "triage" "config"
+    New-Item $triageConfigDst -ItemType Directory -Force | Out-Null
+    Copy-Item (Join-Path $repoRoot "triage" "__init__.py") (Join-Path $staging "triage" "__init__.py")
+    Copy-Item (Join-Path $repoRoot "triage" "config" "__init__.py") (Join-Path $triageConfigDst "__init__.py")
+    Copy-Item (Join-Path $repoRoot "triage" "config" "cosmos_config.py") (Join-Path $triageConfigDst "cosmos_config.py")
+    Write-Ok "triage/config/ copied for Cosmos access"
+
     # Copy shared root modules
     foreach ($f in $sharedFiles) {
         $src = Join-Path $repoRoot $f

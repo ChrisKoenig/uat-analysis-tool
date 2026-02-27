@@ -36,8 +36,8 @@ Deployed Feb 2026. Four App Services on a shared B1 plan in `rg-nonprod-aitriage
 |-------------|---------|------|------------------|
 | `app-triage-api-nonprod` | Python 3.12 | 8000 | `gunicorn --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker --timeout 300 --workers 1 triage.triage_service:app` |
 | `app-triage-ui-nonprod` | Node 20 LTS | 8080 | `npx pm2 start npx -- -y serve -s /home/site/wwwroot/dist -l 8080 --no-clipboard` |
-| `app-field-api-nonprod` | Python 3.12 | 8000 | (same pattern — pending startup fixes) |
-| `app-field-ui-nonprod` | Node 20 LTS | 8080 | (same pattern as triage-ui) |
+| `app-field-api-nonprod` | Python 3.12 | 8000 | `gunicorn --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker --timeout 300 --workers 1 api.main:app` |
+| `app-field-ui-nonprod` | Node 20 LTS | 8080 | `npx pm2 start npx -- -y serve -s /home/site/wwwroot/dist -l 8080 --no-clipboard` |
 
 #### Build & Deploy
 
@@ -56,6 +56,11 @@ az webapp deploy --resource-group rg-nonprod-aitriage \
 The build script copies `triage/`, `api/`, `agents/` directories plus 12 shared
 root Python modules. It does NOT include `.env` files — all config comes from
 App Settings and Key Vault.
+
+For the field portal API, the build script also copies `triage/config/` (just
+`cosmos_config.py` and `__init__` files) because the field portal's
+`cosmos_client.py` imports `triage.config.cosmos_config` for shared Cosmos DB
+access.
 
 #### Auth: Managed Identity
 
@@ -87,6 +92,32 @@ https://app-triage-api-nonprod.azurewebsites.net/admin/health
 
 Returns component-by-component status: `cosmos_db`, `azure_openai`, `ado_connection`, `key_vault`, `rule_engine`, `analysis_engine`.
 
+#### Key App Settings (Field API)
+
+Same Managed Identity and Key Vault settings as triage API, plus:
+
+| Setting | Value / Pattern |
+|---------|-----------------|
+| `AZURE_CLIENT_ID` | MI client ID (`0fe9d340-...`) |
+| `KEY_VAULT_NAME` | `kv-aitriage` |
+| `API_GATEWAY_URL` | `https://app-triage-api-nonprod.azurewebsites.net` |
+| `COSMOS_ENDPOINT` | `https://cosmos-aitriage-nonprod.documents.azure.com:443/` |
+| `COSMOS_DATABASE` | `triage-management` |
+| `COSMOS_USE_AAD` | `true` |
+| `AZURE_OPENAI_ENDPOINT` | `https://openai-aitriage-nonprod.openai.azure.com/` |
+| `AZURE_OPENAI_USE_AAD` | `true` |
+| `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` (runs `pip install`) |
+| `WEBSITES_PORT` | `8000` |
+
+#### Field Portal Health Check
+
+```
+https://app-field-api-nonprod.azurewebsites.net/health
+https://app-field-api-nonprod.azurewebsites.net/api/field/health
+```
+
+Returns `status`, `components` (gateway, key_vault, ai), and `response_time_ms`.
+
 ---
 
 ## Service Architecture
@@ -115,11 +146,16 @@ Pre-Prod (App Service):
 │ pm2 + serve     │     │ gunicorn+uvicorn│     │ -nonprod      │
 └─────────────────┘     └────────┬────────┘     └───────────────┘
                                  │
-                        ┌────────▼────────┐
-                        │ Azure OpenAI    │
-                        │ openai-aitriage │
-                        │ -nonprod (MI)   │
-                        └─────────────────┘
+┌─────────────────┐     ┌────────▼────────┐     ┌───────────────┐
+│ field-ui        │────▶│ field-api       │────▶│ Azure OpenAI  │
+│ (:443/8080)     │     │ (:443/8000)     │     │ openai-aitriage│
+│ pm2 + serve     │     │ gunicorn+uvicorn│──┐  │ -nonprod (MI) │
+└─────────────────┘     └────────┬────────┘  │  └───────────────┘
+                                 │           │
+                        ┌────────▼────────┐  │  ┌───────────────┐
+                        │ Azure DevOps    │  └──│ triage-api    │
+                        │ (MI auth)       │     │ (as gateway)  │
+                        └─────────────────┘     └───────────────┘
 ```
 
 ---

@@ -813,30 +813,38 @@ def _apply_corrections_to_analysis(state: SessionState, corrections: Dict[str, s
 
 
 def _save_correction_feedback(state: SessionState, corrections: Dict[str, str], notes: str):
-    """Save correction feedback to corrections.json for learning."""
-    import json
-    corrections_file = os.path.join(PROJECT_ROOT, "corrections.json")
+    """Save correction feedback to corrections.json for learning (legacy backup).
+
+    This is a best-effort local backup.  On App Service the filesystem is
+    read-only so this will silently fail — the primary Cosmos DB write in
+    store_correction() is what matters.
+    """
     try:
-        with open(corrections_file, "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"corrections": []}
+        import json
+        corrections_file = os.path.join(PROJECT_ROOT, "corrections.json")
+        try:
+            with open(corrections_file, "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            data = {"corrections": []}
 
-    entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "original_title": state.original_input.title if state.original_input else "",
-        "original_category": state.analysis.category if state.analysis else "",
-        "original_intent": state.analysis.intent if state.analysis else "",
-        "corrections": corrections,
-        "notes": notes,
-        "source": "field-portal",
-    }
-    data.setdefault("corrections", []).append(entry)
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "original_title": state.original_input.title if state.original_input else "",
+            "original_category": state.analysis.category if state.analysis else "",
+            "original_intent": state.analysis.intent if state.analysis else "",
+            "corrections": corrections,
+            "notes": notes,
+            "source": "field-portal",
+        }
+        data.setdefault("corrections", []).append(entry)
 
-    with open(corrections_file, "w") as f:
-        json.dump(data, f, indent=2)
+        with open(corrections_file, "w") as f:
+            json.dump(data, f, indent=2)
 
-    logger.info(f"Saved correction feedback: {corrections}")
+        logger.info(f"Saved correction feedback: {corrections}")
+    except Exception as e:
+        logger.warning(f"Could not save local correction backup: {e} (Cosmos DB is primary)")
 
 
 def _build_evaluation_summary_html(

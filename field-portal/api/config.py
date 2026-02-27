@@ -1,12 +1,17 @@
 """
 Field Portal API — Configuration Constants
 
-Central configuration for the React SPA backend (FastAPI on port 8010).
+Central configuration for the React SPA backend (FastAPI on port 8000).
 All values can be overridden via environment variables where noted.
 
-Architecture:
-  React UI (Vite, :3001)  →  This API (:8010)  →  Microservice Gateway (:8000)
+Architecture (local dev):
+  React UI (Vite, :3001)  →  This API (:8000)  →  Microservice Gateway (triage-api)
                                                 →  ADO integration (direct)
+
+Architecture (App Service):
+  field-ui (pm2+serve)  →  field-api (gunicorn+uvicorn)  →  triage-api (gateway)
+                                                          →  ADO (Managed Identity)
+                                                          →  Cosmos DB (MI)
 """
 import os
 
@@ -20,7 +25,8 @@ import os
 API_GATEWAY_URL = os.environ.get("API_GATEWAY_URL", "http://localhost:8000")
 
 # Host and port for THIS FastAPI service (field-portal backend).
-FIELD_PORTAL_PORT = int(os.environ.get("FIELD_PORTAL_PORT", "8010"))
+# Default 8000 matches App Service WEBSITES_PORT; local dev can override.
+FIELD_PORTAL_PORT = int(os.environ.get("FIELD_PORTAL_PORT", os.environ.get("PORT", "8000")))
 FIELD_PORTAL_HOST = os.environ.get("FIELD_PORTAL_HOST", "0.0.0.0")
 
 
@@ -70,9 +76,10 @@ ADO_PROD_ORG = "unifiedactiontracker"
 # CORS (React UI)
 # ============================================================================
 
-# Allowed origins for the Vite dev server. In production these would be
-# replaced by the deployed SPA domain.
+# Allowed origins — includes local dev and pre-prod App Service domains.
 CORS_ORIGINS = [
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "https://app-field-ui-nonprod.azurewebsites.net",
+    "https://app-field-api-nonprod.azurewebsites.net",
 ]
