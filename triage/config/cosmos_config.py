@@ -217,31 +217,38 @@ class CosmosDBConfig:
                         )
                         auth_method = f"Managed Identity ({managed_identity_client_id[:8]}...)"
                     else:
-                        # Development: Use credential chain that avoids
-                        # repeated interactive browser prompts.
-                        # Order: SharedTokenCache → AzureCLI → InteractiveBrowser (last resort)
-                        if self.tenant_id:
-                            logger.info("  Using tenant: %s", self.tenant_id)
-                            cache_opts = TokenCachePersistenceOptions(
-                                name="gcs-cosmos-auth"
-                            )
-                            credential = ChainedTokenCredential(
-                                SharedTokenCacheCredential(
-                                    tenant_id=self.tenant_id,
-                                    cache_persistence_options=cache_opts,
-                                ),
-                                AzureCliCredential(
-                                    tenant_id=self.tenant_id,
-                                ),
-                                InteractiveBrowserCredential(
-                                    tenant_id=self.tenant_id,
-                                    cache_persistence_options=cache_opts,
-                                ),
-                            )
-                            auth_method = f"ChainedTokenCredential (tenant: {self.tenant_id[:8]}...)"
-                        else:
-                            credential = DefaultAzureCredential()
-                            auth_method = "DefaultAzureCredential"
+                        # Development: Reuse the shared credential from shared_auth
+                        # so all services (OpenAI, ADO, Cosmos) share ONE auth session.
+                        try:
+                            from shared_auth import get_credential
+                            credential = get_credential()
+                            auth_method = "SharedAuth (shared credential)"
+                            logger.info("  Using shared credential from shared_auth")
+                        except Exception as e:
+                            logger.warning("  shared_auth unavailable (%s), falling back to credential chain", e)
+                            # Fallback: build a credential chain
+                            if self.tenant_id:
+                                logger.info("  Using tenant: %s", self.tenant_id)
+                                cache_opts = TokenCachePersistenceOptions(
+                                    name="gcs-cosmos-auth"
+                                )
+                                credential = ChainedTokenCredential(
+                                    SharedTokenCacheCredential(
+                                        tenant_id=self.tenant_id,
+                                        cache_persistence_options=cache_opts,
+                                    ),
+                                    AzureCliCredential(
+                                        tenant_id=self.tenant_id,
+                                    ),
+                                    InteractiveBrowserCredential(
+                                        tenant_id=self.tenant_id,
+                                        cache_persistence_options=cache_opts,
+                                    ),
+                                )
+                                auth_method = f"ChainedTokenCredential (tenant: {self.tenant_id[:8]}...)"
+                            else:
+                                credential = DefaultAzureCredential()
+                                auth_method = "DefaultAzureCredential"
                     
                     self._client = CosmosClient(
                         url=self.endpoint,

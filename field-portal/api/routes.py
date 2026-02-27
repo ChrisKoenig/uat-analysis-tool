@@ -1127,6 +1127,7 @@ async def search_related_uats(session_id: str):
     # Search via ADO directly (the gateway route proxies to enhanced-matching
     # but the Flask app actually calls ADO directly via ado_searcher)
     related_uats: List[RelatedUAT] = []
+    search_error: str | None = None
     try:
         searcher = _get_ado_searcher()
         raw_results = searcher.search_uat_items(title=title, description=description)
@@ -1158,6 +1159,7 @@ async def search_related_uats(session_id: str):
 
     except Exception as e:
         logger.error(f"Related UAT search failed: {e}")
+        search_error = f"UAT search failed: {e}"
 
     sm.update_state(session_id, current_step=FlowStep.related_uats)
     sm.set_extra(session_id, "raw_related_uats", [u.model_dump() for u in related_uats])
@@ -1166,6 +1168,7 @@ async def search_related_uats(session_id: str):
         session_id=session_id,
         related_uats=related_uats,
         total_found=len(related_uats),
+        search_error=search_error,
     )
 
 

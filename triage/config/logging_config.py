@@ -88,6 +88,19 @@ def setup_logging(level_override: str | None = None) -> None:
     # when uvicorn's own logger also writes to stderr)
     root.propagate = False
 
+    # Suppress verbose Azure SDK HTTP logging that floods the console.
+    # The OpenTelemetry exporter still sends telemetry to App Insights;
+    # we just stop printing every HTTP request/response with full headers.
+    for _azure_logger_name in (
+        "azure.core.pipeline.policies.http_logging_policy",
+        "azure.monitor.opentelemetry.exporter",
+        "azure.monitor.opentelemetry.exporter.export",
+        "azure.monitor.opentelemetry.exporter.export._base",
+        "azure.identity",
+        "azure.identity._credentials",
+    ):
+        logging.getLogger(_azure_logger_name).setLevel(logging.WARNING)
+
     root.info(
         "Triage logging initialised — level=%s, loggers under '%s.*'",
         level_name,

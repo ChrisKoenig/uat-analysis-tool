@@ -1,7 +1,17 @@
 """
 AI Configuration System
-Centralized configuration for Azure OpenAI, embeddings, LLM classification, and caching
-Designed for modular agent-based architecture
+Centralized configuration for Azure OpenAI, embeddings, LLM classification, and caching.
+Designed for modular agent-based architecture.
+
+Configuration Resolution Order:
+  1. Azure Key Vault (via keyvault_config.get_keyvault_config())
+  2. Environment variables (via .env / App Service settings)
+
+Deployment Notes:
+  - Dev: Key Vault = kv-gcs-dev-gg4a6y, OpenAI = OpenAI-bp-NorthCentral
+  - Pre-Prod: Key Vault = kv-aitriage, OpenAI = openai-aitriage-nonprod
+  - Corrections are stored in Cosmos DB (corrections container), NOT on the file system.
+    The validate() method no longer checks for corrections.json on disk.
 """
 
 import os
@@ -125,7 +135,13 @@ class AIConfig:
     service_discovery_enabled: bool = False  # For future agent orchestration
     
     def validate(self) -> tuple[bool, list[str]]:
-        """Validate all configurations"""
+        """Validate all configurations.
+        
+        Note (Feb 27, 2026): File-system corrections.json validation was removed.
+        Corrections are stored in Cosmos DB (corrections container) and loaded
+        by the field portal / admin routes. The FineTuningConfig.corrections_file
+        field is retained for legacy local-dev compatibility but is not validated.
+        """
         errors = []
         
         # Validate Azure OpenAI
@@ -137,15 +153,8 @@ class AIConfig:
         if self.caching.enabled:
             os.makedirs(self.caching.cache_dir, exist_ok=True)
         
-        # Validate corrections file exists for fine-tuning
-        # Resolve relative to ai_config.py's directory (project root),
-        # not the current working directory (which may be field-portal/).
-        corrections_path = self.fine_tuning.corrections_file
-        if not os.path.isabs(corrections_path):
-            config_dir = os.path.dirname(os.path.abspath(__file__))
-            corrections_path = os.path.join(config_dir, corrections_path)
-        if not os.path.exists(corrections_path):
-            errors.append(f"Corrections file not found: {corrections_path}")
+        # Note: Corrections are stored in Cosmos DB (corrections container),
+        # no file-system validation needed.
         
         return len(errors) == 0, errors
     

@@ -16,6 +16,7 @@
  */
 
 import { API_BASE } from '../utils/constants';
+import { getApiBaseUrl } from '../auth/authConfig';
 
 
 // =============================================================================
@@ -49,7 +50,8 @@ export class ApiError extends Error {
  * @throws {ApiError} On non-2xx responses
  */
 async function request(path, options = {}) {
-  const url = `${API_BASE}${path}`;
+  const runtimeBase = getApiBaseUrl();  // e.g. 'https://app-triage-api-nonprod.azurewebsites.net'
+  const url = `${runtimeBase}${API_BASE}${path}`;
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -559,8 +561,11 @@ export function getEntityAudit(entityType, entityId, limit = 50) {
 
 /** Service health check */
 export function getHealth() {
-  // Health endpoint is at /health, not under /api/v1
-  return fetch('/health')
+  // Health endpoint is at /health, not under /api/v1.
+  // Must use getApiBaseUrl() so the request reaches the API domain
+  // (in App Service, the UI and API are on different hosts).
+  const base = getApiBaseUrl();          // '' locally (Vite proxy), full URL in prod
+  return fetch(`${base}/health`)
     .then((r) => r.json())
     .catch(() => ({
       status: 'unreachable',

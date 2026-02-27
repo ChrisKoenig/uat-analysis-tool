@@ -110,9 +110,35 @@ C:\Projects\Hack\
 8. **Related UATs** — look up & select related UATs
 9. **Create UAT** — confirm and create work item in ADO
 
-## Azure Container Apps Deployment
+## Azure App Service Deployment (Pre-Prod)
 
-All 4 apps deployed to Azure Container Apps in `rg-gcs-dev` (North Central US):
+Deployed Feb 2026 to subscription `a1e66643-...`, resource group `rg-nonprod-aitriage`:
+
+| App Service | Runtime | Startup |
+|-------------|---------|----------|
+| `app-triage-api-nonprod` | Python 3.12 | gunicorn + uvicorn on port 8000 |
+| `app-triage-ui-nonprod` | Node 20 | pm2 + serve on port 8080 |
+| `app-field-api-nonprod` | Python 3.12 | (pending fixes) |
+| `app-field-ui-nonprod` | Node 20 | pm2 + serve on port 8080 |
+
+- **Auth**: Managed Identity (`TechRoB-Automation-DEV`) for all Azure resources
+- **MSAL SPA**: App Registration `GCS-Triage-NonProd` (`6257f944-...`)
+- **Cosmos DB**: `cosmos-aitriage-nonprod` (10 containers, AAD-only)
+- **OpenAI**: `openai-aitriage-nonprod` (gpt-4o-standard, text-embedding-3-large)
+- **Key Vault**: `kv-aitriage` (all secrets)
+
+Build & deploy via:
+```powershell
+.\infrastructure\deploy\build-packages.ps1 -Target triage-api
+# Upload zip to Cloud Shell, then:
+az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonprod --src-path ./triage-api.zip --type zip
+```
+
+See [`DEPLOYMENT_OPERATIONS.md`](docs/DEPLOYMENT_OPERATIONS.md) and [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for full details.
+
+## Azure Container Apps Deployment (Dev)
+
+Dev environment deployed to Azure Container Apps in `rg-gcs-dev` (North Central US):
 - Triage UI / API — external + internal ingress
 - Field UI / API — external + internal ingress
 - Cosmos DB (AAD auth), ADO dual-org PAT, AI-Powered analysis enabled
@@ -121,11 +147,20 @@ See [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) and the Container Apps section 
 
 ## Authentication
 
+### Dev (Local)
 - **Cosmos DB**: AAD only (cross-tenant, `16b3c013-...` / fdpo tenant)
 - **Azure OpenAI**: AAD only (Cognitive Services OpenAI User role)
 - **Key Vault**: `kv-gcs-dev-gg4a6y` (DefaultAzureCredential)
 - **ADO**: Dual PAT (test org write, production org read)
 - **Field Portal MSAL**: Scaffolded but not yet enforced
+
+### Pre-Prod (App Service)
+- **All Azure resources**: ManagedIdentityCredential (`TechRoB-Automation-DEV`)
+- **Key Vault**: `kv-aitriage` (MI-based, Key Vault Secrets User role)
+- **Cosmos DB**: `cosmos-aitriage-nonprod` (MI-based, Cosmos DB Built-in Data Contributor)
+- **OpenAI**: `openai-aitriage-nonprod` (MI-based, Cognitive Services OpenAI User)
+- **ADO**: MI with `AZURE_CLIENT_ID` env var fallback
+- **MSAL SPA**: `GCS-Triage-NonProd` app registration (Corp tenant)
 
 ## Documentation
 
@@ -147,6 +182,6 @@ data handling requirements.
 
 ---
 
-**Last Updated**: February 2026  
-**Version**: 5.0 (Dual React SPA + FastAPI + Cosmos DB + Azure Container Apps)  
-**Compatibility**: Python 3.10+, Node.js 18+, Modern Browsers
+**Last Updated**: February 27, 2026  
+**Version**: 6.0 (Dual React SPA + FastAPI + Cosmos DB + App Service Pre-Prod + Container Apps Dev)  
+**Compatibility**: Python 3.12, Node.js 20 LTS, Modern Browsers

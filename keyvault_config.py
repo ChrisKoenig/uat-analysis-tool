@@ -11,8 +11,9 @@ from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from typing import Optional
 
-# Key Vault URI
-KEY_VAULT_URI = "https://kv-gcs-dev-gg4a6y.vault.azure.net/"
+# Key Vault URI — resolved from KEY_VAULT_NAME env var or fallback
+_kv_name = os.environ.get("KEY_VAULT_NAME") or os.environ.get("AZURE_KEY_VAULT_NAME", "kv-gcs-dev-gg4a6y")
+KEY_VAULT_URI = f"https://{_kv_name}.vault.azure.net/"
 
 
 # ── TODO: REMOVE before pre-prod deployment ──────────────────────────────
@@ -48,16 +49,16 @@ def check_reachable(timeout_seconds: float = 3.0) -> tuple[bool, str]:
 
 # Secret name mappings (Key Vault doesn't allow underscores, using hyphens)
 SECRET_MAPPINGS = {
-    "AZURE_STORAGE_ACCOUNT_NAME": "azure-storage-account-name",
-    "AZURE_STORAGE_CONNECTION_STRING": "azure-storage-connection-string",
+    # Application Insights
     "AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY": "azure-app-insights-instrumentation-key",
     "AZURE_APP_INSIGHTS_CONNECTION_STRING": "azure-app-insights-connection-string",
-    "AZURE_CONTAINER_REGISTRY_PASSWORD": "azure-container-registry-password",
+    # Azure OpenAI
     "AZURE_OPENAI_ENDPOINT": "AZURE-OPENAI-ENDPOINT",
     "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": "AZURE-OPENAI-CLASSIFICATION-DEPLOYMENT",
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "AZURE-OPENAI-EMBEDDING-DEPLOYMENT",
     "AZURE_OPENAI_API_KEY": "AZURE-OPENAI-API-KEY",
     "AZURE_OPENAI_USE_AAD": "AZURE-OPENAI-USE-AAD",
+    # Cosmos DB
     "COSMOS_ENDPOINT": "COSMOS-ENDPOINT",
     "COSMOS_KEY": "COSMOS-KEY",
 }
@@ -90,20 +91,22 @@ class KeyVaultConfig:
                 
                 if managed_identity_client_id:
                     # Production: Use managed identity
+                    print(f"[KV] Creating ManagedIdentityCredential (client_id: {managed_identity_client_id[:8]}...)", flush=True)
                     self._credential = ManagedIdentityCredential(client_id=managed_identity_client_id)
                     auth_method = f"Managed Identity (client_id: {managed_identity_client_id[:8]}...)"
                 else:
                     # Development: Use DefaultAzureCredential with CLI/PowerShell
                     # enabled so local dev works when logged into az cli.
+                    print("[KV] Creating DefaultAzureCredential...", flush=True)
                     self._credential = DefaultAzureCredential()
                     auth_method = "DefaultAzureCredential"
                 
+                print(f"[KV] Credential created in {_t.time()-_t0:.1f}s — creating SecretClient for {KEY_VAULT_URI}", flush=True)
                 self._client = SecretClient(vault_url=KEY_VAULT_URI, credential=self._credential)
-                print(f"[OK] Connected to Key Vault: {KEY_VAULT_URI} ({_t.time()-_t0:.1f}s)")
-                print(f"  Authentication: {auth_method}")
+                print(f"[KV] ✅ SecretClient ready in {_t.time()-_t0:.1f}s ({auth_method})", flush=True)
             except Exception as e:
-                print(f"[WARNING] Could not connect to Key Vault: {e}")
-                print("  Falling back to environment variables from .env.azure")
+                print(f"[KV] ⚠️ Could not connect to Key Vault: {type(e).__name__}: {e}", flush=True)
+                print("  Falling back to environment variables from .env.azure", flush=True)
         return self._client
     
     def get_secret(self, env_var_name: str, fallback_to_env: bool = True) -> Optional[str]:
@@ -117,6 +120,8 @@ class KeyVaultConfig:
         Returns:
             Secret value or None
         """
+        import time as _t
+
         # Check cache first
         if env_var_name in self._cache:
             return self._cache[env_var_name]
@@ -125,20 +130,26 @@ class KeyVaultConfig:
         secret_name = SECRET_MAPPINGS.get(env_var_name)
         if secret_name:
             try:
+                _t0 = _t.time()
+                print(f"[KV] get_secret('{env_var_name}' → KV name '{secret_name}')...", flush=True)
                 client = self._get_client()
                 if client:
                     secret = client.get_secret(secret_name)
                     value = secret.value
                     self._cache[env_var_name] = value
+                    print(f"[KV]   ✅ '{secret_name}' retrieved in {_t.time()-_t0:.1f}s (len={len(value) if value else 0})", flush=True)
                     return value
+                else:
+                    print(f"[KV]   ⚠️ No client available for '{secret_name}'", flush=True)
             except Exception as e:
-                print(f"[WARNING] Could not retrieve '{secret_name}' from Key Vault: {e}")
+                print(f"[KV]   ⚠️ FAILED '{secret_name}' in {_t.time()-_t0:.1f}s: {type(e).__name__}: {e}", flush=True)
         
         # Fallback to environment variable
         if fallback_to_env:
             value = os.environ.get(env_var_name)
             if value:
                 self._cache[env_var_name] = value
+                print(f"[KV]   📋 '{env_var_name}' from env var (len={len(value)})", flush=True)
                 return value
         
         return None
@@ -149,29 +160,16 @@ class KeyVaultConfig:
         Returns dict with all secrets populated
         """
         config = {
-            # Storage
-            "AZURE_STORAGE_ACCOUNT_NAME": self.get_secret("AZURE_STORAGE_ACCOUNT_NAME"),
-            "AZURE_STORAGE_CONNECTION_STRING": self.get_secret("AZURE_STORAGE_CONNECTION_STRING"),
-            
             # Application Insights
             "AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY": self.get_secret("AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY"),
             "AZURE_APP_INSIGHTS_CONNECTION_STRING": self.get_secret("AZURE_APP_INSIGHTS_CONNECTION_STRING"),
             
-            # Container Registry
-            "AZURE_CONTAINER_REGISTRY_NAME": os.environ.get("AZURE_CONTAINER_REGISTRY_NAME"),
-            "AZURE_CONTAINER_REGISTRY_SERVER": os.environ.get("AZURE_CONTAINER_REGISTRY_SERVER"),
-            "AZURE_CONTAINER_REGISTRY_USERNAME": os.environ.get("AZURE_CONTAINER_REGISTRY_USERNAME"),
-            "AZURE_CONTAINER_REGISTRY_PASSWORD": self.get_secret("AZURE_CONTAINER_REGISTRY_PASSWORD"),
-            
             # Key Vault (non-secret)
-            "AZURE_KEY_VAULT_NAME": os.environ.get("AZURE_KEY_VAULT_NAME", "kv-gcs-dev-gg4a6y"),
+            "AZURE_KEY_VAULT_NAME": _kv_name,
             "AZURE_KEY_VAULT_URI": KEY_VAULT_URI,
             
             # Log Analytics (non-secret)
             "AZURE_LOG_ANALYTICS_WORKSPACE_ID": os.environ.get("AZURE_LOG_ANALYTICS_WORKSPACE_ID"),
-            
-            # Container Apps (non-secret)
-            "AZURE_CONTAINER_APPS_ENVIRONMENT": os.environ.get("AZURE_CONTAINER_APPS_ENVIRONMENT"),
             
             # Azure OpenAI (using Azure AD, no API key needed)
             "AZURE_OPENAI_RESOURCE_NAME": os.environ.get("AZURE_OPENAI_RESOURCE_NAME"),
@@ -182,6 +180,9 @@ class KeyVaultConfig:
             "AZURE_OPENAI_API_KEY": self.get_secret("AZURE_OPENAI_API_KEY"),
             "AZURE_OPENAI_DEPLOYMENT_NAME": os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME"),
             "AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME": os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
+            
+            # Cosmos DB
+            "COSMOS_ENDPOINT": self.get_secret("COSMOS_ENDPOINT"),
             
             # Azure DevOps (using Azure CLI authentication)
             "ADO_ORGANIZATION": os.environ.get("ADO_ORGANIZATION"),
@@ -196,7 +197,8 @@ class KeyVaultConfig:
         Returns (is_valid, list_of_missing_secrets)
         """
         required_secrets = [
-            "AZURE_STORAGE_CONNECTION_STRING",
+            "COSMOS_ENDPOINT",
+            "AZURE_OPENAI_ENDPOINT",
         ]
         
         missing = []

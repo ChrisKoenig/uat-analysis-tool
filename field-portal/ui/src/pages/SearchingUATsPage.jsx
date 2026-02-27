@@ -20,6 +20,7 @@ export default function SearchingUATsPage() {
   const { state } = useLocation();
   const sessionId = state?.sessionId;
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!sessionId) { navigate('/'); return; }
@@ -30,8 +31,11 @@ export default function SearchingUATsPage() {
       try {
         const result = await searchRelatedUATs(sessionId);
         if (!cancelled) {
-          if (result.related_uats.length === 0) {
-            // No related UATs — skip to creation
+          if (result.search_error) {
+            // Search failed (e.g. auth error) — show error, don't silently skip
+            setError(`Similar UAT search failed: ${result.search_error}`);
+          } else if (result.related_uats.length === 0) {
+            // Genuinely no related UATs — skip to creation
             navigate('/create-uat', { state: { sessionId } });
           } else {
             navigate('/related-uats', { state: { uatData: result, sessionId } });
@@ -43,7 +47,7 @@ export default function SearchingUATsPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [sessionId, navigate]);
+  }, [sessionId, navigate, retryCount]);
 
   return (
     <>
@@ -55,7 +59,10 @@ export default function SearchingUATsPage() {
             <p>{error}</p>
           </div>
           <div className="btn-group">
-            <button className="btn btn-primary" onClick={() => navigate('/create-uat', { state: { sessionId } })}>
+            <button className="btn btn-primary" onClick={() => { setError(''); setRetryCount(c => c + 1); }}>
+              ↻ Retry Search
+            </button>
+            <button className="btn btn-secondary" onClick={() => navigate('/create-uat', { state: { sessionId } })}>
               Skip & Create UAT →
             </button>
             <button className="btn btn-secondary" onClick={() => navigate('/')}>← Start Over</button>

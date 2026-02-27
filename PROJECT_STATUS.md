@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 24, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps deployment live — Triage Management + Field Submission Portal + Cosmos DB + AI classification + ADO dual-org integration
+**Last Updated**: February 27, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Submission Portal + Cosmos DB + AI classification + ADO dual-org integration
 
 ---
 
@@ -233,6 +233,125 @@ These are injected automatically by `launcher.py` or must be set manually.
 ### Key Limitation
 - Azure CLI login fails locally (Conditional Access policy error 53003) — use Cloud Shell for `az` commands
 - Database/container creation requires portal or Cloud Shell (RBAC data-plane role doesn't cover control-plane)
+
+---
+
+## Azure App Service Pre-Prod Deployment (Feb 26-27, 2026) ✅
+
+### Overview
+Deployed all 4 services (triage-api, field-api, triage-ui, field-ui) to **Azure App Service** in a new pre-prod subscription. This is a separate environment from dev (Container Apps) with its own Cosmos DB, OpenAI, and Key Vault instances. All 6 health components are **GREEN** (Cosmos DB, Azure OpenAI, Key Vault, ADO, Cache, Corrections).
+
+### Pre-Prod Infrastructure (NEW — separate from dev)
+
+| Resource | Name | Details |
+|----------|------|---------|
+| **Subscription** | `a1e66643-8021-4548-8e36-f08076057b6a` | Pre-prod (different from dev `13267e8e-...`) |
+| **Resource Group** | `rg-nonprod-aitriage` | North Central US |
+| **App Service Plan** | `asp-aitriage-nonprod` | Linux, Python 3.12, B1 |
+| **Triage API** | `app-triage-api-nonprod` | `https://app-triage-api-nonprod.azurewebsites.net` |
+| **Field API** | `app-field-api-nonprod` | `https://app-field-api-nonprod.azurewebsites.net` |
+| **Triage UI** | `app-triage-ui-nonprod` | `https://app-triage-ui-nonprod.azurewebsites.net` |
+| **Field UI** | `app-field-ui-nonprod` | `https://app-field-ui-nonprod.azurewebsites.net` |
+| **Cosmos DB** | `cosmos-aitriage-nonprod` | NoSQL, serverless, AAD auth, DB: `triage-management`, 10 containers |
+| **Azure OpenAI** | `openai-aitriage-nonprod` | Deployments: `gpt-4o-standard`, `text-embedding-3-large` |
+| **Key Vault** | `kv-aitriage` | Stores OpenAI config, Cosmos endpoint/key, ADO PATs |
+| **App Registration** | `GCS-Triage-NonProd` | Client ID: `6257f944-71eb-49b9-8ef6-ab006383d54c` |
+| **Managed Identity** | `TechRoB-Automation-DEV` | Client ID: `0fe9d340-a359-4849-8c0f-d3c9640017ee` |
+| **App Insights** | (configured) | Instrumentation Key `766a42c9-...` |
+
+### Deployment Scripts (infrastructure/deploy/)
+
+| Script | Purpose |
+|--------|---------|
+| `01-create-resource-group.ps1` | Create RG + App Service Plan |
+| `02-create-azure-resources.ps1` | Create Cosmos DB, OpenAI, Key Vault |
+| `03-configure-rbac.ps1` | RBAC assignments for MI on Cosmos, KV, OpenAI |
+| `04-create-app-registration.ps1` | MSAL App Registration for UI auth |
+| `05-configure-appsettings.ps1` | Environment variables on all 4 App Services |
+| `06-deploy-code.ps1` | Zip-deploy code packages to App Services |
+| `build-packages.ps1` | Local build — creates 4 zip packages |
+
+### Startup Command (App Service)
+```
+gunicorn --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker --timeout 300 --workers 1 triage.triage_service:app
+```
+
+### Build & Deploy Process
+```powershell
+# Build locally (creates packages/ dir with 4 zips)
+.\infrastructure\deploy\build-packages.ps1 -Target triage-api   # copies triage/, api/, agents/ + 12 shared .py modules
+.\infrastructure\deploy\build-packages.ps1 -Target triage-ui    # npm build + dist
+.\infrastructure\deploy\build-packages.ps1 -Target field-api
+.\infrastructure\deploy\build-packages.ps1 -Target field-ui
+
+# Upload zips to Cloud Shell, then deploy (must use Cloud Shell — local az CLI is dev tenant)
+az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonprod --src-path triage-api.zip --type zip
+```
+
+### Issues Found & Fixed During Deployment
+
+| # | Issue | Root Cause | Fix |
+|---|-------|-----------|-----|
+| 1 | **Python 3.13 build failure** | `pydantic-core` couldn't compile on Python 3.13 | Set App Service runtime to **Python 3.12** |
+| 2 | **Port binding error** | App Service expects port 8000, startup used 8009/8010 | Changed startup command to `--bind 0.0.0.0:8000` |
+| 3 | **Field API startup hang** | Gateway health check outside try/except blocked startup | Wrapped health check in try/except |
+| 4 | **UI startup hang** | `npx serve` hung forever | Changed to `pm2 serve` for static file serving |
+| 5 | **MSAL wrong client ID** | triage-ui had dev client ID hardcoded | Fixed `authConfig.js` to use pre-prod: `6257f944-...` |
+| 6 | **Blank screen after login** | `triageApi.js` hardcoded `http://localhost:8009` | Changed to **relative API paths** (e.g., `/api/v1/...`) |
+| 7 | **Cosmos DB in-memory mode** | Key Vault secrets not set for Cosmos | Manually set `COSMOS-ENDPOINT` and `COSMOS-KEY` secrets in KV |
+| 8 | **Missing OpenAI dependencies** | `openai`, `numpy`, `scikit-learn` not in requirements.txt | Added `openai==1.52.0`, `numpy>=1.26.0`, `scikit-learn>=1.3.0` |
+| 9 | **ADO auth failure (MI)** | `get_credential()` only tried `ADO_MANAGED_IDENTITY_CLIENT_ID` | Added fallback to `AZURE_CLIENT_ID` env var in `ado_integration.py` |
+| 10 | **Missing gunicorn** | `gunicorn` not in requirements.txt — App Service can't start without WSGI server | Added `gunicorn==21.2.0` to `triage/requirements.txt` |
+| 11 | **App stuck in stopped state** | Multiple failed starts caused Azure auto-stop; `restart` doesn't work on stopped apps | Used Azure Portal → Start (not restart) |
+| 12 | **corrections.json not found** | `ai_config.py validate()` checked for file-system corrections.json on App Service | **Removed** file-system check — corrections are in Cosmos DB |
+| 13 | **httpx/openai incompatibility** | `openai==1.52.0` passes `proxies=` to httpx.Client(), but `httpx==0.28.0` removed that param | Pinned `httpx>=0.25.0,<0.28.0` |
+| 14 | **Hardcoded dev OpenAI resource** | `admin_routes.py` diagnostics had `openai-bp-northcentral` hardcoded | Changed to dynamic extraction from endpoint URL |
+| 15 | **Cloud Shell AuthorizationFailed** | Stale credential in Cloud Shell session | Used Azure Portal as workaround for some operations |
+
+### Source Files Modified for Pre-Prod
+
+| File | Changes |
+|------|---------|
+| `triage/requirements.txt` | +`gunicorn==21.2.0`, +`openai==1.52.0`, +`numpy>=1.26.0`, +`scikit-learn>=1.3.0`, `httpx` pinned to `>=0.25.0,<0.28.0` |
+| `ai_config.py` | Removed file-system corrections.json validation from `validate()` — corrections are in Cosmos DB |
+| `hybrid_context_analyzer.py` | `get_ai_status()` now returns `_init_error`, `endpoint`, and `use_aad` for better diagnostics |
+| `triage/api/admin_routes.py` | Dynamic OpenAI resource name extraction in `_build_diagnostics()` instead of hardcoded `openai-bp-northcentral` |
+| `ado_integration.py` | `get_credential()` and `get_tft_credential()` fall back to `AZURE_CLIENT_ID` env var |
+| `triage-ui/src/auth/authConfig.js` | Pre-prod MSAL client ID: `6257f944-71eb-49b9-8ef6-ab006383d54c` |
+| `triage-ui/src/api/triageApi.js` | Relative API paths instead of hardcoded localhost URLs |
+
+### Pre-Prod Health Check (Confirmed Feb 27, 2026)
+```json
+{
+  "overall": "healthy",
+  "components": {
+    "cosmos_db":     { "status": "healthy", "auth_mode": "aad", "containers": 10 },
+    "azure_openai":  { "status": "healthy", "enabled": true, "mode": "AI-Powered" },
+    "key_vault":     { "status": "healthy", "vault": "kv-aitriage" },
+    "ado_connection": { "status": "healthy", "read": "unifiedactiontracker", "write": "unifiedactiontrackertest" },
+    "local_cache":   { "status": "healthy" },
+    "corrections":   { "status": "healthy" }
+  }
+}
+```
+
+### Key Differences: App Service vs Container Apps (Dev)
+
+| Aspect | Dev (Container Apps) | Pre-Prod (App Service) |
+|--------|---------------------|----------------------|
+| **Platform** | Azure Container Apps | Azure App Service (Linux) |
+| **Python** | 3.11 (Docker) | 3.12 (App Service runtime) |
+| **WSGI Server** | uvicorn (in Docker) | gunicorn + uvicorn workers |
+| **Subscription** | `13267e8e-...` | `a1e66643-...` |
+| **Cosmos DB** | `cosmos-gcs-dev` | `cosmos-aitriage-nonprod` |
+| **OpenAI** | `OpenAI-bp-NorthCentral` | `openai-aitriage-nonprod` |
+| **Key Vault** | `kv-gcs-dev-gg4a6y` | `kv-aitriage` |
+| **MI** | `id-gcs-containerapp` | `TechRoB-Automation-DEV` |
+| **Tenant** | `16b3c013-...` (fdpo) | `72f988bf-...` (Microsoft Corp) |
+| **Auth** | Dual PATs for ADO | MI for Cosmos/KV/OpenAI, PATs for ADO |
+| **Networking** | Internal/External ingress | Public App Service URLs |
+| **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
+| **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
 
 ---
 
@@ -545,6 +664,11 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ✅ TFT Feature search for feature_request category
 ✅ Dual organization authentication (main + TFT)
 ✅ Admin portal on port 8008
+✅ **Pre-prod App Service deployment** — all 4 services running, all 6 health components GREEN
+✅ **Pre-prod MSAL auth** — App Registration `GCS-Triage-NonProd` with correct client ID
+✅ **Pre-prod Cosmos DB** — `cosmos-aitriage-nonprod` with AAD auth, 10 containers
+✅ **Pre-prod Azure OpenAI** — `openai-aitriage-nonprod` with AI-Powered analysis enabled
+✅ **Pre-prod ADO integration** — read: unifiedactiontracker, write: unifiedactiontrackertest
 
 ---
 
@@ -557,6 +681,10 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 - `getToken()` currently returns `null` (token acquisition fully disabled) — backend does not validate tokens
 - **TODO**: Investigate MSAL `handleRedirectPromise()` timing, consider switching to popup-based login (not token acquisition) or using `ssoSilent()` to restore sessions after redirect. May need to persist quality submission data to sessionStorage before the redirect.
 
+⚠️ **Field API may need same fixes as Triage API** (PRE-PROD)
+- The field-api App Service may need the same `gunicorn`, `httpx` pinning, and dependency fixes applied to its requirements.txt
+- Not yet tested end-to-end in pre-prod
+
 ⚠️ Admin portal shows "AuthorizationFailure" on blob storage access
 - Workaround: Use local JSON files for testing
 
@@ -566,31 +694,34 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ⚠️ Azure CLI cannot login locally (Conditional Access error 53003)
 - Use Cloud Shell for `az` commands, or portal for resource management
 
+⚠️ **DEBUG print statements in hybrid_context_analyzer.py** (CLEANUP)
+- Lines 248-297 contain 17 `[DEBUG HYBRID N]` print statements from deployment troubleshooting
+- Should be removed or converted to proper logging before next release
+
 ---
 
 ## Authentication Architecture
 
 ### Azure OpenAI
-- **Resource**: OpenAI-bp-NorthCentral (North Central US)
-- **Endpoint**: https://OpenAI-bp-NorthCentral.openai.azure.com/
-- **Tenant**: `16b3c013-d300-468d-ac64-7eda0820b6d3`
+- **Dev Resource**: OpenAI-bp-NorthCentral (North Central US) — Tenant: `16b3c013-...` (fdpo)
+- **Pre-Prod Resource**: openai-aitriage-nonprod (North Central US) — Tenant: `72f988bf-...` (Microsoft Corp)
+- **Deployments**: `gpt-4o-standard` (classification), `text-embedding-3-large` (embeddings) — same names in both environments
 - **Auth**: Azure AD only (API keys disabled by policy)
-- **Deployments**: `gpt-4o-standard` (classification), `text-embedding-3-large` (embeddings)
-- **Role**: Cognitive Services OpenAI User (assigned to Brad.Price@microsoft.com + mi-gcs-dev)
-- **Config Source**: Key Vault (`kv-gcs-dev-gg4a6y`)
+- **Role**: Cognitive Services OpenAI User
+- **Config Source**: Key Vault (dev: `kv-gcs-dev-gg4a6y`, pre-prod: `kv-aitriage`)
 
 ### Azure Cosmos DB
-- **Account**: `cosmos-gcs-dev` (serverless, North Central US)
-- **Tenant**: `16b3c013-d300-468d-ac64-7eda0820b6d3` (same as OpenAI)
+- **Dev Account**: `cosmos-gcs-dev` (serverless, North Central US) — Tenant: `16b3c013-...` (fdpo)
+- **Pre-Prod Account**: `cosmos-aitriage-nonprod` (serverless, North Central US) — Tenant: `72f988bf-...` (Microsoft Corp)
+- **Database**: `triage-management` (both environments)
 - **Auth**: AAD only (local auth disabled by Azure Policy)
 - **Role**: Cosmos DB Built-in Data Contributor
-- **Cross-tenant**: ChainedTokenCredential with SharedTokenCache + InteractiveBrowser
+- **Pre-Prod**: 10 containers (includes `corrections` and `queue-cache`)
 
 ### Key Vault
-- **Name**: `kv-gcs-dev-gg4a6y`
-- **Auth**: DefaultAzureCredential
-- **Secrets**: OpenAI endpoint/deployment, ADO PAT, etc.
-- **Note**: COSMOS_ENDPOINT and COSMOS_KEY added to mappings but secrets not yet created in KV (using env vars instead)
+- **Dev**: `kv-gcs-dev-gg4a6y` — Auth: DefaultAzureCredential
+- **Pre-Prod**: `kv-aitriage` — Auth: Managed Identity (`TechRoB-Automation-DEV`)
+- **Secrets**: OpenAI endpoint/deployment, Cosmos endpoint/key, ADO PATs
 
 ### Azure DevOps — Two Orgs
 1. **`unifiedactiontracker`** — READ source for work items (production ADO)
@@ -741,12 +872,17 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [x] Managed Identity — `id-gcs-containerapp` used for Cosmos + OpenAI AAD auth in containers
 - [x] ADO integration in containers — Dual PAT approach (test org write, production org read)
 - [x] AI analysis in containers — OpenAI env vars set, AI-Powered mode confirmed
+- [x] **App Service pre-prod deployment** — All 4 services deployed to Azure App Service (Feb 26-27)
+- [x] **Pre-prod health: ALL GREEN** — Cosmos, OpenAI, KV, ADO, Cache, Corrections all healthy
+- [ ] **Field API pre-prod fixes** — Apply same gunicorn/httpx/dependency fixes to field-api requirements.txt
+- [ ] **End-to-end pre-prod testing** — Full 9-step field flow and triage workflow through App Services
+- [ ] **Remove DEBUG print statements** — 17 `[DEBUG HYBRID N]` lines in hybrid_context_analyzer.py
 - [ ] **Cosmos DB private networking** — Public access disabled per company policy (Feb 24). Local dev and Container Apps need Private Endpoint or VNet integration to reach `cosmos-gcs-dev`. Current workaround: none (blocked).
 - [ ] **Key Vault private networking** — Public access disabled per company policy (Feb 24). Local dev and Container Apps need Private Endpoint or VNet integration to reach `kv-gcs-dev-gg4a6y`. Container Apps currently use env vars as workaround.
 - [ ] Rebuild container images — debug log hardcoded path fix needs redeployment
 - [ ] Add COSMOS_ENDPOINT secret to Key Vault (currently using env vars)
 - [ ] Copilot API plugin — field portal API already has OpenAPI spec at :8010/docs
-- [ ] Custom domain / SSL for container apps
+- [ ] Custom domain / SSL for container apps and App Services
 - [ ] CI/CD pipeline — automate build/deploy on push
 - [ ] Legacy Flask UI retirement — retire `:5003` after field portal validation
 
@@ -759,6 +895,36 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 ---
 
 ## Troubleshooting Quick Reference
+
+### App Service (Pre-Prod) Issues
+
+**502 Bad Gateway / App won't start**
+- Check App Service logs: Portal → App Service → Log stream
+- Most common: missing dependency in `requirements.txt` — ensure `gunicorn`, `openai`, `numpy`, `scikit-learn` are present
+- Startup command must bind to port 8000: `gunicorn --bind 0.0.0.0:8000 ...`
+- App may be in "stopped" state after repeated failures — use Portal → Start (restart won't work on stopped apps)
+
+**"Client.__init__() got an unexpected keyword argument 'proxies'"**
+- `openai==1.52.0` passes `proxies=` to httpx.Client(), but httpx 0.28+ removed that parameter
+- Fix: Pin `httpx>=0.25.0,<0.28.0` in requirements.txt
+
+**"Corrections file not found" health failure**
+- Old `ai_config.py` validation checked for file-system `corrections.json`
+- Fixed Feb 27: Removed file-system check — corrections are in Cosmos DB now
+- If still appearing, ensure you have the latest `ai_config.py` deployed
+
+**Diagnostics show wrong OpenAI resource name**
+- Old `admin_routes.py` had `openai-bp-northcentral` hardcoded in diagnostics
+- Fixed Feb 27: Now extracts dynamically from endpoint URL
+- If still appearing, ensure latest `admin_routes.py` is deployed
+
+**"ModuleNotFoundError: No module named 'gunicorn'"**
+- `gunicorn` must be in `triage/requirements.txt` — App Service uses gunicorn as WSGI server
+- Without gunicorn, the startup command fails before even loading uvicorn
+
+**Cloud Shell "AuthorizationFailed"**
+- Cloud Shell credential can become stale, especially across subscription switches
+- Workaround: Use Azure Portal for the specific operation, or restart Cloud Shell
 
 ### Triage System Issues
 
@@ -796,7 +962,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Feb 23, 2026): System is fully operational locally AND deployed to Azure Container Apps. Four container apps live with Cosmos DB, ADO dual-org PAT auth, and AI-Powered analysis. Triage UI has 11 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections. Corrections page uses same category/intent dropdowns as Evaluate page. ClassifyPage removed, HealthPage merged into Dashboard. Latest commit: `6f4e634`.
+**STATUS** (Feb 27, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` with dedicated Cosmos DB (`cosmos-aitriage-nonprod`), OpenAI (`openai-aitriage-nonprod`), and Key Vault (`kv-aitriage`). All 6 health components GREEN. MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 11 pages. Latest changes: gunicorn, httpx pin, corrections validation removal, dynamic OpenAI diagnostics, ADO credential fallback.
 
 ---
 

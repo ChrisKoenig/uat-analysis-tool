@@ -271,6 +271,7 @@ class RelatedUATsResponse(BaseModel):
     session_id: str
     related_uats: List[RelatedUAT] = Field(default_factory=list)
     total_found: int = 0
+    search_error: Optional[str] = None
 
 
 class UATSelectionRequest(BaseModel):

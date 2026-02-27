@@ -30,6 +30,94 @@ function statusIcon(s) {
   return '❌';
 }
 
+// ── Health Detail Modal ────────────────────────────────────────
+function HealthDetailModal({ component, onClose }) {
+  if (!component) return null;
+
+  const renderDetailValue = (val) => {
+    if (val == null) return <span className="text-muted">null</span>;
+    if (typeof val === 'boolean') return <span className={val ? 'detail-bool-true' : 'detail-bool-false'}>{String(val)}</span>;
+    if (typeof val === 'object') return <pre className="detail-json">{JSON.stringify(val, null, 2)}</pre>;
+    return String(val);
+  };
+
+  return (
+    <div className="health-modal-overlay" onClick={onClose}>
+      <div className="health-modal" onClick={e => e.stopPropagation()}>
+        <div className={`health-modal-header ${component.status}`}>
+          <div className="health-modal-title">
+            <span className="health-modal-icon">{statusIcon(component.status)}</span>
+            <h2>{formatName(component.name)}</h2>
+            <span className={`health-status-badge ${component.status}`}>{component.status}</span>
+          </div>
+          <button className="health-modal-close" onClick={onClose} title="Close">✕</button>
+        </div>
+
+        <div className="health-modal-body">
+          {/* Latency */}
+          {component.latency_ms != null && (
+            <div className="health-modal-section">
+              <h3>⏱ Response Time</h3>
+              <div className={`health-modal-latency ${component.latency_ms > 2000 ? 'slow' : component.latency_ms > 500 ? 'moderate' : 'fast'}`}>
+                {component.latency_ms}ms
+                <span className="latency-label">
+                  {component.latency_ms > 2000 ? ' — Slow' : component.latency_ms > 500 ? ' — Moderate' : ' — Fast'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {component.error && (
+            <div className="health-modal-section">
+              <h3>🚨 Error</h3>
+              <div className="health-modal-error">{component.error}</div>
+            </div>
+          )}
+
+          {/* Diagnostics / Suggestions */}
+          {component.diagnostics && component.diagnostics.length > 0 && (
+            <div className="health-modal-section">
+              <h3>💡 Diagnostic Suggestions</h3>
+              <ul className="health-modal-diagnostics">
+                {component.diagnostics.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Full Details */}
+          {component.detail && Object.keys(component.detail).length > 0 && (
+            <div className="health-modal-section">
+              <h3>📋 Details</h3>
+              <table className="health-modal-detail-table">
+                <tbody>
+                  {Object.entries(component.detail).map(([key, val]) => (
+                    <tr key={key}>
+                      <td className="detail-key">{formatName(key)}</td>
+                      <td className="detail-value">{renderDetailValue(val)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* All-clear message for healthy components */}
+          {component.status === 'healthy' && !component.error && (
+            <div className="health-modal-section">
+              <div className="health-modal-allclear">
+                ✅ This component is operating normally. No issues detected.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export default function Dashboard({ addToast }) {
   // ── State — individual loading flags per section ─────────────
@@ -41,6 +129,7 @@ export default function Dashboard({ addToast }) {
   const [healthDashboard, setHealthDashboard] = useState(null);
   const [healthLoading, setHealthLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedComponent, setSelectedComponent] = useState(null);
 
   // ── Load Health Dashboard ────────────────────────────────────
   const loadHealth = useCallback(async (isRefresh = false) => {
@@ -110,16 +199,16 @@ export default function Dashboard({ addToast }) {
       {/* Status Cards Row */}
       <div className="dashboard-status-row">
         {/* API Status */}
-        <div className={`dashboard-status-card ${isLoading(health) ? 'status-loading' : health ? 'status-ok' : 'status-error'}`}>
+        <div className={`dashboard-status-card ${isLoading(health) ? 'status-loading' : (health && health.status !== 'unreachable') ? 'status-ok' : 'status-error'}`}>
           <div className="dashboard-status-icon">
-            {isLoading(health) ? <Skeleton width="1.5rem" /> : health ? '✅' : '❌'}
+            {isLoading(health) ? <Skeleton width="1.5rem" /> : (health && health.status !== 'unreachable') ? '✅' : '❌'}
           </div>
           <div className="dashboard-status-info">
             <span className="dashboard-status-label">Triage API</span>
             <span className="dashboard-status-value">
               {isLoading(health)
                 ? <Skeleton width="5rem" />
-                : health
+                : (health && health.status !== 'unreachable')
                   ? (health.status === 'degraded' ? 'Running (Degraded)' : 'Healthy')
                   : 'Offline'}
             </span>
@@ -222,7 +311,12 @@ export default function Dashboard({ addToast }) {
             {/* Component cards */}
             <div className="health-grid">
               {(healthDashboard.components || []).map((comp, i) => (
-                <div key={i} className={`health-component-card ${comp.status}`}>
+                <div
+                  key={i}
+                  className={`health-component-card ${comp.status} clickable`}
+                  onClick={() => setSelectedComponent(comp)}
+                  title="Click for details"
+                >
                   <div className="health-component-name">
                     <span>{formatName(comp.name)}</span>
                     <span className={`health-status-badge ${comp.status}`}>
@@ -256,6 +350,11 @@ export default function Dashboard({ addToast }) {
                       })}
                     </div>
                   )}
+
+                  {/* Click hint for non-healthy components */}
+                  {comp.status !== 'healthy' && (
+                    <div className="health-click-hint">Click for diagnostics →</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -266,6 +365,12 @@ export default function Dashboard({ addToast }) {
           </p>
         )}
       </div>
+
+      {/* Health Detail Modal */}
+      <HealthDetailModal
+        component={selectedComponent}
+        onClose={() => setSelectedComponent(null)}
+      />
     </div>
   );
 }

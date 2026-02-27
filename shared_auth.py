@@ -71,39 +71,49 @@ def _create_credential():
     managed_identity_client_id = os.environ.get('AZURE_CLIENT_ID')
     if managed_identity_client_id:
         try:
+            import time as _t
             logger.info(f"[SharedAuth] Using Managed Identity (client_id: {managed_identity_client_id[:8]}...)")
-            print(f"[SharedAuth] 🔒 Using Managed Identity (client_id: {managed_identity_client_id[:8]}...)")
+            print(f"[SharedAuth] 🔒 Using Managed Identity (client_id: {managed_identity_client_id[:8]}...)", flush=True)
             cred = ManagedIdentityCredential(client_id=managed_identity_client_id)
+            print(f"[SharedAuth] MI credential object created — requesting token for {COGNITIVE_SCOPE}...", flush=True)
+            _t0 = _t.time()
             cred.get_token(COGNITIVE_SCOPE)
-            print("[SharedAuth] ✅ Managed Identity credential works")
+            print(f"[SharedAuth] ✅ Managed Identity credential works ({_t.time()-_t0:.1f}s)", flush=True)
             return cred, "managed_identity"
         except Exception as e:
             logger.warning(f"[SharedAuth] Managed Identity failed: {e}")
-            print(f"[SharedAuth] ⚠️ Managed Identity failed: {e} — trying other methods")
+            print(f"[SharedAuth] ⚠️ Managed Identity failed ({_t.time()-_t0:.1f}s): {type(e).__name__}: {e} — trying other methods", flush=True)
 
     # 2. Local dev: Quick check if Azure CLI is logged in (~0.5s vs ~10s timeout)
     try:
         result = subprocess.run(
             ["az", "account", "show"],
-            capture_output=True, timeout=2,
+            capture_output=True, timeout=5,
         )
         if result.returncode == 0:
             logger.info("[SharedAuth] Azure CLI is logged in — using CLI credential")
-            print("[SharedAuth] Azure CLI is logged in — using CLI credential")
-            cred = AzureCliCredential()
+            print("[SharedAuth] Azure CLI is logged in — using CLI credential", flush=True)
+            cred = AzureCliCredential(tenant_id=TENANT_ID)
             cred.get_token(COGNITIVE_SCOPE)
-            print("[SharedAuth] ✅ Azure CLI credential works")
+            print("[SharedAuth] ✅ Azure CLI credential works", flush=True)
             return cred, "cli"
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # az not installed or too slow — skip
-    except Exception:
-        pass
+        else:
+            print(f"[SharedAuth] Azure CLI not logged in (rc={result.returncode})", flush=True)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"[SharedAuth] Azure CLI skipped: {e}", flush=True)
+    except Exception as e:
+        print(f"[SharedAuth] Azure CLI credential failed: {e}", flush=True)
 
     # 3. Local dev: Interactive Browser (one-time prompt)
     try:
+        from azure.identity import TokenCachePersistenceOptions
         logger.info("[SharedAuth] Opening browser for authentication...")
-        print("[SharedAuth] 🌐 Opening browser for one-time authentication...")
-        cred = InteractiveBrowserCredential(tenant_id=TENANT_ID)
+        print("[SharedAuth] Opening browser for one-time authentication...")
+        cache_opts = TokenCachePersistenceOptions(name="gcs-shared-auth")
+        cred = InteractiveBrowserCredential(
+            tenant_id=TENANT_ID,
+            cache_persistence_options=cache_opts,
+        )
         cred.get_token(COGNITIVE_SCOPE)
         logger.info("[SharedAuth] ✅ Browser authentication successful")
         print("[SharedAuth] ✅ Browser authentication successful")
@@ -128,20 +138,26 @@ def warm_up():
     import threading
     
     def _bg_warm():
+        import time as _t
         try:
+            print(f"[SharedAuth/bg] Calling get_credential()...", flush=True)
+            _t0 = _t.time()
             cred = get_credential()
-            print(f"[SharedAuth] Pre-warming tokens (type: {_credential_type})...")
+            print(f"[SharedAuth/bg] get_credential() returned in {_t.time()-_t0:.1f}s (type: {_credential_type})", flush=True)
+            print(f"[SharedAuth/bg] Pre-warming COGNITIVE token...", flush=True)
+            _t0 = _t.time()
             cred.get_token(COGNITIVE_SCOPE)
-            print("[SharedAuth] ✅ Cognitive Services token ready")
+            print(f"[SharedAuth/bg] ✅ Cognitive Services token ready ({_t.time()-_t0:.1f}s)", flush=True)
             try:
+                _t0 = _t.time()
                 cred.get_token(ADO_SCOPE)
-                print("[SharedAuth] ✅ Azure DevOps token ready")
-            except Exception:
-                print("[SharedAuth] ⚠ ADO token pre-warm skipped (may need separate org auth)")
-            print("[SharedAuth] 🚀 All credentials pre-warmed and ready")
+                print(f"[SharedAuth/bg] ✅ Azure DevOps token ready ({_t.time()-_t0:.1f}s)", flush=True)
+            except Exception as e2:
+                print(f"[SharedAuth/bg] ⚠ ADO token skipped: {type(e2).__name__}: {e2}", flush=True)
+            print("[SharedAuth/bg] 🚀 All credentials pre-warmed and ready", flush=True)
         except Exception as e:
-            print(f"[SharedAuth] ⚠ Pre-warm failed (will authenticate on first request): {e}")
+            print(f"[SharedAuth/bg] ⚠ Pre-warm failed: {type(e).__name__}: {e}", flush=True)
     
     t = threading.Thread(target=_bg_warm, daemon=True, name="shared-auth-warmup")
     t.start()
-    print("[SharedAuth] 🔐 Background auth started — check your browser if prompted")
+    print("[SharedAuth] 🔐 Background auth started", flush=True)

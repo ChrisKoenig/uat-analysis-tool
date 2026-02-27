@@ -156,57 +156,67 @@ class EnhancedMatchingConfig:
     def get_uat_credential():
         """
         Get Azure credential for UAT organization (unifiedactiontracker) access.
-        
-        Uses InteractiveBrowserCredential for proper permissions, with caching
-        so authentication only happens once.
-        
+
+        Uses InteractiveBrowserCredential with the same persistent disk cache
+        as AzureDevOpsConfig so the user only authenticates once for all ADO
+        orgs.  Auth chain:
+        1. Return in-memory cached credential/token
+        2. Reuse credential from AzureDevOpsConfig (if write-org already authed)
+        3. ManagedIdentityCredential (headless deployment)
+        4. InteractiveBrowserCredential with persistent cache "gcs-ado-auth"
+
         Returns:
-            Tuple of (credential, token) for UAT Azure DevOps authentication
+            Tuple of (credential, token_string)
         """
-        from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
-        
-        # Return cached credential if available
-        print("[DEBUG AUTH 1] Checking for cached UAT credential...", flush=True)
+        from azure.identity import (
+            InteractiveBrowserCredential,
+            ManagedIdentityCredential,
+            TokenCachePersistenceOptions,
+        )
+
+        ADO_CACHE_NAME = "gcs-ado-auth"  # same cache as ado_integration.py
+
+        # 1. Return in-memory cached credential if available
         if EnhancedMatchingConfig._uat_credential is not None and EnhancedMatchingConfig._uat_token is not None:
-            print("🔐 [UAT Auth] Reusing cached credential from previous authentication...", flush=True)
-            print("[DEBUG AUTH 2] Returning cached credential...", flush=True)
+            print("[UAT Auth] Reusing cached credential", flush=True)
             return EnhancedMatchingConfig._uat_credential, EnhancedMatchingConfig._uat_token
-        
-        print("[DEBUG AUTH 3] No cached credential found. Creating new credential...", flush=True)
+
+        # 2. Try to reuse credential from the write-org client (already prompted)
         try:
-            # Try Azure CLI first (no prompts if 'az login' was run)
-            print("🔐 [UAT Auth] Trying Azure CLI credential (no prompts)...", flush=True)
-            from azure.identity import AzureCliCredential
-            credential = AzureCliCredential()
-            token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-            print("✅ [UAT Auth] Azure CLI authentication successful (cached for session)", flush=True)
-            EnhancedMatchingConfig._uat_credential = credential
-            EnhancedMatchingConfig._uat_token = token.token
-            return credential, token.token
-        except Exception as cli_error:
-            print(f"[WARNING] Azure CLI credential failed: {cli_error}")
-        
-        try:
-            # Fallback to Interactive Browser
-            print("🔐 [UAT Auth] Using Interactive Browser credential (one-time login)...", flush=True)
-            print("[DEBUG AUTH 4] Creating InteractiveBrowserCredential object...", flush=True)
-            credential = InteractiveBrowserCredential()
-            print("[DEBUG AUTH 5] Calling get_token()...", flush=True)
-            token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-            print("[DEBUG AUTH 6] get_token() returned successfully!", flush=True)
-            print("✅ [UAT Auth] Authentication successful (cached for session)", flush=True)
-            # Cache the credential for reuse
-            EnhancedMatchingConfig._uat_credential = credential
-            EnhancedMatchingConfig._uat_token = token.token
-            return credential, token.token
+            from ado_integration import AzureDevOpsConfig
+            if AzureDevOpsConfig._cached_credential is not None:
+                print("[UAT Auth] Reusing credential from AzureDevOpsConfig", flush=True)
+                token = AzureDevOpsConfig._cached_credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+                EnhancedMatchingConfig._uat_credential = AzureDevOpsConfig._cached_credential
+                EnhancedMatchingConfig._uat_token = token.token
+                return EnhancedMatchingConfig._uat_credential, EnhancedMatchingConfig._uat_token
         except Exception as e:
-            print(f"[WARNING] Interactive Browser credential failed: {e}")
-            print("[INFO] Trying default credential...")
-            credential = DefaultAzureCredential()
-            token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-            EnhancedMatchingConfig._uat_credential = credential
-            EnhancedMatchingConfig._uat_token = token.token
-            return credential, token.token
+            print(f"[UAT Auth] Could not reuse AzureDevOpsConfig credential: {e}", flush=True)
+
+        # 3. Managed Identity (container / cloud)
+        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID")
+        if ado_mi_client_id:
+            try:
+                credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
+                token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+                EnhancedMatchingConfig._uat_credential = credential
+                EnhancedMatchingConfig._uat_token = token.token
+                print("[UAT Auth] Managed Identity successful", flush=True)
+                return credential, token.token
+            except Exception as e:
+                print(f"[UAT Auth] Managed Identity failed: {e}", flush=True)
+
+        # 4. Interactive Browser with persistent disk cache
+        cache_opts = TokenCachePersistenceOptions(name=ADO_CACHE_NAME)
+        print("[UAT Auth] Using Interactive Browser credential (persistent cache)...", flush=True)
+        credential = InteractiveBrowserCredential(
+            cache_persistence_options=cache_opts,
+        )
+        token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
+        print("[UAT Auth] Authentication successful (token cached to disk)", flush=True)
+        EnhancedMatchingConfig._uat_credential = credential
+        EnhancedMatchingConfig._uat_token = token.token
+        return credential, token.token
     
     @staticmethod
     def get_tft_credential():

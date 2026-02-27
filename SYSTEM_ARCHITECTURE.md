@@ -148,18 +148,24 @@ the results back to ADO — with human review at the decision point.
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐            │
 │  │ Azure Cosmos DB  │  │ Azure Key Vault  │  │ Azure OpenAI     │            │
 │  │ cosmos-gcs-dev   │  │ kv-gcs-dev-gg4a6y│  │ OpenAI-bp-       │            │
-│  │ (serverless)     │  │                  │  │ NorthCentral     │            │
+│  │ (serverless)     │  │ (dev)            │  │ NorthCentral     │            │
+│  │                  │  │                  │  │ (dev)            │            │
+│  │ PRE-PROD:        │  │ PRE-PROD:        │  │ PRE-PROD:        │            │
+│  │ cosmos-aitriage- │  │ kv-aitriage      │  │ openai-aitriage- │            │
+│  │ nonprod          │  │                  │  │ nonprod          │            │
 │  │                  │  │ Secrets:         │  │                  │            │
 │  │ DB: triage-      │  │ - OpenAI config  │  │ Deployments:     │            │
 │  │   management     │  │ - ADO PAT        │  │ - gpt-4o-standard│            │
 │  │                  │  │ - Storage keys   │  │ - text-embedding-│            │
-│  │ 8 containers:    │  │ - App Insights   │  │   3-large        │            │
+│  │ 10 containers:   │  │ - App Insights   │  │   3-large        │            │
 │  │ rules, actions,  │  │                  │  │                  │            │
 │  │ triggers, routes,│  │ Auth: Default    │  │ Auth: AAD only   │            │
 │  │ analysis-results,│  │ AzureCredential  │  │ (keys disabled)  │            │
-│  │ audit-log,       │  │                  │  │                  │            │
-│  │ evaluations,     │  │                  │  │                  │            │
-│  │ queue-cache      │  │                  │  │                  │            │
+│  │ audit-log,       │  │ (dev) / MI       │  │                  │            │
+│  │ evaluations,     │  │ (pre-prod)       │  │                  │            │
+│  │ queue-cache,     │  │                  │  │                  │            │
+│  │ corrections,     │  │                  │  │                  │            │
+│  │ field-schema     │  │                  │  │                  │            │
 │  │                  │  │                  │  │                  │            │
 │  │ Auth: AAD only   │  │                  │  │                  │            │
 │  │ (keys disabled)  │  │                  │  │                  │            │
@@ -198,6 +204,10 @@ the results back to ADO — with human review at the decision point.
 | 8007 | Vector Search | Flask | Built |
 | 8008 | Admin Portal | Flask | Built |
 | 8009 | Triage API | FastAPI + uvicorn | Built |
+
+> **App Service (pre-prod):** The Triage API runs on port **8000** behind gunicorn
+> (`gunicorn --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker`).
+> Local development still uses port 8009.
 
 ### Shared Modules (no port — imported as libraries)
 
@@ -411,22 +421,32 @@ Step 9   ▼ Create UAT work item in ADO
 
 All Azure resources use AAD authentication — no API keys anywhere.
 
-### Tenant Complexity
+### Environments
 
-The user's corporate identity and the Azure resources live in **different tenants**:
+| Environment | Subscription | Resource Group | Auth Mechanism |
+|-------------|-------------|----------------|----------------|
+| **Dev (local)** | `13267e8e-b8f0-41c3-ba3e-569b3b7c8482` | `rg-gcs-dev` | InteractiveBrowserCredential (cross-tenant fdpo) |
+| **Pre-Prod (App Service)** | `a1e66643-8021-4548-8e36-f08076057b6a` | `rg-nonprod-aitriage` | ManagedIdentityCredential (`TechRoB-Automation-DEV`) |
+
+### Tenant Complexity (Dev Environment)
+
+The user's corporate identity and the **dev** Azure resources live in **different tenants**:
 
 | Tenant | ID | Contains |
 |--------|----|----------|
 | Microsoft Corp | `72f988bf-86f1-41af-91ab-2d7cd011db47` | User identity (Brad.Price@microsoft.com) |
-| Microsoft Non-Production (fdpo) | `16b3c013-d300-468d-ac64-7eda0820b6d3` | All Azure resources (OpenAI, Cosmos, KV) |
+| Microsoft Non-Production (fdpo) | `16b3c013-d300-468d-ac64-7eda0820b6d3` | Dev Azure resources (OpenAI, Cosmos, KV) |
+
+> **Pre-prod** resources are in the Corp tenant (`72f988bf-...`), so Managed Identity
+> works without cross-tenant complexity.
 
 This cross-tenant setup requires tenant-specific credentials everywhere.
 
-### Credential Strategy by Service
+### Credential Strategy — Dev (Local)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    AUTHENTICATION FLOWS                          │
+│                    DEV AUTHENTICATION FLOWS                      │
 │                                                                  │
 │  Key Vault (kv-gcs-dev-gg4a6y)                                  │
 │  └── DefaultAzureCredential (works cross-tenant automatically)  │
@@ -452,10 +472,40 @@ This cross-tenant setup requires tenant-specific credentials everywhere.
 │  └── InteractiveBrowserCredential                               │
 │      └── tenant_id = microsoft.com                              │
 │      └── Cached in: AzureDevOpsConfig._cached_tft_credential   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Credential Strategy — Pre-Prod (App Service)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                PRE-PROD AUTHENTICATION FLOWS                     │
 │                                                                  │
-│  Azure Deployment (future)                                      │
+│  Managed Identity: TechRoB-Automation-DEV                       │
+│  └── Client ID: 0fe9d340-a359-4849-8c0f-d3c9640017ee           │
+│  └── Set via AZURE_CLIENT_ID env var on each App Service        │
+│                                                                  │
+│  Key Vault (kv-aitriage)                                        │
+│  └── ManagedIdentityCredential (via DefaultAzureCredential)     │
+│      └── Role: Key Vault Secrets User                           │
+│                                                                  │
+│  Azure OpenAI (openai-aitriage-nonprod)                         │
 │  └── ManagedIdentityCredential                                  │
-│      └── mi-gcs-dev (client: 7846e03e-...)                     │
+│      └── Role: Cognitive Services OpenAI User                   │
+│                                                                  │
+│  Cosmos DB (cosmos-aitriage-nonprod)                            │
+│  └── ManagedIdentityCredential                                  │
+│      └── Role: Cosmos DB Built-in Data Contributor              │
+│                                                                  │
+│  ADO — READ & TFT orgs                                          │
+│  └── ManagedIdentityCredential (via AZURE_CLIENT_ID fallback)  │
+│      └── See ado_integration.py get_credential()                │
+│                                                                  │
+│  MSAL (triage-ui SPA)                                           │
+│  └── App Registration: GCS-Triage-NonProd                       │
+│      └── Client ID: 6257f944-71eb-49b9-8ef6-ab006383d54c       │
+│      └── Authority: https://login.microsoftonline.com/          │
+│          72f988bf-86f1-41af-91ab-2d7cd011db47                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -478,7 +528,9 @@ around this by using `InteractiveBrowserCredential` directly (not
 
 ## Azure Resource Map
 
-All resources are in subscription `13267e8e-b8f0-41c3-ba3e-569b3b7c8482`,
+### Dev Environment
+
+Subscription `13267e8e-b8f0-41c3-ba3e-569b3b7c8482` (fdpo tenant),
 resource group `rg-gcs-dev`, North Central US.
 
 | Resource | Type | Key Detail |
@@ -487,6 +539,24 @@ resource group `rg-gcs-dev`, North Central US.
 | `kv-gcs-dev-gg4a6y` | Key Vault | Stores OpenAI config, ADO PAT, storage keys |
 | `OpenAI-bp-NorthCentral` | Azure OpenAI | gpt-4o-standard + text-embedding-3-large |
 | `mi-gcs-dev` | Managed Identity | For production deployment (not used locally) |
+
+### Pre-Prod Environment (Feb 2026)
+
+Subscription `a1e66643-8021-4548-8e36-f08076057b6a` (Corp tenant),
+resource group `rg-nonprod-aitriage`, North Central US.
+
+| Resource | Type | Key Detail |
+|----------|------|------------|
+| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 10 containers |
+| `kv-aitriage` | Key Vault | OpenAI, Cosmos, ADO secrets via MI |
+| `openai-aitriage-nonprod` | Azure OpenAI | gpt-4o-standard + text-embedding-3-large |
+| `TechRoB-Automation-DEV` | User-Assigned Managed Identity | Assigned to all 4 App Services |
+| `app-triage-api-nonprod` | App Service (Python 3.12, B1) | Triage API — gunicorn + uvicorn |
+| `app-triage-ui-nonprod` | App Service (Node 20, B1) | React SPA — pm2 + serve |
+| `app-field-api-nonprod` | App Service (Python 3.12, B1) | Field API (future) |
+| `app-field-ui-nonprod` | App Service (Node 20, B1) | Field Portal SPA (future) |
+| `plan-aitriage-nonprod` | App Service Plan (B1) | Shared plan, 4 apps |
+| `GCS-Triage-NonProd` | App Registration | MSAL SPA auth, redirect URIs configured |
 
 ### Cosmos DB Containers
 
@@ -502,6 +572,8 @@ Database: `triage-management`
 | `evaluations` | `/id` | Trigger evaluation history |
 | `audit-log` | `/id` | Change tracking |
 | `queue-cache` | `/id` | Cached queue data |
+| `corrections` | `/id` | AI classification corrections (fine-tuning) |
+| `field-schema` | `/id` | Field Portal schema definitions |
 
 ---
 
@@ -646,7 +718,7 @@ npm run dev
 |-----------|-------|
 | Triage API (FastAPI :8009) | Full CRUD, evaluate, analyze, ADO integration |
 | React SPA (:3000) | 13 pages, queue management, admin UI, classify, health |
-| Cosmos DB persistence | 8 containers, AAD cross-tenant auth |
+| Cosmos DB persistence | 10 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
 | Hybrid Analysis Engine | Pattern + LLM + vectors + corrections |
 | Rules Engine (15 operators) | Full evaluation logic |
 | Trigger Engine (AND/OR/NOT) | Priority-ordered, first-match-wins |
@@ -662,6 +734,17 @@ npm run dev
 | Admin Portal (:8008) | Config management |
 | 7 Microservices (:8001-8007) | Independently deployable |
 
+### Deployed to Pre-Prod (Feb 2026)
+
+| Component | Notes |
+|-----------|-------|
+| App Service deployment | 4 App Services on shared B1 plan (not Container Apps) |
+| Managed Identity auth | `TechRoB-Automation-DEV` assigned to all services |
+| Key Vault secrets | Cosmos, OpenAI, ADO config stored in `kv-aitriage` |
+| MSAL SPA auth | `GCS-Triage-NonProd` app registration, Corp tenant |
+| Pre-prod OpenAI | `openai-aitriage-nonprod` with MI-based AAD auth |
+| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 10 containers, MI auth |
+
 ### Planned / Not Yet Built
 
 | Component | Description |
@@ -669,12 +752,12 @@ npm run dev
 | Webhook receiver | ADO pushes events → auto-analyze new items |
 | Analytics dashboard | Trends, accuracy, volume metrics |
 | Full automation mode | Trigger → route → ADO write without human review |
-| Managed Identity deployment | Use mi-gcs-dev in Azure (currently local-only) |
-| Container deployment | Docker images for each service |
+| Container deployment | Docker images for each service (alternative to App Service) |
 | Classification tuning | Review accuracy, refine LLM prompt, add corrections |
 | Copilot API plugin | Expose classify/search endpoints as Copilot agent skills |
 | Legacy UI retirement | Migrate remaining Flask pages to React, retire :5003/:8008 |
-| Cosmos DB secrets in Key Vault | Currently using env vars, not KV secrets |
+| Field API pre-prod fixes | Startup hang — needs investigation for App Service |
+| Production environment | Prod subscription, prod RBAC, custom domain, TLS |
 
 ---
 

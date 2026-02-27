@@ -34,6 +34,17 @@ try:
     if _ai_conn:
         from azure.monitor.opentelemetry import configure_azure_monitor
         configure_azure_monitor(connection_string=_ai_conn)
+        # Suppress verbose Azure SDK HTTP logging (full request/response headers)
+        # Telemetry still flows to App Insights — just not to the console.
+        for _name in (
+            "azure.core.pipeline.policies.http_logging_policy",
+            "azure.monitor.opentelemetry.exporter",
+            "azure.monitor.opentelemetry.exporter.export",
+            "azure.monitor.opentelemetry.exporter.export._base",
+            "azure.identity",
+            "azure.identity._credentials",
+        ):
+            logging.getLogger(_name).setLevel(logging.WARNING)
         logger.info("Application Insights enabled for Field Portal API")
 except Exception as _ai_err:
     logger.warning("App Insights init skipped: %s", _ai_err)
@@ -42,49 +53,84 @@ except Exception as _ai_err:
 # ── Lifespan (startup / shutdown) ──
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"Field Portal API starting on port {FIELD_PORTAL_PORT}")
+    import sys, os, time as _t
+
+    def _log(msg: str):
+        """Timestamped debug log — prints + logs so Azure log stream captures it."""
+        ts = f"{_t.time():.3f}"
+        line = f"[STARTUP {ts}] {msg}"
+        print(line, flush=True)
+        logger.info(msg)
+
+    _log(f"Field Portal API starting on port {FIELD_PORTAL_PORT}")
+    _log(f"  PID={os.getpid()}  Python={sys.version}")
+    _log(f"  KEY_VAULT_NAME={os.environ.get('KEY_VAULT_NAME', '(not set)')}")
+    _log(f"  AZURE_CLIENT_ID={os.environ.get('AZURE_CLIENT_ID', '(not set)')}")
+    _log(f"  API_GATEWAY_URL={os.environ.get('API_GATEWAY_URL', '(not set)')}")
+    _log(f"  WEBSITES_PORT={os.environ.get('WEBSITES_PORT', '(not set)')}")
+    _log(f"  PORT={os.environ.get('PORT', '(not set)')}")
 
     # Pre-load KeyVault config + shared credential at startup so the
     # first user request doesn't pay ~30s of credential chain timeouts.
     try:
-        import sys, os, time as _t
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
+        _log(f"  project_root added to sys.path: {project_root}")
 
         # 0. Quick network check — is KeyVault reachable?
-        #    TODO: REMOVE this block before pre-prod (vault always reachable there)
+        _log("Step 0: KeyVault TCP reachability check (3s timeout)...")
+        _t0 = _t.time()
         from keyvault_config import check_reachable as _kv_check
         kv_ok, kv_msg = _kv_check(timeout_seconds=3.0)
+        _log(f"Step 0 done in {_t.time()-_t0:.1f}s — reachable={kv_ok}")
         if kv_ok:
-            logger.info(f"✅ {kv_msg}")
+            _log(f"  ✅ {kv_msg}")
         else:
-            logger.warning(kv_msg)
-            print(kv_msg)  # make sure it's visible in the terminal
+            _log(f"  ⚠️ {kv_msg}")
 
-        # 1. Pre-load KeyVault secrets (triggers DefaultAzureCredential once)
+        # 1. Pre-load KeyVault secrets (triggers credential + secret reads)
+        _log("Step 1: Loading AI config (KeyVault secrets)...")
         _t0 = _t.time()
         from ai_config import get_config as get_ai_config
         _cfg = get_ai_config()
-        logger.info(f"AI config loaded in {_t.time()-_t0:.1f}s  (endpoint={'set' if _cfg.azure_openai.endpoint else 'MISSING'})")
+        _log(f"Step 1 done in {_t.time()-_t0:.1f}s  (endpoint={'set' if _cfg.azure_openai.endpoint else 'MISSING'})")
 
         # 2. Pre-warm shared credential (background thread — non-blocking)
+        _log("Step 2: Starting shared_auth warm_up (background thread)...")
+        _t0 = _t.time()
         from shared_auth import warm_up
         warm_up()
+        _log(f"Step 2 dispatched in {_t.time()-_t0:.1f}s (thread is running in background)")
     except Exception as e:
-        logger.warning(f"Startup pre-load failed (will initialise on first request): {e}")
+        _log(f"⚠️ Startup pre-load FAILED: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
 
-    logger.info("Checking gateway connectivity...")
-    gw = get_gateway()
-    reachable = await gw.check_health()
-    if reachable:
-        logger.info("✅ API Gateway is reachable")
-    else:
-        logger.warning("⚠️  API Gateway not reachable — some features will fail")
+    # 3. Gateway health check (also wrapped in try/except so it never blocks startup)
+    try:
+        _log("Step 3: Checking gateway connectivity...")
+        _t0 = _t.time()
+        gw = get_gateway()
+        _log(f"  Gateway URL: {gw.base_url}")
+        reachable = await gw.check_health()
+        _log(f"Step 3 done in {_t.time()-_t0:.1f}s — reachable={reachable}")
+        if reachable:
+            _log("  ✅ API Gateway is reachable")
+        else:
+            _log("  ⚠️  API Gateway not reachable — some features will fail")
+    except Exception as e:
+        _log(f"  ⚠️ Gateway check FAILED: {type(e).__name__}: {e}")
+
+    _log("=== Startup sequence complete — yielding to app ===")
     yield
     # Shutdown
-    await gw.close()
-    logger.info("Field Portal API shut down")
+    try:
+        gw = get_gateway()
+        await gw.close()
+    except Exception:
+        pass
+    _log("Field Portal API shut down")
 
 
 # ── FastAPI App ──

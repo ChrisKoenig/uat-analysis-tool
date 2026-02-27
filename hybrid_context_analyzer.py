@@ -252,7 +252,7 @@ class HybridContextAnalyzer:
         
         # AI configuration
         self.use_ai = use_ai
-        self._init_error = None  # Track init errors for propagation to results
+        self._init_error = None  # Track init errors for propagation to health dashboard and results
         print("[DEBUG HYBRID 4] Getting AI config...", flush=True)
         self.config = get_config()
         print("[DEBUG HYBRID 5] AI config loaded.", flush=True)
@@ -653,11 +653,25 @@ class HybridContextAnalyzer:
         return result
     
     def get_ai_status(self) -> Dict[str, Any]:
-        """Get status of AI services"""
+        """Get status of AI services for health dashboard.
+        
+        Returns a dict with:
+          - enabled (bool): Whether AI services are active
+          - reason (str, if disabled): The init error or 'AI disabled'
+          - endpoint (str, if disabled): The configured OpenAI endpoint (for diagnostics)
+          - use_aad (bool, if disabled): Whether AAD auth is configured
+          - llm_cache_stats / embedding_cache_stats (if enabled): Cache metrics
+          
+        Updated Feb 27, 2026: Now propagates _init_error and endpoint info
+        so the admin health dashboard can show actionable diagnostics instead
+        of a generic 'AI disabled' message.
+        """
         if not self.use_ai:
             return {
                 "enabled": False,
-                "reason": "AI disabled"
+                "reason": self._init_error or "AI disabled",
+                "endpoint": getattr(self.config.azure_openai, 'endpoint', '') if self.config else '',
+                "use_aad": getattr(self.config.azure_openai, 'use_aad', None) if self.config else None,
             }
         
         try:

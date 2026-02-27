@@ -354,12 +354,35 @@ class CrudService:
                 f"Validation failed for {entity_type}: {errors}"
             )
         
-        # Write to Cosmos DB (replace the entire document)
+        # Write to Cosmos DB
         container = self._cosmos.get_container(container_name)
-        result = container.replace_item(
-            item=entity_id,
-            body=entity.to_dict()
+        old_status = existing.get("status")
+        new_dict = entity.to_dict()
+        new_status = new_dict.get("status", old_status)
+
+        logger.debug(
+            "update %s '%s': old_status=%s, new_status=%s, version=%s→%s",
+            entity_type, entity_id, old_status, new_status,
+            existing['version'], new_dict.get('version'),
         )
+
+        if old_status != new_status:
+            # Partition key (/status) changed — Cosmos DB cannot update
+            # partition keys in-place, so delete + re-create.
+            logger.info(
+                "Partition key change for %s '%s': %s → %s (delete + create)",
+                entity_type, entity_id, old_status, new_status,
+            )
+            # Remove Cosmos metadata before re-creating
+            for mk in ("_rid", "_self", "_etag", "_attachments", "_ts"):
+                new_dict.pop(mk, None)
+            container.delete_item(item=entity_id, partition_key=old_status)
+            result = container.create_item(body=new_dict)
+        else:
+            result = container.replace_item(
+                item=entity_id,
+                body=new_dict,
+            )
         
         # Generate audit entry
         if changes:
@@ -456,14 +479,23 @@ class CrudService:
             action = AuditAction.DELETE
         else:
             # Soft delete: change status to disabled
+            old_status = existing["status"]
             existing["status"] = EntityStatus.DISABLED
             existing["version"] = existing["version"] + 1
             existing["modifiedBy"] = actor
             existing["modifiedDate"] = utc_now()
-            container.replace_item(
-                item=entity_id,
-                body=existing
-            )
+            if old_status != EntityStatus.DISABLED:
+                # Partition key changed — delete + re-create
+                container.delete_item(item=entity_id, partition_key=old_status)
+                # Remove Cosmos metadata before re-creating
+                for mk in ("_rid", "_self", "_etag", "_attachments", "_ts"):
+                    existing.pop(mk, None)
+                container.create_item(body=existing)
+            else:
+                container.replace_item(
+                    item=entity_id,
+                    body=existing,
+                )
             action = AuditAction.DISABLE
         
         # Audit

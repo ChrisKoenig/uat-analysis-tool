@@ -42,6 +42,17 @@ try:
     if _ai_conn:
         from azure.monitor.opentelemetry import configure_azure_monitor
         configure_azure_monitor(connection_string=_ai_conn)
+        # Suppress verbose Azure SDK HTTP logging (full request/response headers)
+        # Telemetry still flows to App Insights — just not to the console.
+        for _name in (
+            "azure.core.pipeline.policies.http_logging_policy",
+            "azure.monitor.opentelemetry.exporter",
+            "azure.monitor.opentelemetry.exporter.export",
+            "azure.monitor.opentelemetry.exporter.export._base",
+            "azure.identity",
+            "azure.identity._credentials",
+        ):
+            logging.getLogger(_name).setLevel(logging.WARNING)
         logger.info("Application Insights enabled for Triage API")
 except Exception as _ai_err:
     logger.warning("App Insights init skipped: %s", _ai_err)

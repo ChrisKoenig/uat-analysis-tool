@@ -67,6 +67,7 @@ class HealthDetail(BaseModel):
     latency_ms: Optional[int] = None
     detail: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    diagnostics: Optional[List[str]] = None
 
 
 class HealthDashboardResponse(BaseModel):
@@ -104,6 +105,140 @@ def _save_corrections(data: dict):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     tmp.replace(_CORRECTIONS_FILE)
+
+
+def _build_diagnostics(name: str, status: str, detail: Optional[Dict],
+                       error: Optional[str]) -> List[str]:
+    """
+    Generate actionable diagnostic suggestions for a health component.
+    Returns a list of human-readable suggestions for the operator.
+    
+    Note: OpenAI resource name is extracted dynamically from the endpoint URL
+    (e.g., 'openai-aitriage-nonprod' from 'https://openai-aitriage-nonprod.openai.azure.com/').
+    This was previously hardcoded as 'openai-bp-northcentral' (dev resource name).
+    Fixed Feb 27, 2026 for environment-agnostic diagnostics.
+    """
+    suggestions: List[str] = []
+    if status == "healthy":
+        return suggestions
+
+    if name == "azure_openai":
+        if detail and not detail.get("enabled"):
+            reason = detail.get("reason", "")
+            if "disabled" in reason.lower():
+                suggestions.append(
+                    "AI services are disabled. Set the environment variable "
+                    "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT to enable them."
+                )
+                # Extract resource name from endpoint if available
+                oai_endpoint = detail.get("endpoint", "") if detail else ""
+                oai_resource = oai_endpoint.split("//")[-1].split(".")[0] if oai_endpoint else "<not-configured>"
+                suggestions.append(
+                    f"Ensure your Azure OpenAI resource '{oai_resource}' is deployed "
+                    "and you have a valid API key or AAD credential configured."
+                )
+                suggestions.append(
+                    "If using AAD auth, set AZURE_OPENAI_USE_AAD=true and verify your "
+                    "identity has the 'Cognitive Services OpenAI User' role."
+                )
+            if "error" in reason.lower() or "fail" in reason.lower():
+                suggestions.append(
+                    "AI initialization failed. Check that the deployment names in your "
+                    "environment match the actual Azure OpenAI deployments."
+                )
+                suggestions.append(
+                    "Verify network connectivity to *.openai.azure.com and ensure firewall "
+                    "rules allow outbound HTTPS."
+                )
+        if error:
+            suggestions.append(f"Raw error: {error}")
+            suggestions.append(
+                "Review Azure OpenAI resource quotas and ensure the model deployment "
+                "has available capacity."
+            )
+
+    elif name == "cosmos_db":
+        if detail and detail.get("mode") == "in-memory":
+            suggestions.append(
+                "Cosmos DB is running in in-memory fallback mode. Data will be lost on restart."
+            )
+            suggestions.append(
+                "Set COSMOS_ENDPOINT and ensure your IP is in the Cosmos DB firewall "
+                "allowed list (Portal → Networking → Firewall)."
+            )
+            suggestions.append(
+                "Run 'az cosmosdb update --name <account> --resource-group <rg> "
+                "--ip-range-filter <your-ip>' to add your IP."
+            )
+        if error:
+            if "403" in str(error) or "firewall" in str(error).lower():
+                suggestions.append(
+                    "Access denied — your IP is likely not in the Cosmos DB firewall. "
+                    "Go to Azure Portal → Cosmos DB → Networking and add your current IP."
+                )
+            elif "timeout" in str(error).lower():
+                suggestions.append(
+                    "Connection timed out. Check network/VPN connectivity and verify "
+                    "the Cosmos endpoint URL is correct."
+                )
+            else:
+                suggestions.append(f"Raw error: {error}")
+                suggestions.append(
+                    "Verify COSMOS_ENDPOINT and authentication credentials. "
+                    "Check Azure Portal for resource status."
+                )
+
+    elif name == "key_vault":
+        if error:
+            if "access" in str(error).lower() or "403" in str(error):
+                suggestions.append(
+                    "Access denied to Key Vault. Ensure your identity has 'Key Vault Secrets "
+                    "User' role (RBAC) or GET secret permission (access policies)."
+                )
+            suggestions.append(
+                "Verify KEY_VAULT_URI is set correctly (e.g. https://kv-gcs-dev-gg4a6y.vault.azure.net/)."
+            )
+            suggestions.append(
+                "Check that the Key Vault firewall allows your current IP or is set "
+                "to 'Allow public access from all networks'."
+            )
+
+    elif name == "ado_connection":
+        if error:
+            suggestions.append(
+                "Azure DevOps connection failed. Verify ADO_PAT is set and not expired."
+            )
+            suggestions.append(
+                "Ensure the PAT has read access to the 'unifiedactiontracker' and "
+                "'unifiedactiontrackertest' organizations."
+            )
+            suggestions.append(
+                "Check network connectivity to https://dev.azure.com."
+            )
+
+    elif name == "local_cache":
+        if error:
+            suggestions.append(
+                "Cache directory issue. Ensure the 'cache/ai_cache/' folder exists "
+                "and is writable."
+            )
+
+    elif name == "corrections":
+        if error:
+            suggestions.append(
+                "Cannot read corrections.json. Verify the file exists at the project root "
+                "and is valid JSON."
+            )
+
+    # Generic fallback
+    if not suggestions and (status != "healthy"):
+        if error:
+            suggestions.append(f"Error: {error}")
+        suggestions.append(
+            f"Component '{name}' is {status}. Check logs and Azure Portal for details."
+        )
+
+    return suggestions
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +475,12 @@ async def health_dashboard():
         components.append(HealthDetail(
             name="corrections", status="degraded", error=str(e),
         ))
+
+    # --- Attach diagnostics to each component ---
+    for comp in components:
+        comp.diagnostics = _build_diagnostics(
+            comp.name, comp.status, comp.detail, comp.error
+        )
 
     return HealthDashboardResponse(
         overall=overall,

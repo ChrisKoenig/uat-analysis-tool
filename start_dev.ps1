@@ -46,10 +46,10 @@ if ($pyProcs) {
 foreach ($port in @(3000, 3001)) {
     $listening = netstat -ano | Select-String "LISTENING" | Select-String ":$port "
     if ($listening) {
-        $pid = ($listening -split '\s+')[-1]
-        if ($pid -and $pid -match '^\d+$') {
-            Write-Host "  Stopping process on port $port (PID $pid)..." -ForegroundColor Gray
-            Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+        $procId = ($listening -split '\s+')[-1]
+        if ($procId -and $procId -match '^\d+$') {
+            Write-Host "  Stopping process on port $port (PID $procId)..." -ForegroundColor Gray
+            Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -143,7 +143,7 @@ if (-not $SkipUI) {
 
     # Triage UI (port 3000)
     Write-Host "  Starting Triage UI on port 3000..." -ForegroundColor Cyan
-    $triageUi = Start-Process -PassThru -NoNewWindow -FilePath npm -ArgumentList "run", "dev" `
+    $triageUi = Start-Process -PassThru -NoNewWindow -FilePath cmd.exe -ArgumentList "/c", "npm", "run", "dev" `
         -WorkingDirectory "$Root\triage-ui"
     Write-Host "    PID: $($triageUi.Id)" -ForegroundColor DarkGray
 
@@ -151,7 +151,7 @@ if (-not $SkipUI) {
 
     # Field Portal UI (port 3001)
     Write-Host "  Starting Field Portal UI on port 3001..." -ForegroundColor Cyan
-    $fieldUi = Start-Process -PassThru -NoNewWindow -FilePath npm -ArgumentList "run", "dev" `
+    $fieldUi = Start-Process -PassThru -NoNewWindow -FilePath cmd.exe -ArgumentList "/c", "npm", "run", "dev" `
         -WorkingDirectory "$Root\field-portal\ui"
     Write-Host "    PID: $($fieldUi.Id)" -ForegroundColor DarkGray
 
@@ -179,10 +179,10 @@ Write-Host "  ---------------------  ------  ------" -ForegroundColor DarkGray
 foreach ($svc in $services) {
     $listening = netstat -ano | Select-String "LISTENING" | Select-String ":$($svc.Port) "
     if ($listening) {
-        $pid = ($listening -split '\s+')[-1]
+        $procId = ($listening -split '\s+')[-1]
         Write-Host "  $($svc.Name.PadRight(23)) :$($svc.Port)   " -NoNewline -ForegroundColor White
         Write-Host "UP" -NoNewline -ForegroundColor Green
-        Write-Host "  (PID $pid)" -ForegroundColor DarkGray
+        Write-Host "  (PID $procId)" -ForegroundColor DarkGray
     } else {
         Write-Host "  $($svc.Name.PadRight(23)) :$($svc.Port)   " -NoNewline -ForegroundColor White
         Write-Host "DOWN" -ForegroundColor Red

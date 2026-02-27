@@ -12,6 +12,7 @@ import { LogLevel } from '@azure/msal-browser';
 let clientId = import.meta.env.VITE_MSAL_CLIENT_ID || '2e7ef202-d148-4388-be40-651321742402';
 let tenantId = import.meta.env.VITE_MSAL_TENANT_ID || '16b3c013-d300-468d-ac64-7eda0820b6d3';
 let redirectUri = import.meta.env.VITE_MSAL_REDIRECT_URI || window.location.origin;
+let apiBaseUrl = '';  // set from config.json at runtime
 
 /**
  * Load runtime config from /config.json (served from public/).
@@ -25,11 +26,12 @@ export async function loadRuntimeConfig() {
       if (cfg.msal?.clientId) clientId = cfg.msal.clientId;
       if (cfg.msal?.tenantId) tenantId = cfg.msal.tenantId;
       if (cfg.msal?.redirectUri) redirectUri = cfg.msal.redirectUri;
+      if (cfg.api?.baseUrl) apiBaseUrl = cfg.api.baseUrl;
     }
   } catch {
     // config.json not available - fall through to env vars / defaults
   }
-  return { clientId, tenantId, redirectUri };
+  return { clientId, tenantId, redirectUri, apiBaseUrl };
 }
 
 /** Build the msalConfig object (call after loadRuntimeConfig). */
@@ -65,4 +67,9 @@ export const loginRequest = {
 /** Scopes for backend API tokens. */
 export function getApiTokenRequest() {
   return { scopes: clientId ? [`${clientId}/.default`] : [] };
+}
+
+/** Return the runtime API base URL (e.g. 'https://app-triage-api-nonprod.azurewebsites.net'). */
+export function getApiBaseUrl() {
+  return apiBaseUrl;
 }

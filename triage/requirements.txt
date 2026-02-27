@@ -1,8 +1,10 @@
 # Triage Management System Dependencies
+# Used for both local development and App Service deployment (pre-prod / prod)
 
 # Web Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
+gunicorn==21.2.0  # Required for App Service — WSGI server that runs uvicorn workers
 pydantic==2.5.3
 
 # Azure Cosmos DB
@@ -15,8 +17,20 @@ azure-core==1.29.7
 # Azure Key Vault (re-use existing)
 azure-keyvault-secrets==4.7.0
 
+# Azure OpenAI (used by hybrid_context_analyzer → llm_classifier)
+openai==1.52.0  # Pin this version — newer versions may change httpx usage
+
+# Numerical computing (used by llm_classifier, embedding_service, vector_search)
+numpy>=1.26.0  # Required for AI analysis — missing this causes "AI disabled"
+
+# ML / similarity (used by vector_search → sklearn.metrics.pairwise)
+scikit-learn>=1.3.0  # Required for vector similarity search
+
 # HTTP Client (for ADO API calls)
-httpx==0.28.0
+# IMPORTANT: httpx must be <0.28.0 because openai==1.52.0 passes 'proxies=' to
+# httpx.Client(), but httpx 0.28+ removed that parameter (replaced with 'proxy=').
+# This causes: "Client.__init__() got an unexpected keyword argument 'proxies'"
+httpx>=0.25.0,<0.28.0
 requests==2.31.0
 
 # Data validation
