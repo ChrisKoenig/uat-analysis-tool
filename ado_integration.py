@@ -619,21 +619,21 @@ class AzureDevOpsClient:
                 })
             
             # Custom field: StatusUpdate (set to 'WizardAuto')
+            # Uses Custom.StatusUpdate — must match the production ADO org
             operations.append({
                 "op": "add",
-                "path": "/fields/custom.StatusUpdate",
+                "path": "/fields/Custom.StatusUpdate",
                 "value": "WizardAuto"
             })
 
-            # Custom field: ChallengeDetails (AI evaluation summary HTML)
-            # Written by the field portal wizard with a structured summary of
-            # the AI classification.  Same field is updated by the triage
-            # system after its own evaluation.
+            # Custom field: pChallengeDetails (AI evaluation summary HTML)
+            # Uses Custom.pChallengeDetails — the 'p' prefix matches the
+            # production ADO org field definition and triage/services/ado_writer.py.
             evaluation_html = issue_data.get('evaluation_summary_html', '')
             if evaluation_html:
                 operations.append({
                     "op": "add",
-                    "path": "/fields/custom.ChallengeDetails",
+                    "path": "/fields/Custom.pChallengeDetails",
                     "value": evaluation_html
                 })
             
@@ -691,7 +691,32 @@ class AzureDevOpsClient:
             print(f"[ADO] STEP 6: Response received")
             print(f"[ADO]   Status Code: {response.status_code}")
             print(f"[ADO]   Status Text: {response.reason}")
-            print(f"[ADO]   Response Headers: {dict(response.headers)}")
+            
+            # If we get TF51535 "Cannot find field custom.X", strip that field
+            # and retry.  The test org may not have all custom fields defined.
+            if response.status_code == 400 and 'TF51535' in response.text:
+                import re as _re
+                missing = _re.search(r'Cannot find field (\S+)', response.text)
+                if missing:
+                    bad_field = missing.group(1)
+                    print(f"[ADO]   ⚠️ Custom field '{bad_field}' not found — retrying without it")
+                    operations = [
+                        op for op in operations
+                        if not op.get("path", "").endswith(bad_field)
+                    ]
+                    response = requests.post(url, json=operations, headers=headers)
+                    print(f"[ADO]   Retry status: {response.status_code}")
+                    # If another custom field is also missing, strip and retry once more
+                    if response.status_code == 400 and 'TF51535' in response.text:
+                        missing2 = _re.search(r'Cannot find field (\S+)', response.text)
+                        if missing2:
+                            bad_field2 = missing2.group(1)
+                            print(f"[ADO]   ⚠️ Custom field '{bad_field2}' also missing — retrying")
+                            operations = [
+                                op for op in operations
+                                if not op.get("path", "").endswith(bad_field2)
+                            ]
+                            response = requests.post(url, json=operations, headers=headers)
             
             if response.status_code == 200:
                 print(f"[ADO] STEP 7: Success! Parsing response JSON...")
