@@ -112,14 +112,14 @@ C:\Projects\Hack\
 
 ## Azure App Service Deployment (Pre-Prod)
 
-Deployed Feb 2026 to subscription `a1e66643-...`, resource group `rg-nonprod-aitriage`:
+Deployed Feb-Mar 2026 to subscription `a1e66643-...`, resource group `rg-nonprod-aitriage`:
 
-| App Service | Runtime | Startup |
-|-------------|---------|----------|
-| `app-triage-api-nonprod` | Python 3.12 | gunicorn + uvicorn on port 8000 |
-| `app-triage-ui-nonprod` | Node 20 | pm2 + serve on port 8080 |
-| `app-field-api-nonprod` | Python 3.12 | (pending fixes) |
-| `app-field-ui-nonprod` | Node 20 | pm2 + serve on port 8080 |
+| App Service | Runtime | Startup | Status |
+|-------------|---------|----------|--------|
+| `app-triage-api-nonprod` | Python 3.12 | gunicorn + uvicorn on port 8000 | ✅ Healthy |
+| `app-triage-ui-nonprod` | Node 20 | pm2 + serve on port 8080 | ✅ Healthy |
+| `app-field-api-nonprod` | Python 3.12 | gunicorn + uvicorn on port 8000 | ✅ Healthy |
+| `app-field-ui-nonprod` | Node 20 | pm2 + serve on port 8080 | ✅ Healthy |
 
 - **Auth**: Managed Identity (`TechRoB-Automation-DEV`) for all Azure resources
 - **MSAL SPA**: App Registration `GCS-Triage-NonProd` (`6257f944-...`)
@@ -182,6 +182,6 @@ data handling requirements.
 
 ---
 
-**Last Updated**: February 27, 2026  
-**Version**: 6.0 (Dual React SPA + FastAPI + Cosmos DB + App Service Pre-Prod + Container Apps Dev)  
+**Last Updated**: March 2, 2026  
+**Version**: 6.1 (Dual React SPA + FastAPI + Cosmos DB + App Service Pre-Prod [All 4 Healthy] + Container Apps Dev)  
 **Compatibility**: Python 3.12, Node.js 20 LTS, Modern Browsers

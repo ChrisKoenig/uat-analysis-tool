@@ -120,7 +120,7 @@ The pre-prod environment is already deployed. To redeploy after code changes:
 ```powershell
 cd C:\Projects\Hack
 .\infrastructure\deploy\build-packages.ps1 -Target triage-api
-# Creates: infrastructure\deploy\output\triage-api.zip
+# Creates: infrastructure\deploy\packages\triage-api.zip
 ```
 
 ### Deploy (from Cloud Shell — NOT local CLI)
@@ -135,13 +135,13 @@ az webapp deploy --resource-group rg-nonprod-aitriage \
 | Service | URL |
 |---------|-----|
 | Triage UI | https://app-triage-ui-nonprod.azurewebsites.net |
-| Triage API | https://app-triage-api-nonprod.azurewebsites.net/admin/health |
+| Triage API | https://app-triage-api-nonprod.azurewebsites.net/health |
 | Field UI | https://app-field-ui-nonprod.azurewebsites.net |
-| Field API | https://app-field-api-nonprod.azurewebsites.net |
+| Field API | https://app-field-api-nonprod.azurewebsites.net/health |
 
 > **Important**: All `az` commands for pre-prod must run in **Cloud Shell**.
 > The local Azure CLI is authenticated to the dev tenant.
 
 See [`DEPLOYMENT_OPERATIONS.md`](docs/DEPLOYMENT_OPERATIONS.md) for full App Service details.
 
-**Last Updated**: February 27, 2026
+**Last Updated**: March 2, 2026

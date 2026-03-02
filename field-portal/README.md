@@ -182,7 +182,7 @@ npm run dev
 
 Navigate to **http://localhost:3001** in your browser.
 
-## Authentication (TODO)
+## Authentication
 
 The UI includes MSAL integration (`@azure/msal-browser` / `@azure/msal-react`)
 configured for Entra ID app `2e7ef202-d148-4388-be40-651321742402`. The
@@ -190,7 +190,8 @@ configured for Entra ID app `2e7ef202-d148-4388-be40-651321742402`. The
 `setTokenGetter()` hook for injecting bearer tokens into API calls.
 
 **Current state:** `getToken()` returns `null` — bearer token validation on the
-backend is not yet wired up. This is the next item on the roadmap.
+backend is not yet wired up. MSAL redirect flow causes re-auth prompts during
+the wizard — see Known Issues in `PROJECT_STATUS.md`.
 
 ## Configuration
 
@@ -198,7 +199,7 @@ All backend configuration lives in [`api/config.py`](api/config.py):
 
 | Setting                     | Default | Description                                   |
 |-----------------------------|---------|-----------------------------------------------|
-| `API_GATEWAY_URL`           | `:8010` | Backend base URL (self-reference for internal calls) |
+| `API_GATEWAY_URL`           | `http://localhost:8000` | API Gateway URL (fallback only — field portal calls engines directly) |
 | `FIELD_PORTAL_PORT`         | `8010`  | This API's port                               |
 | `TEMP_STORAGE_TTL`          | `3600`  | Session expiry (seconds)                      |
 | `QUALITY_BLOCK_THRESHOLD`   | `50`    | Quality score below this blocks submission    |
@@ -206,6 +207,33 @@ All backend configuration lives in [`api/config.py`](api/config.py):
 | `UAT_SEARCH_DAYS`           | `180`   | How far back to search for UATs               |
 | `UAT_MAX_SELECTED`          | `5`     | Max related UATs a user can link              |
 | `TFT_SIMILARITY_THRESHOLD`  | `0.6`   | Cosine-similarity cutoff for TFT features     |
+
+## Azure App Service Deployment (Pre-Prod)
+
+Deployed Mar 2, 2026 to `rg-nonprod-aitriage` (subscription `a1e66643-...`).
+
+| App Service | URL | Runtime |
+|-------------|-----|--------|
+| `app-field-api-nonprod` | https://app-field-api-nonprod.azurewebsites.net | Python 3.12, gunicorn+uvicorn on port 8000 |
+| `app-field-ui-nonprod` | https://app-field-ui-nonprod.azurewebsites.net | Node 20, pm2+serve on port 8080 |
+
+**Health check**: `GET /health` returns `{"status":"ok","components":{"gateway":"ok","key_vault":"ok","ai":"ok"}}`
+
+**Auth**: Managed Identity (`TechRoB-Automation-DEV`, client ID `0fe9d340-...`) for Cosmos DB, Key Vault, and OpenAI.
+
+### Build & Deploy
+```powershell
+# Build (from repo root)
+.\infrastructure\deploy\build-packages.ps1 -Target field-api
+.\infrastructure\deploy\build-packages.ps1 -Target field-ui
+
+# Deploy (from Cloud Shell — NOT local CLI)
+az account set -s a1e66643-8021-4548-8e36-f08076057b6a
+az webapp deploy --resource-group rg-nonprod-aitriage --name app-field-api-nonprod --src-path ./field-api.zip --type zip
+az webapp deploy --resource-group rg-nonprod-aitriage --name app-field-ui-nonprod --src-path ./field-ui.zip --type zip
+```
+
+See [`DEPLOYMENT_OPERATIONS.md`](../docs/DEPLOYMENT_OPERATIONS.md) for full details.
 
 ## License
 

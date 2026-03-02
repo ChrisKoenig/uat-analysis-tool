@@ -84,10 +84,10 @@ All services use `TechRoB-Automation-DEV` (client ID: `0fe9d340-a359-4849-8c0f-d
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` (runs `pip install`) |
 | `WEBSITES_PORT` | `8000` |
 
-#### Health Check
+#### Triage Health Check
 
 ```
-https://app-triage-api-nonprod.azurewebsites.net/admin/health
+https://app-triage-api-nonprod.azurewebsites.net/health
 ```
 
 Returns component-by-component status: `cosmos_db`, `azure_openai`, `ado_connection`, `key_vault`, `rule_engine`, `analysis_engine`.

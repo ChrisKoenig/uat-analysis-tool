@@ -275,9 +275,9 @@ the results back to ADO — with human review at the decision point.
 | Validation | `triage-ui/src/pages/ValidationPage.jsx` | Check for broken refs |
 | Audit Log | `triage-ui/src/pages/AuditPage.jsx` | Change history |
 | Eval History | `triage-ui/src/pages/EvalHistoryPage.jsx` | Past evaluation results |
-| Classify | `triage-ui/src/pages/ClassifyPage.jsx` | Standalone AI classification (Quick ICA) |
+| Classify | `triage-ui/src/pages/ClassifyPage.jsx` | ~~Removed~~ — merged into Dashboard quick-classify |
 | Corrections | `triage-ui/src/pages/CorrectionsPage.jsx` | Corrective learning management |
-| Health | `triage-ui/src/pages/HealthPage.jsx` | Comprehensive system health dashboard |
+| Health | `triage-ui/src/pages/HealthPage.jsx` | ~~Removed~~ — health indicator integrated into Dashboard |
 
 ---
 
@@ -717,7 +717,7 @@ npm run dev
 | Component | Notes |
 |-----------|-------|
 | Triage API (FastAPI :8009) | Full CRUD, evaluate, analyze, ADO integration |
-| React SPA (:3000) | 13 pages, queue management, admin UI, classify, health |
+| React SPA (:3000) | 11 pages (ClassifyPage removed, HealthPage merged into Dashboard) |
 | Cosmos DB persistence | 10 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
 | Hybrid Analysis Engine | Pattern + LLM + vectors + corrections |
 | Rules Engine (15 operators) | Full evaluation logic |
@@ -734,11 +734,13 @@ npm run dev
 | Admin Portal (:8008) | Config management |
 | 7 Microservices (:8001-8007) | Independently deployable |
 
-### Deployed to Pre-Prod (Feb 2026)
+### Deployed to Pre-Prod (Feb-Mar 2026)
 
 | Component | Notes |
 |-----------|-------|
-| App Service deployment | 4 App Services on shared B1 plan (not Container Apps) |
+| App Service deployment | 4 App Services on shared B1 plan — **all 4 healthy** |
+| Triage API + UI | Deployed Feb 27, all health components GREEN |
+| Field API + UI | Deployed Mar 2 after 12 fixes (commit `b7cb0fd`) |
 | Managed Identity auth | `TechRoB-Automation-DEV` assigned to all services |
 | Key Vault secrets | Cosmos, OpenAI, ADO config stored in `kv-aitriage` |
 | MSAL SPA auth | `GCS-Triage-NonProd` app registration, Corp tenant |
@@ -756,7 +758,7 @@ npm run dev
 | Classification tuning | Review accuracy, refine LLM prompt, add corrections |
 | Copilot API plugin | Expose classify/search endpoints as Copilot agent skills |
 | Legacy UI retirement | Migrate remaining Flask pages to React, retire :5003/:8008 |
-| Field API pre-prod fixes | Startup hang — needs investigation for App Service |
+| End-to-end pre-prod testing | Full 9-step field flow and triage workflow through App Services |
 | Production environment | Prod subscription, prod RBAC, custom domain, TLS |
 
 ---

@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: February 27, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Submission Portal + Cosmos DB + AI classification + ADO dual-org integration
+**Last Updated**: March 2, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification + ADO dual-org integration (MI auth)
 
 ---
 
@@ -113,9 +113,9 @@ These are triage team tools, NOT field submission replacements:
 
 The project has two major subsystems with **different audiences**:
 
-1. **Field Portal** — React SPA + FastAPI orchestrator (ports 3001/8010) where field personnel submit issues through a 9-step wizard: submit → quality review → AI analysis → correction → resource search → TFT features → UAT input → related UATs → UAT creation. **Now stores evaluations and corrections to Cosmos DB** for triage dedup and fine-tuning.
-2. **Triage Management System** — FastAPI + React SPA (ports 3000/8009) for the corporate triage team to review queued work items, apply rules/triggers/routes, and route to teams
-3. **Legacy Input System** — Flask web UI (port 5003) — original field submission portal, still operational
+1. **Field Portal** — React SPA + FastAPI orchestrator (local: ports 3001/8010, pre-prod: `app-field-*-nonprod`) where field personnel submit issues through a 9-step wizard: submit → quality review → AI analysis → correction → resource search → TFT features → UAT input → related UATs → UAT creation. **Stores evaluations and corrections to Cosmos DB** for triage dedup and fine-tuning. **Deployed to App Service Mar 2, 2026.**
+2. **Triage Management System** — FastAPI + React SPA (local: ports 3000/8009, pre-prod: `app-triage-*-nonprod`) for the corporate triage team to review queued work items, apply rules/triggers/routes, and route to teams. **Deployed to App Service Feb 27, 2026.**
+3. **Legacy Input System** — Flask web UI (port 5003) — original field submission portal, still operational locally
 
 All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), Cosmos DB (`triage-management` database), and authentication infrastructure (Key Vault, Azure AD).
 
@@ -131,16 +131,18 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 - **Startup**: `python launcher.py` (GUI launcher) OR manual start
 - **Pages** (11): Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections
 
-### Field Portal (NEW — Feb 12, actively improved through Feb 19)
-- **Backend API**: FastAPI on port 8010 (uvicorn, `field-portal/api/main.py`)
-- **Frontend**: React 18 + Vite on port 3001 (`field-portal/ui/`)
+### Field Portal (Built Feb 12, deployed to App Service Mar 2)
+- **Backend API**: FastAPI on port 8010 locally / port 8000 on App Service (uvicorn, `field-portal/api/main.py`)
+- **Frontend**: React 18 + Vite on port 3001 locally / pm2+serve on App Service (`field-portal/ui/`)
 - **Pattern**: Calls analysis engines DIRECTLY (no gateway/microservice dependency). Gateway is fallback only.
   - Quality scoring: `AIAnalyzer.analyze_completeness()` called directly from `enhanced_matching.py`
   - Context analysis: `HybridContextAnalyzer.analyze()` called directly from `hybrid_context_analyzer.py`
   - This means the field portal works independently — no need to start the old system or microservices
-- **Auth**: AzureCliCredential-first with cached singletons across all 4 key files (no repeated auth prompts)
+- **Auth (local)**: AzureCliCredential-first with cached singletons across all 4 key files (no repeated auth prompts)
+- **Auth (pre-prod)**: ManagedIdentityCredential (`TechRoB-Automation-DEV`) for Cosmos/KV/OpenAI/ADO
 - **OpenAPI**: Full Swagger docs at http://localhost:8010/docs (Copilot-plugin ready)
 - **Startup**: `python launcher.py` → "Field Portal" card, or manual start
+- **Pre-prod URLs**: `https://app-field-api-nonprod.azurewebsites.net`, `https://app-field-ui-nonprod.azurewebsites.net`
 
 ### Input/Analysis System (legacy — still operational)
 - **Web UI**: http://localhost:5003
@@ -352,6 +354,50 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 2, 2026) — Field Portal Pre-Prod Deployment
+
+### 12 Issues Found & Fixed (commit `b7cb0fd`)
+
+The field portal had 12 issues preventing it from running on Azure App Service. All were identified during a pre-deployment audit and fixed in a single commit:
+
+| # | Issue | Root Cause | Fix |
+|---|-------|-----------|-----|
+| 1 | **Missing gunicorn** | `field-portal/api/requirements.txt` didn't include WSGI server | Added `gunicorn==21.2.0` |
+| 2 | **httpx/openai incompatibility** | `openai==1.52.0` passes `proxies=` to httpx 0.28+ which removed it | Pinned `httpx>=0.25.0,<0.28.0` |
+| 3 | **Missing AI deps** | `numpy`, `scikit-learn` not in requirements | Added `numpy>=1.26.0`, `scikit-learn>=1.3.0` |
+| 4 | **Port mismatch** | FastAPI config defaulted to 8010, App Service expects 8000 | Changed default to `int(os.getenv("PORT", "8000"))` |
+| 5 | **No health endpoint** | No `/health` root endpoint for App Service probes | Added health endpoint with gateway/KV/AI checks |
+| 6 | **Missing Cosmos config** | `from triage.config.cosmos_config import ...` but triage package not in field-api build | Build script copies `triage/__init__.py` + `triage/config/` |
+| 7 | **Hardcoded localhost UI** | `fieldApi.js` hardcoded `http://localhost:8010` | Changed to `getApiBaseUrl()` reading `/config.json` |
+| 8 | **CORS missing pre-prod** | Only localhost origins in CORS | Added `app-field-ui-nonprod.azurewebsites.net` |
+| 9 | **MI auth not supported** | `cosmos_client.py` only used `DefaultAzureCredential` | Added `ManagedIdentityCredential(client_id)` when `AZURE_CLIENT_ID` set |
+| 10 | **corrections.json write on read-only FS** | `_save_correction_feedback()` wrote to filesystem | Wrapped in try/except — Cosmos DB is primary store |
+| 11 | **ADO credential chain incomplete** | `enhanced_matching.py` MI support missing | Added `AZURE_CLIENT_ID` fallback in `get_uat_credential()` and full MI chain in `get_tft_credential()` |
+| 12 | **config.json not generated** | Field UI had no runtime config injection | Build script generates `config.json` with `FIELD_API_BASE_URL` |
+
+### Files Modified
+| File | Changes |
+|------|--------|
+| `field-portal/api/requirements.txt` | +gunicorn, +numpy, +scikit-learn, httpx pinned |
+| `field-portal/api/config.py` | Port default 8000, CORS pre-prod domains, updated docstring |
+| `field-portal/api/main.py` | Added `/health` endpoint with component checks |
+| `field-portal/api/routes.py` | `_save_correction_feedback()` wrapped in try/except |
+| `field-portal/api/cosmos_client.py` | ManagedIdentityCredential support |
+| `field-portal/ui/src/api/fieldApi.js` | `getApiBaseUrl()` reads `/config.json` |
+| `enhanced_matching.py` | MI credential chain in `get_uat_credential()` and `get_tft_credential()` |
+| `infrastructure/deploy/build-packages.ps1` | Field-api copies `triage/config/`, generates `config.json` for UI |
+
+### Deployment Verification
+- **Field API**: `https://app-field-api-nonprod.azurewebsites.net/health`
+  ```json
+  {"status":"ok","components":{"gateway":"ok","key_vault":"ok","ai":"ok"},"response_time_ms":62}
+  ```
+- **Field UI**: `https://app-field-ui-nonprod.azurewebsites.net` — loads successfully
+- **Triage API**: `https://app-triage-api-nonprod.azurewebsites.net/health` — all 10 Cosmos containers ready, AAD auth
+- **Triage UI**: `https://app-triage-ui-nonprod.azurewebsites.net` — loads with MSAL auth
 
 ---
 
@@ -681,9 +727,7 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 - `getToken()` currently returns `null` (token acquisition fully disabled) — backend does not validate tokens
 - **TODO**: Investigate MSAL `handleRedirectPromise()` timing, consider switching to popup-based login (not token acquisition) or using `ssoSilent()` to restore sessions after redirect. May need to persist quality submission data to sessionStorage before the redirect.
 
-⚠️ **Field API may need same fixes as Triage API** (PRE-PROD)
-- The field-api App Service may need the same `gunicorn`, `httpx` pinning, and dependency fixes applied to its requirements.txt
-- Not yet tested end-to-end in pre-prod
+✅ ~~**Field API may need same fixes as Triage API**~~ — **RESOLVED Mar 2**: All 12 issues identified and fixed in commit `b7cb0fd`. Field API deployed and healthy.
 
 ⚠️ Admin portal shows "AuthorizationFailure" on blob storage access
 - Workaround: Use local JSON files for testing
@@ -827,10 +871,11 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 ## Git Status
 
 **Branch**: `main`
-**Latest commit**: `6b5088f` — Corrections display fix (human-readable Pattern/Intent)
-**Previous**: `52179c2` — Dashboard merge, corrections CRUD, teams, containers, cleanup
+**Latest commit**: `b7cb0fd` — fix: field portal pre-prod deployment (12 issues)
+**Previous**: `8114c35` — docs + code: comprehensive documentation and code comment updates
+**Previous**: `d1534cc` — chore: add *.zip to .gitignore
 
-**All changes committed** — clean working tree.
+**All changes committed** — clean working tree (pending this documentation update commit).
 
 ---
 
@@ -874,7 +919,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 - [x] AI analysis in containers — OpenAI env vars set, AI-Powered mode confirmed
 - [x] **App Service pre-prod deployment** — All 4 services deployed to Azure App Service (Feb 26-27)
 - [x] **Pre-prod health: ALL GREEN** — Cosmos, OpenAI, KV, ADO, Cache, Corrections all healthy
-- [ ] **Field API pre-prod fixes** — Apply same gunicorn/httpx/dependency fixes to field-api requirements.txt
+- [x] **Field API pre-prod fixes** — 12 issues fixed in commit `b7cb0fd` (Mar 2, 2026)
 - [ ] **End-to-end pre-prod testing** — Full 9-step field flow and triage workflow through App Services
 - [ ] **Remove DEBUG print statements** — 17 `[DEBUG HYBRID N]` lines in hybrid_context_analyzer.py
 - [ ] **Cosmos DB private networking** — Public access disabled per company policy (Feb 24). Local dev and Container Apps need Private Endpoint or VNet integration to reach `cosmos-gcs-dev`. Current workaround: none (blocked).
@@ -962,7 +1007,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Feb 27, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` with dedicated Cosmos DB (`cosmos-aitriage-nonprod`), OpenAI (`openai-aitriage-nonprod`), and Key Vault (`kv-aitriage`). All 6 health components GREEN. MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 11 pages. Latest changes: gunicorn, httpx pin, corrections validation removal, dynamic OpenAI diagnostics, ADO credential fallback.
+**STATUS** (Mar 2, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB (`cosmos-aitriage-nonprod`) with 10 containers, OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 11 pages. Field Portal had 12 deployment issues fixed in commit `b7cb0fd` (Mar 2). Next: end-to-end pre-prod testing.
 
 ---
 
@@ -1084,4 +1129,4 @@ az containerapp update --name ca-gcs-triage-api --resource-group rg-gcs-dev `
 - `TRIAGE_SYSTEM_DESIGN.md` — Four-layer triage model
 - `AZURE_OPENAI_AUTH_SETUP.md` — Auth details
 
-**Git**: All changes committed and pushed. Latest: `6b5088f` on `main`.
+**Git**: All changes committed and pushed. Latest: `b7cb0fd` on `main`.
