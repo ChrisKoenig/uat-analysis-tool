@@ -65,6 +65,7 @@ Last Updated: December 2025
 # Core system imports for comprehensive issue matching and AI analysis
 
 # Standard library imports for API communication and data processing
+import os                                               # Environment variable access
 import requests                                         # Azure DevOps API communication
 import json                                             # JSON data handling
 import base64                                           # Authentication encoding
