@@ -698,7 +698,7 @@ class AzureDevOpsClient:
                 import re as _re
                 missing = _re.search(r'Cannot find field (\S+)', response.text)
                 if missing:
-                    bad_field = missing.group(1)
+                    bad_field = missing.group(1).rstrip('.,')
                     print(f"[ADO]   ⚠️ Custom field '{bad_field}' not found — retrying without it")
                     operations = [
                         op for op in operations
@@ -710,7 +710,7 @@ class AzureDevOpsClient:
                     if response.status_code == 400 and 'TF51535' in response.text:
                         missing2 = _re.search(r'Cannot find field (\S+)', response.text)
                         if missing2:
-                            bad_field2 = missing2.group(1)
+                            bad_field2 = missing2.group(1).rstrip('.,')
                             print(f"[ADO]   ⚠️ Custom field '{bad_field2}' also missing — retrying")
                             operations = [
                                 op for op in operations
