@@ -12,15 +12,17 @@
  *   - The table shows resolved names instead of IDs
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
+import Pagination from '../components/common/Pagination';
 import StatusFilter from '../components/common/StatusFilter';
 import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import TriggerForm from '../components/triggers/TriggerForm';
 import { expressionToDsl } from '../utils/helpers';
+import '../components/common/EntitySearch.css';
 import './TriggersPage.css';
 
 
@@ -36,6 +38,9 @@ export default function TriggersPage({ addToast }) {
   const [selectedTrigger, setSelectedTrigger] = useState(null);
   const [formMode, setFormMode] = useState(null);
   const [toggleTarget, setToggleTarget] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   // ── Data Loading ─────────────────────────────────────────────
@@ -71,11 +76,32 @@ export default function TriggersPage({ addToast }) {
     loadData();
   }, [loadData]);
 
-
   // ── Name Lookups ─────────────────────────────────────────────
+  const ruleNameMap = useMemo(() => new Map(rules.map((r) => [r.id, r.name])), [rules]);
+  const routeNameMap = useMemo(() => new Map(routes.map((r) => [r.id, r.name])), [routes]);
 
-  const ruleNameMap = new Map(rules.map((r) => [r.id, r.name]));
-  const routeNameMap = new Map(routes.map((r) => [r.id, r.name]));
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, teamFilter, searchTerm]);
+
+  // Search filter (name, expression DSL, route name — case-insensitive)
+  const filteredTriggers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return triggers;
+    return triggers.filter((t) => {
+      const name = (t.name || '').toLowerCase();
+      const dsl = t.expression ? expressionToDsl(t.expression, ruleNameMap).toLowerCase() : '';
+      const route = routeNameMap.get(t.onTrue)?.toLowerCase() || '';
+      return name.includes(q) || dsl.includes(q) || route.includes(q);
+    });
+  }, [triggers, searchTerm, ruleNameMap, routeNameMap]);
+
+  // Paginate filtered results
+  const paginatedTriggers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTriggers.slice(start, start + pageSize);
+  }, [filteredTriggers, currentPage, pageSize]);
 
 
   // ── Handlers ─────────────────────────────────────────────────
@@ -191,6 +217,24 @@ export default function TriggersPage({ addToast }) {
       <div className="page-header">
         <h1>⚡ Triggers</h1>
         <div className="page-header-actions">
+          <div className="entity-search">
+            <input
+              type="text"
+              className="entity-search-input"
+              placeholder="Search triggers by name, expression, or route…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                className="entity-search-clear"
+                onClick={() => setSearchTerm('')}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
@@ -205,7 +249,7 @@ export default function TriggersPage({ addToast }) {
           <div className="card">
             <EntityTable
               columns={columns}
-              items={triggers}
+              items={paginatedTriggers}
               loading={loading}
               emptyMessage="No triggers yet. Create one to start routing triage items."
               onRowClick={handleEdit}
@@ -213,10 +257,21 @@ export default function TriggersPage({ addToast }) {
               onCopy={handleCopy}
               onToggleStatus={handleToggleStatusClick}
             />
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredTriggers.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
           <div className="triggers-count">
-            {triggers.length} trigger{triggers.length !== 1 ? 's' : ''}
-            {statusFilter && ` (filtered: ${statusFilter})`}
+            {filteredTriggers.length} trigger{filteredTriggers.length !== 1 ? 's' : ''}
+            {searchTerm && ` matching "${searchTerm}"`}
+            {statusFilter && ` (${statusFilter})`}
           </div>
         </div>
 

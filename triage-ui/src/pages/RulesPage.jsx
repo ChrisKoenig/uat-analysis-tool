@@ -31,6 +31,7 @@ import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import RuleForm from '../components/rules/RuleForm';
 import { formatDateTime, truncate } from '../utils/helpers';
 import { OPERATORS } from '../utils/constants';
+import '../components/common/EntitySearch.css';
 import './RulesPage.css';
 
 
@@ -246,17 +247,17 @@ export default function RulesPage({ addToast }) {
       <div className="page-header">
         <h1>📋 Rules</h1>
         <div className="page-header-actions">
-          <div className="rules-search">
+          <div className="entity-search">
             <input
               type="text"
-              className="rules-search-input"
+              className="entity-search-input"
               placeholder="Search rules by name, field, or value…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {searchTerm && (
               <button
-                className="rules-search-clear"
+                className="entity-search-clear"
                 onClick={() => setSearchTerm('')}
                 title="Clear search"
               >

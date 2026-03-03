@@ -6,14 +6,17 @@
  * of actions that execute when a trigger matches.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
+import Pagination from '../components/common/Pagination';
+import ExpandableValue from '../components/common/ExpandableValue';
 import StatusFilter from '../components/common/StatusFilter';
 import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import RouteForm from '../components/routes/RouteForm';
+import '../components/common/EntitySearch.css';
 import './RoutesPage.css';
 
 
@@ -29,6 +32,9 @@ export default function RoutesPage({ addToast }) {
   const [formMode, setFormMode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [references, setReferences] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   // ── Data Loading ─────────────────────────────────────────────
@@ -61,7 +67,32 @@ export default function RoutesPage({ addToast }) {
 
   // ── Name Lookups ─────────────────────────────────────────────
 
-  const actionNameMap = new Map(actions.map((a) => [a.id, a.name]));
+  const actionNameMap = useMemo(() => new Map(actions.map((a) => [a.id, a.name])), [actions]);
+
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, teamFilter, searchTerm]);
+
+  // Search filter (name, action names — case-insensitive)
+  const filteredRoutes = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return routes;
+    return routes.filter((r) => {
+      const name = (r.name || '').toLowerCase();
+      const actionNames = (r.actions || [])
+        .map((id) => actionNameMap.get(id) || id)
+        .join(' ')
+        .toLowerCase();
+      return name.includes(q) || actionNames.includes(q);
+    });
+  }, [routes, searchTerm, actionNameMap]);
+
+  // Paginate filtered results
+  const paginatedRoutes = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRoutes.slice(start, start + pageSize);
+  }, [filteredRoutes, currentPage, pageSize]);
 
 
   // ── Handlers ─────────────────────────────────────────────────
@@ -154,9 +185,8 @@ export default function RoutesPage({ addToast }) {
       width: '40%',
       render: (val) => {
         if (!val || val.length === 0) return <span className="text-muted">No actions</span>;
-        return val
-          .map((id) => actionNameMap.get(id) || id)
-          .join(' → ');
+        const names = val.map((id) => actionNameMap.get(id) || id);
+        return <ExpandableValue value={names} maxVisible={3} />;
       },
     },
     {
@@ -176,6 +206,24 @@ export default function RoutesPage({ addToast }) {
       <div className="page-header">
         <h1>🔀 Routes</h1>
         <div className="page-header-actions">
+          <div className="entity-search">
+            <input
+              type="text"
+              className="entity-search-input"
+              placeholder="Search routes by name or action…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                className="entity-search-clear"
+                onClick={() => setSearchTerm('')}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
@@ -190,7 +238,7 @@ export default function RoutesPage({ addToast }) {
           <div className="card">
             <EntityTable
               columns={columns}
-              items={routes}
+              items={paginatedRoutes}
               loading={loading}
               emptyMessage="No routes found. Create a route to define action sequences."
               onRowClick={handleEdit}
@@ -198,10 +246,21 @@ export default function RoutesPage({ addToast }) {
               onCopy={handleCopy}
               onDelete={handleDeleteClick}
             />
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredRoutes.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
           <div className="routes-count">
-            {routes.length} route{routes.length !== 1 ? 's' : ''}
-            {statusFilter && ` (filtered: ${statusFilter})`}
+            {filteredRoutes.length} route{filteredRoutes.length !== 1 ? 's' : ''}
+            {searchTerm && ` matching "${searchTerm}"`}
+            {statusFilter && ` (${statusFilter})`}
           </div>
         </div>
 

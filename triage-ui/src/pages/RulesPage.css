@@ -39,51 +39,6 @@
   color: var(--text-light);
 }
 
-/* ── Search ──────────────────────────────────────────────────── */
-
-.rules-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.rules-search-input {
-  width: 260px;
-  padding: 6px 30px 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  background: var(--bg);
-  color: var(--text);
-  transition: border-color 0.15s;
-}
-
-.rules-search-input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
-}
-
-.rules-search-input::placeholder {
-  color: var(--text-light);
-}
-
-.rules-search-clear {
-  position: absolute;
-  right: 6px;
-  background: none;
-  border: none;
-  color: var(--text-light);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  padding: 2px 4px;
-  line-height: 1;
-}
-
-.rules-search-clear:hover {
-  color: var(--text);
-}
-
 /* ── Field Reference ─────────────────────────────────────────── */
 
 .field-ref {

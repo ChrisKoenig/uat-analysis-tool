@@ -9,9 +9,11 @@
  * Same blade layout pattern as RulesPage: list + detail panel.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
+import Pagination from '../components/common/Pagination';
+import ExpandableValue from '../components/common/ExpandableValue';
 import StatusFilter from '../components/common/StatusFilter';
 import TeamFilter from '../components/common/TeamFilter';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -19,6 +21,7 @@ import ViewCodeToggle from '../components/common/ViewCodeToggle';
 import ActionForm from '../components/actions/ActionForm';
 import { truncate } from '../utils/helpers';
 import { OPERATIONS } from '../utils/constants';
+import '../components/common/EntitySearch.css';
 import './ActionsPage.css';
 
 
@@ -33,6 +36,9 @@ export default function ActionsPage({ addToast }) {
   const [formMode, setFormMode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [references, setReferences] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   // ── Data Loading ─────────────────────────────────────────────
@@ -62,6 +68,31 @@ export default function ActionsPage({ addToast }) {
   useEffect(() => {
     loadActions();
   }, [loadActions]);
+
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, teamFilter, searchTerm]);
+
+  // Search filter (name, field, operation, value — case-insensitive)
+  const filteredActions = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return actions;
+    return actions.filter((a) => {
+      const name = (a.name || '').toLowerCase();
+      const field = (a.field || '').toLowerCase();
+      const op = OPERATIONS.find((o) => o.value === a.operation);
+      const opLabel = op ? op.label.toLowerCase() : (a.operation || '').toLowerCase();
+      const value = (a.value ?? '').toString().toLowerCase();
+      return name.includes(q) || field.includes(q) || opLabel.includes(q) || value.includes(q);
+    });
+  }, [actions, searchTerm]);
+
+  // Paginate filtered results
+  const paginatedActions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredActions.slice(start, start + pageSize);
+  }, [filteredActions, currentPage, pageSize]);
 
 
   // ── Handlers ─────────────────────────────────────────────────
@@ -169,7 +200,7 @@ export default function ActionsPage({ addToast }) {
       width: '20%',
       render: (val) => {
         if (val === null || val === undefined) return <span className="text-muted">—</span>;
-        return truncate(String(val), 40);
+        return <ExpandableValue value={val} maxVisible={3} />;
       },
     },
     { key: 'status', label: 'Status', width: '10%' },
@@ -183,6 +214,24 @@ export default function ActionsPage({ addToast }) {
       <div className="page-header">
         <h1>🎯 Actions</h1>
         <div className="page-header-actions">
+          <div className="entity-search">
+            <input
+              type="text"
+              className="entity-search-input"
+              placeholder="Search actions by name, field, or value…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                className="entity-search-clear"
+                onClick={() => setSearchTerm('')}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
@@ -197,7 +246,7 @@ export default function ActionsPage({ addToast }) {
           <div className="card">
             <EntityTable
               columns={columns}
-              items={actions}
+              items={paginatedActions}
               loading={loading}
               emptyMessage="No actions found. Create your first action to define field modifications."
               onRowClick={handleEdit}
@@ -205,10 +254,21 @@ export default function ActionsPage({ addToast }) {
               onCopy={handleCopy}
               onDelete={handleDeleteClick}
             />
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredActions.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
           <div className="actions-count">
-            {actions.length} action{actions.length !== 1 ? 's' : ''}
-            {statusFilter && ` (filtered: ${statusFilter})`}
+            {filteredActions.length} action{filteredActions.length !== 1 ? 's' : ''}
+            {searchTerm && ` matching "${searchTerm}"`}
+            {statusFilter && ` (${statusFilter})`}
           </div>
         </div>
 
