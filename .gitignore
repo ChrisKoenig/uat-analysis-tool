@@ -74,6 +74,10 @@ build_log.txt
 *.zip
 infrastructure/deploy/packages/
 
+# Runtime config (generated from config.local.json / config.prod.json)
+triage-ui/public/config.json
+field-portal/ui/public/config.json
+
 # Logs
 *.log
 flask_*.log

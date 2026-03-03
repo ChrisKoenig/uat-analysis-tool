@@ -9,24 +9,28 @@
       - triage-ui.zip      (React build output)
       - field-ui.zip       (React build output)
 
+    Use the -Env flag to select the configuration:
+      - local:  MSAL redirects to localhost, API calls to localhost (no baseUrl)
+      - prod:   MSAL redirects to Azure App Service URLs, API baseUrl set
+
     After running, upload all 4 zips to Cloud Shell, then run:
       az webapp deploy --name <app> --resource-group rg-nonprod-aitriage --src-path <zip> --type zip
 
 .NOTES
     Run from the repo root: .\infrastructure\deploy\build-packages.ps1
+    Run from the repo root: .\infrastructure\deploy\build-packages.ps1 -Env local
 #>
 
 [CmdletBinding()]
 param(
     [ValidateSet("all", "triage-api", "field-api", "triage-ui", "field-ui")]
-    [string]$Target = "all"
+    [string]$Target = "all",
+
+    [ValidateSet("local", "prod")]
+    [string]$Env = "prod"
 )
 
 $ErrorActionPreference = "Stop"
-
-# MSAL config baked into UI builds
-$MSAL_CLIENT_ID = "6257f944-71eb-49b9-8ef6-ab006383d54c"
-$MSAL_TENANT_ID = "72f988bf-86f1-41af-91ab-2d7cd011db47"
 
 $repoRoot = $PSScriptRoot | Split-Path | Split-Path
 $outDir   = Join-Path $PSScriptRoot "packages"
@@ -35,6 +39,9 @@ if (-not (Test-Path $outDir)) { New-Item -Path $outDir -ItemType Directory | Out
 
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "   [OK] $msg" -ForegroundColor Green }
+
+# --- Resolve config template suffix from -Env flag ---
+$configSuffix = $Env  # "local" or "prod"
 
 # --- Shared root modules that both APIs import ---
 $sharedFiles = @(
@@ -53,10 +60,11 @@ $sharedFiles = @(
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Build Deployment Packages"              -ForegroundColor Cyan
+Write-Host "  Build Deployment Packages ($Env)"     -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Repo root: $repoRoot"
 Write-Host "  Output:    $outDir"
+Write-Host "  Config:    config.$configSuffix.json"
 
 # =============================================================================
 # 1. Triage API
@@ -152,23 +160,16 @@ if ($Target -eq "all" -or $Target -eq "triage-ui") {
 
     Push-Location (Join-Path $repoRoot "triage-ui")
     try {
-        # Write config.json into public/ before build
+        # Copy the environment-specific config template into public/config.json
         $publicDir = "public"
         if (-not (Test-Path $publicDir)) { New-Item $publicDir -ItemType Directory | Out-Null }
 
-        $configJson = @{
-            msal = @{
-                clientId    = $MSAL_CLIENT_ID
-                tenantId    = $MSAL_TENANT_ID
-                redirectUri = "https://app-triage-ui-nonprod.azurewebsites.net"
-            }
-            api = @{
-                baseUrl = "https://app-triage-api-nonprod.azurewebsites.net"
-            }
-        } | ConvertTo-Json -Depth 3
-
-        $configJson | Set-Content -Path (Join-Path $publicDir "config.json") -Encoding UTF8
-        Write-Ok "config.json written"
+        $templateFile = Join-Path $publicDir "config.$configSuffix.json"
+        if (-not (Test-Path $templateFile)) {
+            throw "Config template not found: $templateFile"
+        }
+        Copy-Item $templateFile (Join-Path $publicDir "config.json") -Force
+        Write-Ok "config.json written from config.$configSuffix.json"
 
         npm ci --silent 2>&1 | Out-Null
         Write-Ok "npm ci complete"
@@ -199,19 +200,12 @@ if ($Target -eq "all" -or $Target -eq "field-ui") {
         $publicDir = "public"
         if (-not (Test-Path $publicDir)) { New-Item $publicDir -ItemType Directory | Out-Null }
 
-        $configJson = @{
-            msal = @{
-                clientId    = $MSAL_CLIENT_ID
-                tenantId    = $MSAL_TENANT_ID
-                redirectUri = "https://app-field-ui-nonprod.azurewebsites.net"
-            }
-            api = @{
-                baseUrl = "https://app-field-api-nonprod.azurewebsites.net"
-            }
-        } | ConvertTo-Json -Depth 3
-
-        $configJson | Set-Content -Path (Join-Path $publicDir "config.json") -Encoding UTF8
-        Write-Ok "config.json written"
+        $templateFile = Join-Path $publicDir "config.$configSuffix.json"
+        if (-not (Test-Path $templateFile)) {
+            throw "Config template not found: $templateFile"
+        }
+        Copy-Item $templateFile (Join-Path $publicDir "config.json") -Force
+        Write-Ok "config.json written from config.$configSuffix.json"
 
         npm ci --silent 2>&1 | Out-Null
         Write-Ok "npm ci complete"

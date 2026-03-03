@@ -31,7 +31,7 @@ Write-Host "====================================================================
 
 # -- Step 1: Kill existing processes -----------------------------------------------
 
-Write-Host "`n[1/5] Cleaning up existing processes..." -ForegroundColor Yellow
+Write-Host "`n[1/6] Cleaning up existing processes..." -ForegroundColor Yellow
 
 # Kill Python processes (APIs)
 $pyProcs = Get-Process -Name python -ErrorAction SilentlyContinue
@@ -72,7 +72,7 @@ if ($busy.Count -gt 0) {
 
 # -- Step 2: Set environment variables ---------------------------------------------
 
-Write-Host "`n[2/5] Setting environment variables..." -ForegroundColor Yellow
+Write-Host "`n[2/6] Setting environment variables..." -ForegroundColor Yellow
 
 $env:COSMOS_ENDPOINT    = "https://cosmos-gcs-dev.documents.azure.com:443/"
 $env:COSMOS_USE_AAD     = "true"
@@ -93,10 +93,29 @@ Write-Host "  AZURE_OPENAI     = $env:AZURE_OPENAI_ENDPOINT" -ForegroundColor Gr
 Write-Host "  APP_INSIGHTS     = (configured)" -ForegroundColor Gray
 Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 
-# -- Step 3: Start APIs --------------------------------------------------------
+# -- Step 3: Write local UI config -------------------------------------------------
+
+Write-Host "`n[3/6] Writing local UI configs (config.local.json → config.json)..." -ForegroundColor Yellow
+
+$uiConfigs = @(
+    @{ Label = "Triage UI";       Dir = "$Root\triage-ui\public" },
+    @{ Label = "Field Portal UI"; Dir = "$Root\field-portal\ui\public" }
+)
+foreach ($ui in $uiConfigs) {
+    $src  = Join-Path $ui.Dir "config.local.json"
+    $dest = Join-Path $ui.Dir "config.json"
+    if (Test-Path $src) {
+        Copy-Item $src $dest -Force
+        Write-Host "  $($ui.Label): config.json ← config.local.json" -ForegroundColor Green
+    } else {
+        Write-Host "  $($ui.Label): config.local.json NOT FOUND — skipped" -ForegroundColor Red
+    }
+}
+
+# -- Step 4: Start APIs --------------------------------------------------------
 
 if (-not $SkipAPI) {
-    Write-Host "`n[3/5] Starting API services..." -ForegroundColor Yellow
+    Write-Host "`n[4/6] Starting API services..." -ForegroundColor Yellow
 
     # Triage API (port 8009)
     Write-Host "  Starting Triage API on port 8009..." -ForegroundColor Cyan
@@ -133,13 +152,13 @@ if (-not $SkipAPI) {
         }
     }
 } else {
-    Write-Host "`n[3/5] Skipping APIs (-SkipAPI)" -ForegroundColor DarkGray
+    Write-Host "`n[4/6] Skipping APIs (-SkipAPI)" -ForegroundColor DarkGray
 }
 
 # -- Step 4: Start UIs ---------------------------------------------------------
 
 if (-not $SkipUI) {
-    Write-Host "`n[4/5] Starting UI dev servers..." -ForegroundColor Yellow
+    Write-Host "`n[5/6] Starting UI dev servers..." -ForegroundColor Yellow
 
     # Triage UI (port 3000)
     Write-Host "  Starting Triage UI on port 3000..." -ForegroundColor Cyan
@@ -157,12 +176,12 @@ if (-not $SkipUI) {
 
     Start-Sleep -Seconds 5
 } else {
-    Write-Host "`n[4/5] Skipping UIs (-SkipUI)" -ForegroundColor DarkGray
+    Write-Host "`n[5/6] Skipping UIs (-SkipUI)" -ForegroundColor DarkGray
 }
 
 # -- Step 5: Summary -----------------------------------------------------------
 
-Write-Host "`n[5/5] Verifying services..." -ForegroundColor Yellow
+Write-Host "`n[6/6] Verifying services..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
 
 $services = @(
