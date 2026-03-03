@@ -18,9 +18,11 @@
  * slides in from the right when an item is selected.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as api from '../api/triageApi';
 import EntityTable from '../components/common/EntityTable';
+import Pagination from '../components/common/Pagination';
+import ExpandableValue from '../components/common/ExpandableValue';
 import StatusFilter from '../components/common/StatusFilter';
 import StatusBadge from '../components/common/StatusBadge';
 import TeamFilter from '../components/common/TeamFilter';
@@ -43,6 +45,9 @@ export default function RulesPage({ addToast }) {
   const [formMode, setFormMode] = useState(null); // 'create' | 'edit' | null
   const [toggleTarget, setToggleTarget] = useState(null);
   const [references, setReferences] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   // ── Data Loading ─────────────────────────────────────────────
@@ -72,6 +77,32 @@ export default function RulesPage({ addToast }) {
   useEffect(() => {
     loadRules();
   }, [loadRules]);
+
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, teamFilter, searchTerm]);
+
+  // Search filter (name, field, fields, value — case-insensitive)
+  const filteredRules = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter((r) => {
+      const name = (r.name || '').toLowerCase();
+      const field = (r.field || '').toLowerCase();
+      const fields = (r.fields || []).join(' ').toLowerCase();
+      const value = Array.isArray(r.value)
+        ? r.value.join(' ').toLowerCase()
+        : (r.value ?? '').toString().toLowerCase();
+      return name.includes(q) || field.includes(q) || fields.includes(q) || value.includes(q);
+    });
+  }, [rules, searchTerm]);
+
+  // Paginate filtered results
+  const paginatedRules = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRules.slice(start, start + pageSize);
+  }, [filteredRules, currentPage, pageSize]);
 
 
   // ── Handlers ─────────────────────────────────────────────────
@@ -162,12 +193,28 @@ export default function RulesPage({ addToast }) {
   // ── Table Columns ────────────────────────────────────────────
 
   const columns = [
-    { key: 'name', label: 'Name', width: '25%' },
+    { key: 'name', label: 'Name', width: '20%' },
     {
       key: 'field',
       label: 'Field',
-      width: '25%',
-      render: (val) => <code className="field-ref">{val}</code>,
+      width: '20%',
+      render: (val, row) => {
+        // Multi-field rules (containsAny) show fields array as chips
+        if (Array.isArray(row.fields) && row.fields.length > 0) {
+          if (row.fields.length <= 2) {
+            return row.fields.map((f) => (
+              <code key={f} className="field-ref" style={{ marginRight: 4 }}>{f}</code>
+            ));
+          }
+          return (
+            <span title={row.fields.join(', ')}>
+              <code className="field-ref">{row.fields[0]}</code>{' '}
+              <span className="text-muted">+{row.fields.length - 1} more</span>
+            </span>
+          );
+        }
+        return <code className="field-ref">{val}</code>;
+      },
     },
     {
       key: 'operator',
@@ -181,11 +228,10 @@ export default function RulesPage({ addToast }) {
     {
       key: 'value',
       label: 'Value',
-      width: '15%',
+      width: '25%',
       render: (val) => {
         if (val === null || val === undefined) return <span className="text-muted">—</span>;
-        if (Array.isArray(val)) return val.join(', ');
-        return truncate(String(val), 40);
+        return <ExpandableValue value={val} maxVisible={3} />;
       },
     },
     { key: 'status', label: 'Status', width: '10%' },
@@ -200,6 +246,24 @@ export default function RulesPage({ addToast }) {
       <div className="page-header">
         <h1>📋 Rules</h1>
         <div className="page-header-actions">
+          <div className="rules-search">
+            <input
+              type="text"
+              className="rules-search-input"
+              placeholder="Search rules by name, field, or value…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                className="rules-search-clear"
+                onClick={() => setSearchTerm('')}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <TeamFilter value={teamFilter} onChange={setTeamFilter} teams={teams} />
           <StatusFilter value={statusFilter} onChange={setStatusFilter} />
           <button className="btn btn-primary" onClick={handleCreate}>
@@ -214,7 +278,7 @@ export default function RulesPage({ addToast }) {
           <div className="card">
             <EntityTable
               columns={columns}
-              items={rules}
+              items={paginatedRules}
               loading={loading}
               emptyMessage="No rules found. Create your first rule to get started."
               onRowClick={handleEdit}
@@ -222,11 +286,16 @@ export default function RulesPage({ addToast }) {
               onCopy={handleCopy}
               onToggleStatus={handleToggleStatusClick}
             />
-          </div>
-
-          <div className="rules-count">
-            {rules.length} rule{rules.length !== 1 ? 's' : ''}
-            {statusFilter && ` (filtered: ${statusFilter})`}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredRules.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         </div>
 

@@ -25,8 +25,9 @@ class RuleCreate(BaseModel):
     """Request body for creating a rule"""
     name: str = Field(..., description="Human-readable rule name")
     description: str = Field("", description="Purpose of this rule")
-    field: str = Field(..., description="ADO field reference (e.g., Custom.SolutionArea)")
-    operator: str = Field(..., description="Comparison operator (e.g., equals, in, isNull)")
+    field: str = Field("", description="ADO field reference (e.g., Custom.SolutionArea). Use for single-field rules.")
+    fields: Optional[List[str]] = Field(None, description="Multiple ADO field references (for containsAny operator)")
+    operator: str = Field(..., description="Comparison operator (e.g., equals, in, containsAny)")
     value: Any = Field(None, description="Comparison value (type depends on operator)")
     status: str = Field("active", description="active | disabled | staged")
     triageTeamId: Optional[str] = Field(None, description="Scoped team ID or null for all teams")
@@ -37,6 +38,7 @@ class RuleUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     field: Optional[str] = None
+    fields: Optional[List[str]] = None
     operator: Optional[str] = None
     value: Any = None
     status: Optional[str] = None

@@ -1,0 +1,160 @@
+/**
+ * MultiFieldCombobox Styles
+ * ─────────────────────────
+ * Chip-based multi-select that mirrors FieldCombobox styling.
+ */
+
+.multi-field-combobox {
+  position: relative;
+  width: 100%;
+}
+
+/* ── Input area with chips ───────────────────────────────── */
+.mfc-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 32px 4px 8px;
+  position: relative;
+  min-height: 38px;
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, #fff);
+  cursor: text;
+  transition: border-color 0.15s;
+}
+
+.mfc-input-area.mfc-focused {
+  border-color: var(--primary, #4a90d9);
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+}
+
+.mfc-search-input {
+  flex: 1 1 120px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  padding: 4px 0;
+  min-width: 80px;
+}
+
+.mfc-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-light);
+  pointer-events: none;
+}
+
+/* ── Chips ────────────────────────────────────────────────── */
+.mfc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--primary-light, #e8f0fe);
+  color: var(--primary-dark, #1a4b8c);
+  border-radius: 12px;
+  font-size: var(--font-size-sm, 12px);
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+
+.mfc-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--primary, #4a90d9);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mfc-chip-remove:hover {
+  background: var(--primary, #4a90d9);
+  color: #fff;
+}
+
+/* ── Dropdown ─────────────────────────────────────────────── */
+.mfc-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--primary, #4a90d9);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+}
+
+.mfc-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light, rgba(0, 0, 0, 0.05));
+}
+
+.mfc-option:hover,
+.mfc-option.highlighted {
+  background: var(--primary-light);
+}
+
+.mfc-option.selected {
+  background: var(--primary-light);
+}
+
+.mfc-check {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--primary, #4a90d9);
+}
+
+.mfc-group-header {
+  position: sticky;
+  top: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary, #4a90d9);
+  background: var(--card-bg, #fff);
+  border-bottom: 2px solid var(--primary-light, #e8f0fe);
+  z-index: 1;
+  user-select: none;
+}
+
+.mfc-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}
+
+.mfc-loading {
+  opacity: 0.6;
+  cursor: wait;
+}

@@ -26,7 +26,7 @@ Cosmos DB Container: rules
 Partition Key: /status
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclass_field
 from typing import Any, List, Dict, Optional
 
 from .base import BaseEntity, EntityStatus
@@ -50,6 +50,7 @@ VALID_OPERATORS = [
     # String-specific
     "contains",
     "notContains",
+    "containsAny",   # Multi-field: any field contains any keyword
     "startsWith",
     "matches",       # Regex
     
@@ -91,6 +92,7 @@ class Rule(BaseEntity):
     # Rule Definition
     # -------------------------------------------------------------------------
     field: str = ""          # ADO field reference (e.g., "Custom.SolutionArea")
+    fields: List[str] = dataclass_field(default_factory=list)  # Multi-field list (for containsAny)
     operator: str = ""       # Comparison operator (see VALID_OPERATORS)
     value: Any = None        # Value to compare against (type varies by operator)
     
@@ -109,8 +111,13 @@ class Rule(BaseEntity):
         """
         errors = super().validate()
         
-        # Field is required
-        if not self.field:
+        # Field is required (either single field or fields list for containsAny)
+        if self.operator == "containsAny":
+            if not self.fields or len(self.fields) == 0:
+                errors.append("fields list is required for containsAny operator")
+            if not isinstance(self.value, list) or len(self.value) == 0:
+                errors.append("containsAny requires a non-empty list of keywords")
+        elif not self.field:
             errors.append("field is required (e.g., 'Custom.SolutionArea')")
         
         # Operator must be from the known list
@@ -163,11 +170,15 @@ class Rule(BaseEntity):
             "Custom.MilestoneID isNull"
             "Custom.SolutionArea equals 'AMEA'"
             "Analysis.Category in ['Feature Request', 'Capacity']"
+            "[Title, Description] containsAny ['Capacity', 'Quota']"
         
         Returns:
             Formatted string describing the rule
         """
-        if self.operator in ("isNull", "isNotNull"):
+        if self.operator == "containsAny":
+            field_display = f"[{', '.join(self.fields)}]" if self.fields else self.field
+            return f"{field_display} containsAny {self.value}"
+        elif self.operator in ("isNull", "isNotNull"):
             return f"{self.field} {self.operator}"
         elif isinstance(self.value, list):
             return f"{self.field} {self.operator} {self.value}"

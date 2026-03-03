@@ -1,0 +1,44 @@
+/**
+ * ExpandableValue Styles
+ */
+
+.expandable-value {
+  display: inline;
+  line-height: 1.5;
+}
+
+.expandable-value-list {
+  /* Wrap naturally within the table cell */
+}
+
+.expandable-value-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+}
+
+.expandable-value-badge:hover {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary-hover, var(--primary));
+}
+
+.expandable-value-badge-collapse {
+  color: var(--text-light);
+  background: var(--muted-bg);
+  border-color: var(--border);
+}
+
+.expandable-value-badge-collapse:hover {
+  color: var(--text);
+  background: var(--border);
+}

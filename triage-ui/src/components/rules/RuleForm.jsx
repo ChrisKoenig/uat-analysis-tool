@@ -23,8 +23,9 @@
 
 import React, { useState, useEffect } from 'react';
 import * as api from '../../api/triageApi';
-import { OPERATORS, VALUELESS_OPERATORS } from '../../utils/constants';
+import { OPERATORS, VALUELESS_OPERATORS, MULTI_FIELD_OPERATORS } from '../../utils/constants';
 import FieldCombobox from '../common/FieldCombobox';
+import MultiFieldCombobox from '../common/MultiFieldCombobox';
 import TeamScopeSelect from '../common/TeamScopeSelect';
 
 
@@ -33,6 +34,7 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [field, setField] = useState('');
+  const [fields, setFields] = useState([]);          // multi-field for containsAny
   const [operator, setOperator] = useState('equals');
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('active');
@@ -53,6 +55,8 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
   const isValueless = VALUELESS_OPERATORS.includes(operator);
   // Track whether the operator expects a list value
   const isListOperator = ['in', 'notIn'].includes(operator);
+  // Track whether the operator uses multiple fields (containsAny)
+  const isMultiField = MULTI_FIELD_OPERATORS.includes(operator);
 
 
   // ── Populate form when editing ───────────────────────────────
@@ -61,6 +65,7 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       setName(rule.name || '');
       setDescription(rule.description || '');
       setField(rule.field || '');
+      setFields(Array.isArray(rule.fields) ? rule.fields : []);
       setOperator(rule.operator || 'equals');
       // Array values → comma-separated string for editing
       setValue(
@@ -75,6 +80,7 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       setName('');
       setDescription('');
       setField('');
+      setFields([]);
       setOperator('equals');
       setValue('');
       setStatus('active');
@@ -92,7 +98,7 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       // Parse the value based on operator type
       let parsedValue = null;
       if (!isValueless) {
-        if (isListOperator) {
+        if (isListOperator || isMultiField) {
           // Convert comma-separated string → array
           parsedValue = value
             .split(',')
@@ -106,7 +112,8 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       await onSubmit({
         name,
         description,
-        field,
+        field: isMultiField ? '' : field,
+        fields: isMultiField ? fields : [],
         operator,
         value: parsedValue,
         status,
@@ -148,21 +155,43 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
         />
       </div>
 
-      {/* Analysis/ADO Field */}
+      {/* Analysis/ADO Field(s) */}
       <div className="form-group">
-        <label htmlFor="rule-field">Analysis/ADO Field *</label>
-        <FieldCombobox
-          id="rule-field"
-          value={field}
-          onChange={setField}
-          fields={adoFields}
-          placeholder="Click here and type to search fields…"
-          required
-          loading={fieldsLoading}
-        />
-        <span className="hint">
-          Click the field above to browse available fields, or type to search by name.
-        </span>
+        <label htmlFor="rule-field">
+          {isMultiField ? 'Analysis/ADO Fields *' : 'Analysis/ADO Field *'}
+        </label>
+        {isMultiField ? (
+          <>
+            <MultiFieldCombobox
+              id="rule-field"
+              values={fields}
+              onChange={setFields}
+              fields={adoFields}
+              placeholder="Search and select multiple fields…"
+              required
+              loading={fieldsLoading}
+            />
+            <span className="hint">
+              Select one or more fields to search across. The rule matches if
+              <strong> any </strong> selected field contains <strong>any</strong> keyword.
+            </span>
+          </>
+        ) : (
+          <>
+            <FieldCombobox
+              id="rule-field"
+              value={field}
+              onChange={setField}
+              fields={adoFields}
+              placeholder="Click here and type to search fields…"
+              required
+              loading={fieldsLoading}
+            />
+            <span className="hint">
+              Click the field above to browse available fields, or type to search by name.
+            </span>
+          </>
+        )}
       </div>
 
       {/* Operator */}
@@ -192,19 +221,29 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       {/* Value (hidden for isNull/isNotNull) */}
       {!isValueless && (
         <div className="form-group">
-          <label htmlFor="rule-value">Value *</label>
-          {isListOperator ? (
+          <label htmlFor="rule-value">
+            {isMultiField ? 'Keywords *' : 'Value *'}
+          </label>
+          {(isListOperator || isMultiField) ? (
             <>
               <textarea
                 id="rule-value"
                 className="form-textarea"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                placeholder="Comma-separated values, e.g.:&#10;AI Apps, Cloud Infrastructure, Security"
+                placeholder={
+                  isMultiField
+                    ? 'Comma-separated keywords, e.g.:\nCapacity, Quota, Increase, Allocation'
+                    : 'Comma-separated values, e.g.:\nAI Apps, Cloud Infrastructure, Security'
+                }
                 rows={3}
                 required
               />
-              <span className="hint">Enter values separated by commas</span>
+              <span className="hint">
+                {isMultiField
+                  ? 'Enter keywords separated by commas — matches if any field contains any keyword'
+                  : 'Enter values separated by commas'}
+              </span>
             </>
           ) : (
             <input

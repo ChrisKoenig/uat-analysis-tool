@@ -145,6 +145,8 @@ class RulesEngine:
         Evaluate a single rule against work item data.
         
         Resolves the field value, then applies the operator.
+        For containsAny, resolves multiple fields and checks if
+        any field contains any of the keywords.
         
         Args:
             rule:      The rule to evaluate
@@ -158,6 +160,10 @@ class RulesEngine:
             ValueError: If the operator is unknown
             Exception: If field resolution or comparison fails
         """
+        # Special handling for containsAny — multi-field, multi-keyword
+        if rule.operator == "containsAny":
+            return self._evaluate_contains_any(rule, work_item, analysis)
+        
         # Step 1: Resolve the field value from work item or analysis data
         field_value = self._resolve_field(
             rule.field, work_item, analysis
@@ -248,6 +254,7 @@ class RulesEngine:
             "in": self._op_in,
             "notIn": self._op_not_in,
             "contains": self._op_contains,
+            "containsAny": self._op_contains_any,
             "notContains": self._op_not_contains,
             "startsWith": self._op_starts_with,
             "under": self._op_under,
@@ -441,6 +448,81 @@ class RulesEngine:
         """Less than or equal comparison (numeric/date)"""
         return self._numeric_compare(field_value, rule_value, lambda a, b: a <= b)
     
+    def _evaluate_contains_any(
+        self,
+        rule: 'Rule',
+        work_item: Dict[str, Any],
+        analysis: Optional['AnalysisResult'] = None
+    ) -> bool:
+        """
+        Multi-field, multi-keyword evaluation.
+        
+        Resolves each field in rule.fields, then checks if ANY resolved
+        field value contains ANY of the comma-separated keywords in
+        rule.value.  All comparisons are case-insensitive.
+        
+        Returns True on the first match (short-circuit).
+        """
+        # Parse keywords from the rule value (comma-separated string or list)
+        if isinstance(rule.value, list):
+            keywords = [k.strip().lower() for k in rule.value if k.strip()]
+        elif isinstance(rule.value, str):
+            keywords = [k.strip().lower() for k in rule.value.split(",") if k.strip()]
+        else:
+            keywords = []
+        
+        if not keywords:
+            logger.debug("    containsAny: no keywords — returning False")
+            return False
+        
+        fields_to_check = rule.fields if rule.fields else ([rule.field] if rule.field else [])
+        if not fields_to_check:
+            logger.debug("    containsAny: no fields — returning False")
+            return False
+        
+        for field_name in fields_to_check:
+            field_value = self._resolve_field(field_name, work_item, analysis)
+            if field_value is None:
+                continue
+            
+            # Normalise to a single searchable string
+            if isinstance(field_value, list):
+                text = " ".join(str(v) for v in field_value).lower()
+            else:
+                text = str(field_value).lower()
+            
+            for kw in keywords:
+                if kw in text:
+                    logger.debug(
+                        "    containsAny HIT: keyword '%s' found in field '%s'",
+                        kw, field_name,
+                    )
+                    return True
+        
+        logger.debug("    containsAny: no matches across %d fields", len(fields_to_check))
+        return False
+
+    def _op_contains_any(self, field_value: Any, rule_value: Any) -> bool:
+        """
+        Operator-handler shim for containsAny.
+        
+        This is only called if a containsAny rule happens to go through
+        the standard _apply_operator path (shouldn't normally happen since
+        evaluate_rule short-circuits).  Provided for completeness.
+        """
+        if field_value is None or rule_value is None:
+            return False
+        
+        if isinstance(rule_value, list):
+            keywords = [k.strip().lower() for k in rule_value if isinstance(k, str) and k.strip()]
+        elif isinstance(rule_value, str):
+            keywords = [k.strip().lower() for k in rule_value.split(",") if k.strip()]
+        else:
+            return False
+        
+        text = str(field_value).lower()
+        return any(kw in text for kw in keywords)
+
     def _numeric_compare(
         self,
         field_value: Any,
