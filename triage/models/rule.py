@@ -50,9 +50,10 @@ VALID_OPERATORS = [
     # String-specific
     "contains",
     "notContains",
-    "containsAny",   # Multi-field: any field contains any keyword
+    "containsAny",      # Multi-field: any field contains any keyword
+    "regexMatchAny",   # Multi-field: any field matches any regex pattern
     "startsWith",
-    "matches",       # Regex
+    "matches",          # Regex
     
     # Hierarchical tree path (e.g., Area Path)
     "under",
@@ -117,6 +118,11 @@ class Rule(BaseEntity):
                 errors.append("fields list is required for containsAny operator")
             if not isinstance(self.value, list) or len(self.value) == 0:
                 errors.append("containsAny requires a non-empty list of keywords")
+        elif self.operator == "regexMatchAny":
+            if not self.fields or len(self.fields) == 0:
+                errors.append("fields list is required for regexMatchAny operator")
+            if not isinstance(self.value, list) or len(self.value) == 0:
+                errors.append("regexMatchAny requires a non-empty list of regex patterns")
         elif not self.field:
             errors.append("field is required (e.g., 'Custom.SolutionArea')")
         
@@ -178,6 +184,9 @@ class Rule(BaseEntity):
         if self.operator == "containsAny":
             field_display = f"[{', '.join(self.fields)}]" if self.fields else self.field
             return f"{field_display} containsAny {self.value}"
+        elif self.operator == "regexMatchAny":
+            field_display = f"[{', '.join(self.fields)}]" if self.fields else self.field
+            return f"{field_display} regexMatchAny {self.value}"
         elif self.operator in ("isNull", "isNotNull"):
             return f"{self.field} {self.operator}"
         elif isinstance(self.value, list):

@@ -160,9 +160,11 @@ class RulesEngine:
             ValueError: If the operator is unknown
             Exception: If field resolution or comparison fails
         """
-        # Special handling for containsAny — multi-field, multi-keyword
+        # Special handling for multi-field operators
         if rule.operator == "containsAny":
             return self._evaluate_contains_any(rule, work_item, analysis)
+        if rule.operator == "regexMatchAny":
+            return self._evaluate_regex_match_any(rule, work_item, analysis)
         
         # Step 1: Resolve the field value from work item or analysis data
         field_value = self._resolve_field(
@@ -522,6 +524,94 @@ class RulesEngine:
         
         text = str(field_value).lower()
         return any(kw in text for kw in keywords)
+
+    # ── regexMatchAny — multi-field, multi-pattern ─────────────
+    def _evaluate_regex_match_any(
+        self,
+        rule: 'Rule',
+        work_item: Dict[str, Any],
+        analysis: Optional['AnalysisResult'] = None
+    ) -> bool:
+        """
+        Multi-field, multi-pattern regex evaluation.
+
+        Resolves each field in rule.fields, then checks if ANY resolved
+        field value matches ANY of the comma-separated regex patterns in
+        rule.value.  All comparisons are case-insensitive.
+
+        Returns True on the first match (short-circuit).
+        """
+        # Parse patterns from the rule value (comma-separated string or list)
+        if isinstance(rule.value, list):
+            patterns = [p.strip() for p in rule.value if p.strip()]
+        elif isinstance(rule.value, str):
+            patterns = [p.strip() for p in rule.value.split(",") if p.strip()]
+        else:
+            patterns = []
+
+        if not patterns:
+            logger.debug("    regexMatchAny: no patterns — returning False")
+            return False
+
+        fields_to_check = rule.fields if rule.fields else ([rule.field] if rule.field else [])
+        if not fields_to_check:
+            logger.debug("    regexMatchAny: no fields — returning False")
+            return False
+
+        for field_name in fields_to_check:
+            field_value = self._resolve_field(field_name, work_item, analysis)
+            if field_value is None:
+                continue
+
+            # Normalise to a single searchable string
+            if isinstance(field_value, list):
+                text = " ".join(str(v) for v in field_value)
+            else:
+                text = str(field_value)
+
+            for pattern in patterns:
+                try:
+                    if re.search(pattern, text, re.IGNORECASE):
+                        logger.debug(
+                            "    regexMatchAny HIT: pattern '%s' matched in field '%s'",
+                            pattern, field_name,
+                        )
+                        return True
+                except re.error as exc:
+                    logger.warning(
+                        "    regexMatchAny: invalid regex '%s' — %s",
+                        pattern, exc,
+                    )
+
+        logger.debug("    regexMatchAny: no matches across %d fields", len(fields_to_check))
+        return False
+
+    def _op_regex_match_any(self, field_value: Any, rule_value: Any) -> bool:
+        """
+        Operator-handler shim for regexMatchAny.
+
+        Only called if a regexMatchAny rule goes through the standard
+        _apply_operator path (shouldn't normally happen since evaluate_rule
+        short-circuits).  Provided for completeness.
+        """
+        if field_value is None or rule_value is None:
+            return False
+
+        if isinstance(rule_value, list):
+            patterns = [p.strip() for p in rule_value if isinstance(p, str) and p.strip()]
+        elif isinstance(rule_value, str):
+            patterns = [p.strip() for p in rule_value.split(",") if p.strip()]
+        else:
+            return False
+
+        text = str(field_value)
+        for pattern in patterns:
+            try:
+                if re.search(pattern, text, re.IGNORECASE):
+                    return True
+            except re.error:
+                continue
+        return False
 
     def _numeric_compare(
         self,

@@ -34,6 +34,7 @@ export const OPERATORS = [
   { value: 'contains',    label: 'Contains',           group: 'String' },
   { value: 'notContains', label: 'Not Contains',       group: 'String' },
   { value: 'containsAny', label: 'Contains Any (multi-field)', group: 'String' },
+  { value: 'regexMatchAny', label: 'Regex Match Any (multi-field)', group: 'String' },
   { value: 'startsWith',  label: 'Starts With',        group: 'String' },
   { value: 'matches',     label: 'Matches (Regex)',    group: 'String' },
   { value: 'under',       label: 'Under (Tree Path)',  group: 'Hierarchical' },
@@ -53,7 +54,7 @@ export const VALUELESS_OPERATORS = ['isNull', 'isNotNull'];
  * When one of these is selected, the form shows a multi-field selector
  * instead of a single field picker.
  */
-export const MULTI_FIELD_OPERATORS = ['containsAny'];
+export const MULTI_FIELD_OPERATORS = ['containsAny', 'regexMatchAny'];
 
 
 // ---------------------------------------------------------------------------

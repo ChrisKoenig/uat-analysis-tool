@@ -13,6 +13,7 @@
 | 1 | FR-1997 | 2026-03-03 | `6abe2e1` | **Add multi-field, multi-value search to Rules** — New `containsAny` operator enabling rules to search across multiple ADO fields for multiple keywords simultaneously. Changes span backend (rule model, Pydantic schemas, rules engine evaluation) and frontend (new `MultiFieldCombobox` component, updated `RuleForm` with conditional multi-field picker, updated `RulesPage` table display). |
 | 2 | FR-1993 | 2026-03-03 | `6abe2e1` | **Rules table pagination, search & expandable value cells** — Added pagination (25/50/100 page sizes), a search box to filter rules by name/field/value, and expandable value cells that truncate long lists with a "+N more" badge. |
 | 3 | FR-1993 | 2026-03-03 | *pending* | **Extend pagination, search & expandable values to Triggers, Actions, Routes** — Applied the same FR-1993 UX improvements (pagination, search input, expandable value cells) to all remaining entity list pages. Extracted shared EntitySearch CSS. |
+| 4 | FR-1997 | 2026-03-04 | *pending* | **Add `regexMatchAny` operator (multi-field regex)** — New operator allowing rules to test multiple ADO fields against multiple regex patterns simultaneously. Backend: added to VALID_OPERATORS, validation, display string, and a dedicated `_evaluate_regex_match_any` engine method (case-insensitive `re.search`, invalid-pattern-safe). Frontend: added to OPERATORS and MULTI_FIELD_OPERATORS in constants, updated RuleForm with regex-specific labels, placeholders, and hint text. |
 
 ---
 

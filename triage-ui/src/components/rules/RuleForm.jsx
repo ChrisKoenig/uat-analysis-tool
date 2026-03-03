@@ -172,8 +172,10 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
               loading={fieldsLoading}
             />
             <span className="hint">
-              Select one or more fields to search across. The rule matches if
-              <strong> any </strong> selected field contains <strong>any</strong> keyword.
+              Select one or more fields to search across.
+              {operator === 'regexMatchAny'
+                ? <> The rule matches if <strong>any</strong> selected field matches <strong>any</strong> regex pattern.</>
+                : <> The rule matches if <strong>any</strong> selected field contains <strong>any</strong> keyword.</>}
             </span>
           </>
         ) : (
@@ -222,7 +224,9 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       {!isValueless && (
         <div className="form-group">
           <label htmlFor="rule-value">
-            {isMultiField ? 'Keywords *' : 'Value *'}
+            {isMultiField
+              ? (operator === 'regexMatchAny' ? 'Regex Patterns *' : 'Keywords *')
+              : 'Value *'}
           </label>
           {(isListOperator || isMultiField) ? (
             <>
@@ -232,17 +236,21 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={
-                  isMultiField
-                    ? 'Comma-separated keywords, e.g.:\nCapacity, Quota, Increase, Allocation'
-                    : 'Comma-separated values, e.g.:\nAI Apps, Cloud Infrastructure, Security'
+                  operator === 'regexMatchAny'
+                    ? 'Comma-separated regex patterns, e.g.:\nSR\\d+, ICM\\d+, INC-[A-Z]+-\\d+'
+                    : isMultiField
+                      ? 'Comma-separated keywords, e.g.:\nCapacity, Quota, Increase, Allocation'
+                      : 'Comma-separated values, e.g.:\nAI Apps, Cloud Infrastructure, Security'
                 }
                 rows={3}
                 required
               />
               <span className="hint">
-                {isMultiField
-                  ? 'Enter keywords separated by commas — matches if any field contains any keyword'
-                  : 'Enter values separated by commas'}
+                {operator === 'regexMatchAny'
+                  ? 'Enter regex patterns separated by commas — matches if any field matches any pattern (case-insensitive)'
+                  : isMultiField
+                    ? 'Enter keywords separated by commas — matches if any field contains any keyword'
+                    : 'Enter values separated by commas'}
               </span>
             </>
           ) : (
