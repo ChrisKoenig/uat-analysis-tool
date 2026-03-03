@@ -22,7 +22,7 @@ export const ADO_BASE_URL =
 
 // ---------------------------------------------------------------------------
 // Rule Operators
-// Mirrors triage/models/rule.py → VALID_OPERATORS (15 total)
+// Mirrors triage/models/rule.py → VALID_OPERATORS (17 total)
 // ---------------------------------------------------------------------------
 export const OPERATORS = [
   { value: 'equals',      label: 'Equals',             group: 'String / All' },

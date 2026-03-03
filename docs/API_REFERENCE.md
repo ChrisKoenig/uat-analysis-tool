@@ -72,7 +72,8 @@ POST /api/v1/rules
 |-------|------|----------|-------------|
 | `name` | string | Yes | Human-readable rule name |
 | `description` | string | No | Purpose of this rule |
-| `field` | string | Yes | Field reference — ADO (e.g., `Custom.SolutionArea`) or Analysis (e.g., `Analysis.Category`) |
+| `field` | string | Yes* | Field reference — ADO (e.g., `Custom.SolutionArea`) or Analysis (e.g., `Analysis.Category`). *Not required for multi-field operators. |
+| `fields` | list | No | Array of field references for multi-field operators (`containsAny`, `regexMatchAny`). Required when using those operators. |
 | `operator` | string | Yes | Comparison operator (see [Operators](#operators)) |
 | `value` | any | No | Comparison value (depends on operator) |
 | `status` | string | No | `active` \| `disabled` \| `staged` (default: `active`) |
@@ -107,7 +108,9 @@ PUT /api/v1/rules/{rule_id}
 | `contains` | string | Substring match |
 | `notContains` | string | No substring match |
 | `startsWith` | string | Prefix match |
-| `matches` | string | Regex pattern match |
+| `matches` | string | Regex pattern match (single field) |
+| `containsAny` | list | Multi-field substring search — any field contains any keyword (comma-separated). Requires `fields` array. |
+| `regexMatchAny` | list | Multi-field regex search — any field matches any regex pattern (comma-separated, case-insensitive). Requires `fields` array. |
 | `under` | string | Hierarchical path match (e.g., Area Path) |
 | `gt` | number | Greater than |
 | `lt` | number | Less than |

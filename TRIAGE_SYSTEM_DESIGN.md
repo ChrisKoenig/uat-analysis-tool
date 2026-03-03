@@ -330,7 +330,9 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
 | `notContains` | Substring not found | String | `Title not contains "test"` |
 | `startsWith` | Prefix match | String | `AreaPath startsWith "UAT\\"` |
 | `under` | Hierarchical path match | TreePath | `AreaPath under "UAT\\MCAPS"` |
-| `matches` | Regex pattern | String | `Description matches "regex"` |
+| `matches` | Regex pattern (single field) | String | `Description matches "regex"` |
+| `containsAny` | Any field contains any keyword | String (multi-field) | `[Title, Description] containsAny ["Quota", "Capacity"]` |
+| `regexMatchAny` | Any field matches any regex pattern | String (multi-field) | `[Title, Description] regexMatchAny ["SR\\d+", "ICM\\d+"]` |
 | `isNull` | Field is empty | All | `Milestone is null` |
 | `isNotNull` | Field has value | All | `Milestone is not null` |
 | `gt` | Greater than | Number, Date | `Priority > 2` |
@@ -703,7 +705,7 @@ Left navigation (sidebar):
 Backend infrastructure, data layer, core engine logic.
 - Cosmos DB setup (8 containers) with in-memory fallback for local dev
 - Data models for all entities (BaseEntity + Rule, Action, Trigger, Route, Evaluation, AnalysisResult, AuditEntry, FieldSchema)
-- Rules Engine (15 operators, evaluate atomic rules → T/F)
+- Rules Engine (17 operators incl. multi-field containsAny/regexMatchAny, evaluate atomic rules → T/F)
 - Trigger Engine (AND/OR/NOT expressions, priority-ordered, first TRUE wins)
 - Routes Engine (5 operations: set, set_computed, copy, append, template)
 - CRUD APIs for rules, actions, triggers, routes (8 endpoints each, 32 total)
