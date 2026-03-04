@@ -262,6 +262,11 @@ class HybridContextAnalyzer:
         self.corrections_data = self._load_corrections()
         print(f"[HybridAnalyzer] Loaded {len(self.corrections_data.get('corrections', []))} corrections for learning")
         print("[DEBUG HYBRID 7] Corrections loaded.", flush=True)
+
+        # Load training signals for few-shot injection (ENG-003 Step 4)
+        print("[DEBUG HYBRID 7b] Loading training signals...", flush=True)
+        self.training_signals = self._load_training_signals()
+        print(f"[HybridAnalyzer] Loaded {len(self.training_signals)} training signals for few-shot injection")
         
         # Initialize AI services if enabled
         if self.use_ai:
@@ -338,6 +343,93 @@ class HybridContextAnalyzer:
             print(f"[HybridAnalyzer] Error loading corrections: {e}")
         return {"corrections": []}
     
+    def _load_training_signals(self) -> List[Dict]:
+        """
+        Load resolved training signals from Cosmos for few-shot LLM injection.
+
+        ENG-003 Step 4: Training signals capture human resolutions of LLM/Pattern
+        disagreements. By injecting the most recent resolved examples into the LLM
+        prompt, we give the model concrete evidence of correct classifications.
+
+        Returns:
+            List of training signal dicts (most recent first, max 50)
+        """
+        try:
+            from triage.config.cosmos_config import get_cosmos_config
+            cfg = get_cosmos_config()
+            if not cfg._in_memory:
+                container = cfg.get_container("training-signals")
+                items = list(container.query_items(
+                    "SELECT * FROM c WHERE c.workItemId != '_system' ORDER BY c.timestamp DESC",
+                    enable_cross_partition_query=True,
+                    max_item_count=50,
+                ))[:50]
+                if items:
+                    print(f"[HybridAnalyzer] Loaded {len(items)} training signals from Cosmos")
+                    return items
+        except Exception as e:
+            print(f"[HybridAnalyzer] Training signals load failed: {e}")
+        return []
+
+    def _find_relevant_training_signals(self, text: str, pattern_category: str, llm_category: str) -> List[Dict]:
+        """
+        Find training signals most relevant to the current classification.
+
+        ENG-003 Step 4: Select signals that relate to the categories being
+        considered, giving the LLM concrete examples of correct human choices.
+
+        Priority:
+        1. Signals where llmCategory or patternCategory matches the current categories
+        2. Signals with 'neither' resolutions (rarest, most valuable)
+        3. Most recent first
+
+        Args:
+            text: Combined title + description for keyword matching
+            pattern_category: Current pattern engine category
+            llm_category: Current LLM category (empty string if not yet classified)
+
+        Returns:
+            List of relevant training signals (max 5)
+        """
+        if not self.training_signals:
+            return []
+
+        scored = []
+        text_lower = text.lower()
+        text_words = set(w for w in text_lower.split() if len(w) > 3)
+
+        for sig in self.training_signals:
+            score = 0.0
+            sig_llm = sig.get("llmCategory", "")
+            sig_pat = sig.get("patternCategory", "")
+            resolved = sig.get("resolvedCategory", "")
+
+            # Category relevance: boost if the signal's categories overlap with current
+            if pattern_category and (sig_pat == pattern_category or sig_llm == pattern_category):
+                score += 3.0
+            if llm_category and (sig_llm == llm_category or sig_pat == llm_category):
+                score += 3.0
+            if resolved and (resolved == pattern_category or resolved == llm_category):
+                score += 2.0
+
+            # 'neither' resolutions are most informative
+            if sig.get("humanChoice") == "neither":
+                score += 1.5
+
+            # Light keyword overlap
+            notes = (sig.get("notes", "") or "").lower()
+            if text_words and notes:
+                note_words = set(w for w in notes.split() if len(w) > 3)
+                if note_words:
+                    overlap = len(text_words & note_words)
+                    score += min(overlap * 0.3, 1.5)
+
+            if score > 0:
+                scored.append((score, sig))
+
+        scored.sort(reverse=True, key=lambda x: x[0])
+        return [s for _, s in scored[:5]]
+
     def _find_relevant_corrections(self, text: str) -> List[Dict]:
         """
         Find corrections relevant to the current issue
@@ -482,6 +574,14 @@ class HybridContextAnalyzer:
         
         if relevant_corrections:
             print(f"   ℹ️ Found {len(relevant_corrections)} relevant corrections from past feedback")
+
+        # Find relevant training signals for few-shot injection (ENG-003 Step 4)
+        relevant_signals = self._find_relevant_training_signals(
+            combined_text, pattern_category, llm_category=""
+        )
+        pattern_features["relevant_training_signals"] = relevant_signals
+        if relevant_signals:
+            print(f"   ℹ️ Injecting {len(relevant_signals)} training signals as few-shot examples")
         
         pattern_category = pattern_result.category if hasattr(pattern_result, 'category') else "technical_support"
         pattern_intent = pattern_result.intent if hasattr(pattern_result, 'intent') else "service_inquiry"

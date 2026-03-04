@@ -703,6 +703,19 @@ export function getPatternWeights() {
 
 
 // =============================================================================
+// Agreement Rate API (ENG-003 Step 5)
+// =============================================================================
+
+/**
+ * Get agreement rate between pattern engine and LLM classifier,
+ * with overall stats and per-period breakdowns.
+ */
+export function getAgreementRate() {
+  return get('/admin/agreement-rate');
+}
+
+
+// =============================================================================
 // Health Dashboard API (comprehensive system health)
 // =============================================================================
 

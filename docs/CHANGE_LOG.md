@@ -14,7 +14,7 @@
 | 2 | FR-1993 | 2026-03-03 | `6abe2e1` | **Rules table pagination, search & expandable value cells** — Added pagination (25/50/100 page sizes), a search box to filter rules by name/field/value, and expandable value cells that truncate long lists with a "+N more" badge. |
 | 3 | FR-1993 | 2026-03-03 | *pending* | **Extend pagination, search & expandable values to Triggers, Actions, Routes** — Applied the same FR-1993 UX improvements (pagination, search input, expandable value cells) to all remaining entity list pages. Extracted shared EntitySearch CSS. |
 | 4 | FR-1994, FR-1999 | 2026-03-04 | `4b06cff` | **Tabbed analysis detail views + blade "No data" placeholders** — Added pill-style tabbed interface (Overview / Analysis / Decision / Evaluate) to Field Portal `AnalysisDetailPage` and Triage UI `EvaluatePage` to reduce scrolling. QueuePage blade kept as linear layout with all section headers always visible and "No data" placeholders for empty fields. |
-| 5 | ENG-003 | 2026-03-05 | *pending* | **Active Learning — Disagreement-driven training signals + pattern weight tuning** — New `training-signals` Cosmos container for recording human resolutions of LLM/Pattern disagreements. Corrections CRUD migrated from `corrections.json` to Cosmos with auto-seed and JSON fallback. Disagreement resolution UI (three-option: LLM / Pattern / Neither) added to EvaluatePage Analysis tab and QueuePage blade. `weight_tuner.py` batch process computes per-category score multipliers from accumulated signals and feeds them back into the pattern engine's `_classify_category()`. API: `tune-weights`, `pattern-weights`. |
+| 5 | ENG-003 | 2026-03-05 | *pending* | **Active Learning — Full feedback loop (Steps 1-5)** — Training signals Cosmos container, corrections Cosmos migration, disagreement UI, pattern weight tuning, few-shot signal injection into LLM prompt, and dashboard agreement rate metric. All five design steps implemented. |
 
 ---
 
@@ -99,6 +99,34 @@
 8. Categories need ≥ 3 signals before adjustments are applied; below threshold they stay at 1.0×.
 9. The pattern engine loads these multipliers at startup and applies them to `category_scores` in `_classify_category()` before selecting the winning category.
 10. `GET /admin/pattern-weights` returns the current adjustments with per-category accuracy, signal counts, and status (boosted/penalized/neutral).
+
+#### Files Modified (Step 4: Few-Shot Injection from Training Signals)
+
+| File | Type | Description |
+|------|------|-------------|
+| `hybrid_context_analyzer.py` | Backend | Added `_load_training_signals()` — queries Cosmos `training-signals` container (max 50, excludes `_system` docs). Added `_find_relevant_training_signals()` — scores signals by category relevance, 'neither' bonus, keyword overlap, returns top 5. Signals loaded in `__init__()` and injected in `analyze()` via `pattern_features["relevant_training_signals"]`. |
+| `llm_classifier.py` | Backend | Extended `_build_user_prompt()` with third injection block: "Classification Examples from Human Feedback" — formats each relevant training signal showing LLM/Pattern categories, human choice, resolved category, and notes. |
+
+#### Files Modified (Step 5: Dashboard Agreement Rate Metric)
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/api/admin_routes.py` | Backend | Added `GET /admin/agreement-rate` endpoint with `AgreementRateResponse` / `PeriodStats` models. Queries `analysis-results` for agreement field, counts `training-signals` (excluding `_system`), computes overall + per-period (7/30/90 day) agreement rates. |
+| `triage-ui/src/api/triageApi.js` | Frontend | Added `getAgreementRate()` API function. |
+| `triage-ui/src/pages/Dashboard.jsx` | Frontend | Added `agreementRate` state, parallel fetch in `useEffect`, and agreement rate card in status row showing percentage, total analyses, signal count, and color-coded indicator (green >= 80%, orange >= 60%, red < 60%). |
+
+#### Behavior Summary (Steps 4-5)
+
+**Step 4 (Few-Shot Signal Injection):**
+11. Training signals are loaded from Cosmos at startup (max 50 most recent, excluding system documents).
+12. When analyzing a work item, the system finds the top 5 most relevant training signals by scoring category relevance (±3.0 match/mismatch), 'neither' override bonus (+1.5), and keyword overlap in notes.
+13. Relevant signals are injected into the LLM prompt as "Classification Examples from Human Feedback" — each shows what LLM/Pattern said, what the human chose, and the resolved category.
+14. This provides few-shot learning: the LLM sees how humans resolved similar disagreements and adjusts accordingly.
+
+**Step 5 (Agreement Rate Metric):**
+15. `GET /admin/agreement-rate` queries all analysis results with an `agreement` field and computes the overall agreement rate plus breakdowns for the last 7, 30, and 90 days.
+16. The Dashboard shows a new "LLM / Pattern Agreement" status card alongside the existing API status card.
+17. Color-coded: green (>= 80%), orange (>= 60%), red (< 60%). Displays total analysis count and training signal count.
 
 ---
 

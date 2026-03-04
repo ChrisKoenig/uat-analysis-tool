@@ -726,6 +726,36 @@ Returns the current weight adjustments without re-computing. Returns `{"status":
 
 ---
 
+### Agreement Rate Metric (ENG-003 Step 5)
+
+```
+GET /admin/agreement-rate
+```
+
+Computes the agreement rate between the pattern engine and LLM classifier across all stored analysis results.
+
+**Response:**
+```json
+{
+  "total": 142,
+  "agreements": 118,
+  "disagreements": 24,
+  "rate": 0.831,
+  "trainingSignals": 15,
+  "periods": {
+    "last7days":  { "total": 23, "agreements": 20, "disagreements": 3, "rate": 0.8696 },
+    "last30days": { "total": 87, "agreements": 73, "disagreements": 14, "rate": 0.8391 },
+    "last90days": { "total": 142, "agreements": 118, "disagreements": 24, "rate": 0.831 }
+  }
+}
+```
+
+- `rate` — Agreement percentage as a decimal (0.0 – 1.0).
+- `trainingSignals` — Count of human-submitted training signals (excludes system docs).
+- `periods` — Breakdown for the last 7, 30, and 90 days.
+
+---
+
 ## Health Check
 
 ```

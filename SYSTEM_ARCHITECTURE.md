@@ -462,6 +462,23 @@ Step 9   ▼ Create UAT work item in ADO
          ▼
 6. GET /admin/pattern-weights → View current adjustments
    (per-category accuracy, signal counts, boosted/penalized/neutral status)
+         │
+         ▼
+7. Few-shot injection (automatic, every analysis):
+   ├── _load_training_signals() → up to 50 most recent from Cosmos
+   ├── _find_relevant_training_signals(text, categories) → score & rank top 5
+   │       Category match: +3.0 / mismatch: -3.0
+   │       "Neither" override: +1.5 / keyword overlap: +0.5 each
+   └── Injected into LLM prompt as "Classification Examples from Human Feedback"
+       → LLM sees how humans resolved similar disagreements
+         │
+         ▼
+8. Dashboard agreement rate metric:
+   ├── GET /admin/agreement-rate
+   ├── Queries analysis-results for agreement field
+   ├── Computes overall + per-period (7/30/90 day) rates
+   └── Dashboard card: color-coded (green ≥80%, orange ≥60%, red <60%)
+       with total analyses count and training signal count
 ```
 
 ---

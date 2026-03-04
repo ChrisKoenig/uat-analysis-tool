@@ -15,6 +15,7 @@ Endpoints:
     GET    /admin/training-signals    — List training signals
     POST   /admin/tune-weights        — Run pattern weight tuning batch
     GET    /admin/pattern-weights     — View current weight adjustments
+    GET    /admin/agreement-rate       — Agreement rate metric
     GET    /admin/health              — Comprehensive health dashboard
     GET    /admin/health/services     — Individual service status
 """
@@ -718,6 +719,120 @@ async def get_pattern_weights():
     except Exception as e:
         logger.error(f"Failed to read pattern weights: {e}")
         raise HTTPException(500, f"Failed to read pattern weights: {e}")
+
+
+# ==========================================================================
+# Agreement Rate Metric  (ENG-003 Step 5)
+# ==========================================================================
+
+class PeriodStats(BaseModel):
+    """Agreement statistics for a time period."""
+    total: int = 0
+    agreements: int = 0
+    disagreements: int = 0
+    rate: float = 0.0
+
+class AgreementRateResponse(BaseModel):
+    """Overall and per-period agreement rate between pattern engine and LLM."""
+    total: int = 0
+    agreements: int = 0
+    disagreements: int = 0
+    rate: float = 0.0
+    trainingSignals: int = 0
+    periods: Dict[str, PeriodStats] = {}
+
+
+@router.get("/agreement-rate", response_model=AgreementRateResponse,
+            summary="Agreement rate between pattern engine and LLM")
+async def get_agreement_rate():
+    """
+    Compute the agreement rate between the pattern engine and LLM classifier
+    across all stored analysis results, with breakdowns for the last 7, 30,
+    and 90 days.
+    """
+    from ..config.cosmos_config import get_cosmos_config
+    cosmos = get_cosmos_config()
+
+    # -- Query analysis results for agreement field --
+    try:
+        container = cosmos.get_container("analysis-results")
+        query = "SELECT c.agreement, c.timestamp FROM c WHERE IS_DEFINED(c.agreement)"
+        items = list(container.query_items(query=query, enable_cross_partition_query=True))
+    except Exception as e:
+        logger.warning(f"Agreement rate query failed: {e}")
+        items = []
+
+    # -- Count training signals (excluding system doc) --
+    training_signal_count = 0
+    try:
+        ts_container = cosmos.get_container("training-signals")
+        count_query = "SELECT VALUE COUNT(1) FROM c WHERE c.workItemId != '_system'"
+        result = list(ts_container.query_items(query=count_query, enable_cross_partition_query=True))
+        training_signal_count = result[0] if result else 0
+    except Exception as e:
+        logger.warning(f"Training signal count failed: {e}")
+
+    # -- Compute overall stats --
+    now = datetime.now(timezone.utc)
+    period_boundaries = {
+        "last7days": now - __import__("datetime").timedelta(days=7),
+        "last30days": now - __import__("datetime").timedelta(days=30),
+        "last90days": now - __import__("datetime").timedelta(days=90),
+    }
+    period_stats: Dict[str, Dict[str, int]] = {
+        k: {"total": 0, "agreements": 0, "disagreements": 0}
+        for k in period_boundaries
+    }
+
+    total = 0
+    agreements = 0
+
+    for item in items:
+        agreed = item.get("agreement", False)
+        total += 1
+        if agreed:
+            agreements += 1
+
+        # Parse timestamp for period bucketing
+        ts_raw = item.get("timestamp", "")
+        try:
+            if isinstance(ts_raw, str) and ts_raw:
+                ts_dt = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+            else:
+                continue
+        except (ValueError, TypeError):
+            continue
+
+        for period_name, boundary in period_boundaries.items():
+            if ts_dt >= boundary:
+                period_stats[period_name]["total"] += 1
+                if agreed:
+                    period_stats[period_name]["agreements"] += 1
+                else:
+                    period_stats[period_name]["disagreements"] += 1
+
+    disagreements = total - agreements
+    rate = (agreements / total) if total > 0 else 0.0
+
+    periods_out = {}
+    for k, v in period_stats.items():
+        p_rate = (v["agreements"] / v["total"]) if v["total"] > 0 else 0.0
+        v["disagreements"] = v["total"] - v["agreements"]
+        periods_out[k] = PeriodStats(
+            total=v["total"],
+            agreements=v["agreements"],
+            disagreements=v["disagreements"],
+            rate=round(p_rate, 4),
+        )
+
+    return AgreementRateResponse(
+        total=total,
+        agreements=agreements,
+        disagreements=disagreements,
+        rate=round(rate, 4),
+        trainingSignals=training_signal_count,
+        periods=periods_out,
+    )
 
 
 # ==========================================================================

@@ -131,6 +131,9 @@ export default function Dashboard({ addToast }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedComponent, setSelectedComponent] = useState(null);
 
+  // Agreement rate metric (ENG-003 Step 5)
+  const [agreementRate, setAgreementRate] = useState(undefined);
+
   // ── Load Health Dashboard ────────────────────────────────────
   const loadHealth = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -173,6 +176,11 @@ export default function Dashboard({ addToast }) {
       .then(d => setWarnings(d.warnings || []))
       .catch(() => setWarnings([]));
 
+    // Agreement rate metric
+    api.getAgreementRate()
+      .then(d => setAgreementRate(d))
+      .catch(() => setAgreementRate(null));
+
     // Detailed health dashboard
     loadHealth();
   }, [loadHealth]);
@@ -214,6 +222,30 @@ export default function Dashboard({ addToast }) {
             </span>
           </div>
         </div>
+
+        {/* Agreement Rate Card (ENG-003 Step 5) */}
+        {(() => {
+          const loading = agreementRate === undefined;
+          const pct = agreementRate?.rate != null ? Math.round(agreementRate.rate * 100) : null;
+          const color = pct == null ? '' : pct >= 80 ? 'status-ok' : pct >= 60 ? 'status-degraded' : 'status-error';
+          return (
+            <div className={`dashboard-status-card ${loading ? 'status-loading' : color}`}>
+              <div className="dashboard-status-icon">
+                {loading ? <Skeleton width="1.5rem" /> : pct >= 80 ? '🤝' : pct >= 60 ? '⚠️' : '⚡'}
+              </div>
+              <div className="dashboard-status-info">
+                <span className="dashboard-status-label">LLM / Pattern Agreement</span>
+                <span className="dashboard-status-value">
+                  {loading
+                    ? <Skeleton width="5rem" />
+                    : agreementRate
+                      ? <>{pct}% <small className="text-muted">({agreementRate.total} analyses{agreementRate.trainingSignals > 0 ? `, ${agreementRate.trainingSignals} signals` : ''})</small></>
+                      : 'N/A'}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
 

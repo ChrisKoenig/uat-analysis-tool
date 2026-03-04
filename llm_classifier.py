@@ -273,6 +273,27 @@ You MUST respond with valid JSON only (no markdown):
                         prompt_parts.append(f"  {i}. Was classified as '{orig_cat}' but should be '{correct_cat}'")
                         if notes:
                             prompt_parts.append(f"     Reason: {notes}")
+
+            # ENG-003 Step 4: Inject training signals as few-shot examples
+            if "relevant_training_signals" in pattern_features:
+                signals = pattern_features["relevant_training_signals"]
+                if signals:
+                    prompt_parts.append("\n**📊 Classification Examples from Human Feedback:**")
+                    prompt_parts.append("Humans reviewed these similar disagreements and chose the correct answer:")
+                    for i, sig in enumerate(signals, 1):
+                        llm_cat = sig.get('llmCategory', '?')
+                        pat_cat = sig.get('patternCategory', '?')
+                        choice = sig.get('humanChoice', '?')
+                        resolved = sig.get('resolvedCategory', '?')
+                        notes = sig.get('notes', '')
+                        if choice == 'llm':
+                            prompt_parts.append(f"  {i}. LLM said '{llm_cat}', Pattern said '{pat_cat}' → Human chose LLM: **{resolved}**")
+                        elif choice == 'pattern':
+                            prompt_parts.append(f"  {i}. LLM said '{llm_cat}', Pattern said '{pat_cat}' → Human chose Pattern: **{resolved}**")
+                        else:
+                            prompt_parts.append(f"  {i}. LLM said '{llm_cat}', Pattern said '{pat_cat}' → Human overrode both: **{resolved}**")
+                        if notes:
+                            prompt_parts.append(f"     Reason: {notes}")
         
         prompt_parts.append("\nClassify this inquiry:")
         
