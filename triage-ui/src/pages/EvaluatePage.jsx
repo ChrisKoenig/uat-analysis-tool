@@ -14,6 +14,10 @@
  *   - Enter work item IDs (comma-separated)
  *   - Evaluate: Dry run vs. live mode, expandable result cards
  *   - Analyze: Full AI analysis details with tabbed multi-item view
+ *
+ * FR-1999: Each analysis detail card uses a 4-tab pill interface
+ *   (Overview / Analysis / Decision / Evaluate) with independent
+ *   tab state per work item via activeDetailTabs map.
  */
 
 import React, { useState } from 'react';

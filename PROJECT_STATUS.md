@@ -1,5 +1,5 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 2, 2026
+**Last Updated**: March 4, 2026
 **Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification + ADO dual-org integration (MI auth)
 
 ---
@@ -354,6 +354,28 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 4, 2026) — FR-1999: Tabbed Analysis Detail Views
+
+### Tabbed Interface for Analysis Detail Pages (commits `b640e7b`, `4b06cff`)
+
+Reduced scrolling on analysis detail pages by organizing content into a 4-tab pill-style interface (Overview / Analysis / Decision / Evaluate) with entity count badges and fade-in panel animation. Applied to:
+
+| View | UI | Approach |
+|------|----|----------|
+| **AnalysisDetailPage** | Field Portal | 4-tab layout (`activeTab` state) |
+| **EvaluatePage** | Triage UI | Per-work-item 4-tab layout (`activeDetailTabs` map) |
+| **QueuePage blade** | Triage UI | Linear layout with "No data" placeholders (tabs tested & reverted per user feedback) |
+
+**Files changed:**
+- `field-portal/ui/src/pages/AnalysisDetailPage.jsx` — Tab state + 4-tab content split
+- `field-portal/ui/src/styles/global.css` — Tab CSS (90 lines)
+- `triage-ui/src/pages/EvaluatePage.jsx` — Per-item tab state + `renderAnalysisDetail` rewrite
+- `triage-ui/src/pages/EvaluatePage.css` — Tab CSS (80 lines)
+- `triage-ui/src/pages/QueuePage.jsx` — Always-render sections + "No data" spans
+- `triage-ui/src/pages/QueuePage.css` — `.no-data` style
 
 ---
 

@@ -1,17 +1,14 @@
 /**
  * Analysis Detail Page — Full "Intelligent Context Analysis - Please Review"
  *
- * Shows the complete analysis breakdown:
- * - Analysis method info (LLM vs pattern)
- * - Original issue
- * - System's analysis summary with badges
- * - Context summary & AI reasoning
- * - Pattern analysis step-by-step process
- * - Final decision summary
- * - Key concepts / semantic keywords
- * - Domain entities (collapsible)
- * - Recommended search strategy
- * - Evaluation section (approve / correct)
+ * FR-1999: Content organized into 4 pill-style tabs to reduce scrolling:
+ *   📋 Overview  — Original issue, classification badges, context summary
+ *   🧠 Analysis  — AI/pattern reasoning, confidence breakdown, data sources
+ *   🎯 Decision  — Decision summary, key concepts, domain entities, search strategy
+ *   ✅ Evaluate  — Approve/correct form with feedback
+ *
+ * Status banner (LLM vs pattern) remains above tabs, always visible.
+ * Tab CSS lives in global.css (.analysis-tabs, .analysis-tab, etc.).
  */
 import React, { useState, useEffect, Component } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
@@ -218,6 +215,7 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
   const [correctedImpact, setCorrectedImpact] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // FR-1999: Active tab for the 4-tab detail layout (overview | analysis | decision | evaluate)
   const [activeTab, setActiveTab] = useState('overview');
 
   const { analysis, original_input, analysis_method, reasoning, pattern_analysis_steps,

@@ -11,6 +11,11 @@
  *    Actions: "Dry Run Selected", "Evaluate Selected", per-row Apply, "Return to Analysis"
  *
  * Items with Approved / Override / Redirected are hidden (done).
+ *
+ * FR-1999: Analysis detail blade uses linear scrolling layout.
+ *   All section headers always render; empty fields show "No data"
+ *   placeholders for consistent layout across LLM and pattern items.
+ *   (Tabs were tested for the blade but reverted per user feedback.)
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -1546,6 +1551,9 @@ export default function QueuePage({ addToast }) {
               <div className="analysis-detail-loading">Loading analysis...</div>
             ) : analysisDetail ? (
               <div className="analysis-detail-body">
+                {/* FR-1999: Blade uses linear layout (tabs tested & reverted).
+                    All sections always render — empty fields show "No data" placeholder
+                    so the layout is consistent across LLM-analyzed and pattern-only items. */}
 
                 {/* AI Availability Warning */}
                 {analysisDetail.aiAvailable === false && (

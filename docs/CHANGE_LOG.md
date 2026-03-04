@@ -13,6 +13,7 @@
 | 1 | FR-1997 | 2026-03-03 | `6abe2e1` | **Add multi-field, multi-value search to Rules** — New `containsAny` and `regexMatchAny` operators enabling rules to search across multiple ADO fields for multiple keywords or regex patterns simultaneously. Changes span backend (rule model, Pydantic schemas, rules engine evaluation with `_evaluate_contains_any` and `_evaluate_regex_match_any`) and frontend (new `MultiFieldCombobox` component, updated `RuleForm` with conditional multi-field picker and regex-specific hints, updated `RulesPage` table display). |
 | 2 | FR-1993 | 2026-03-03 | `6abe2e1` | **Rules table pagination, search & expandable value cells** — Added pagination (25/50/100 page sizes), a search box to filter rules by name/field/value, and expandable value cells that truncate long lists with a "+N more" badge. |
 | 3 | FR-1993 | 2026-03-03 | *pending* | **Extend pagination, search & expandable values to Triggers, Actions, Routes** — Applied the same FR-1993 UX improvements (pagination, search input, expandable value cells) to all remaining entity list pages. Extracted shared EntitySearch CSS. |
+| 4 | FR-1999 | 2026-03-04 | `4b06cff` | **Tabbed analysis detail views + blade "No data" placeholders** — Added pill-style tabbed interface (Overview / Analysis / Decision / Evaluate) to Field Portal `AnalysisDetailPage` and Triage UI `EvaluatePage` to reduce scrolling. QueuePage blade kept as linear layout with all section headers always visible and "No data" placeholders for empty fields. |
 
 ---
 
@@ -113,3 +114,39 @@ All three additional entity pages now have the same UX as Rules:
    - **Routes:** name, action names
 3. **Expandable values** — Actions value column and Routes action-list column use `ExpandableValue` to truncate long lists with "+N more" expand/collapse.
 4. Filter count displays updated total with search/filter context.
+
+---
+
+### FR-1999 — Tabbed Analysis Detail Views + Blade "No Data" Placeholders
+
+**Date:** 2026-03-04  
+**Build ID:** `4b06cff`  
+**Requested By:** Feature Request 1999  
+**Status:** Deployed to Pre-Prod
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `field-portal/ui/src/pages/AnalysisDetailPage.jsx` | Frontend | Rewrote layout with 4-tab interface (Overview, Analysis, Decision, Evaluate); added `activeTab` state |
+| `field-portal/ui/src/styles/global.css` | Frontend | Added ~90 lines of tab CSS (`.analysis-tabs`, `.analysis-tab`, `.tab-badge`, `.analysis-tab-panel`, `@keyframes fadeInPanel`, responsive breakpoint) |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Added per-work-item 4-tab interface with `activeDetailTabs` state map; rewrote `renderAnalysisDetail` function |
+| `triage-ui/src/pages/EvaluatePage.css` | Frontend | Added ~80 lines of tab CSS adapted for Triage UI CSS variables |
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | Blade sections always render with "No data" placeholder for empty fields; removed conditional hiding |
+| `triage-ui/src/pages/QueuePage.css` | Frontend | Added `.no-data` style (italic, light gray) for empty field placeholders |
+
+#### Behavior Summary
+
+**Field Portal AnalysisDetailPage & Triage UI EvaluatePage — Tabbed Interface:**
+1. Content organized into 4 pill-style tabs: 📋 **Overview**, 🧠 **Analysis**, 🎯 **Decision**, ✅ **Evaluate**.
+2. Status banner remains above tabs (always visible regardless of active tab).
+3. Decision tab displays entity count badge (e.g., "12") from domain entities.
+4. Tab panels animate in with `fadeInPanel` CSS keyframes.
+5. Responsive: tabs stack vertically below 700px viewport width.
+6. EvaluatePage maintains independent tab state per work item via `activeDetailTabs` map keyed by work item ID.
+
+**QueuePage Blade — Linear Layout with "No Data" Placeholders:**
+1. Blade uses linear scrolling layout (tabs were tested but reverted per user feedback).
+2. All section headers always display regardless of data availability.
+3. Empty fields show `<span className="no-data">No data</span>` in italic light gray.
+4. Consistent layout across items — LLM-analyzed items show richer entity data while pattern-match items show "No data" for unpopulated sections.
