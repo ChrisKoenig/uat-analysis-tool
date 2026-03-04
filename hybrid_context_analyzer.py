@@ -575,6 +575,10 @@ class HybridContextAnalyzer:
         if relevant_corrections:
             print(f"   ℹ️ Found {len(relevant_corrections)} relevant corrections from past feedback")
 
+        pattern_category = pattern_result.category if hasattr(pattern_result, 'category') else "technical_support"
+        pattern_intent = pattern_result.intent if hasattr(pattern_result, 'intent') else "service_inquiry"
+        pattern_confidence = pattern_result.confidence if hasattr(pattern_result, 'confidence') else 0.5
+
         # Find relevant training signals for few-shot injection (ENG-003 Step 4)
         relevant_signals = self._find_relevant_training_signals(
             combined_text, pattern_category, llm_category=""
@@ -582,10 +586,6 @@ class HybridContextAnalyzer:
         pattern_features["relevant_training_signals"] = relevant_signals
         if relevant_signals:
             print(f"   ℹ️ Injecting {len(relevant_signals)} training signals as few-shot examples")
-        
-        pattern_category = pattern_result.category if hasattr(pattern_result, 'category') else "technical_support"
-        pattern_intent = pattern_result.intent if hasattr(pattern_result, 'intent') else "service_inquiry"
-        pattern_confidence = pattern_result.confidence if hasattr(pattern_result, 'confidence') else 0.5
         
         print(f"   ✓ Pattern Category: {pattern_category}")
         print(f"   ✓ Pattern Intent: {pattern_intent}")
