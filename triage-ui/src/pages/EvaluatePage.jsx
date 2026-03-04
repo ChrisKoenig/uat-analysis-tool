@@ -163,6 +163,12 @@ export default function EvaluatePage({ addToast }) {
   const [evalStates, setEvalStates] = useState({});
   // evalStates[workItemId] = { evalCorrect, feedback, correctedCategory, correctedIntent, correctedImpact, submitting, error }
 
+  // ── Per-item detail tab state (FR-1999) ─────────────────────
+  const [activeDetailTabs, setActiveDetailTabs] = useState({});
+  const getActiveDetailTab = (workItemId) => activeDetailTabs[workItemId] || 'overview';
+  const setActiveDetailTab = (workItemId, tab) =>
+    setActiveDetailTabs(prev => ({ ...prev, [workItemId]: tab }));
+
   const defaultEvalState = { evalCorrect: null, feedback: '', correctedCategory: '', correctedIntent: '', correctedImpact: '', submitting: false, error: '' };
   const getEvalState = (workItemId) => evalStates[workItemId] || defaultEvalState;
   const updateEvalState = (workItemId, patch) =>
@@ -376,11 +382,16 @@ export default function EvaluatePage({ addToast }) {
       ? 'Large Language Model (LLM) Classification'
       : 'Pattern Matching Classification';
     const es = getEvalState(workItemId);
+    const currentDetailTab = getActiveDetailTab(workItemId);
+
+    const entityCount = (detail.azureServices?.length || 0) + (detail.technologies?.length || 0) +
+      (detail.detectedProducts?.length || 0) + (detail.regions?.length || 0) +
+      (detail.technicalAreas?.length || 0) + (detail.complianceFrameworks?.length || 0);
 
     return (
       <div className="fp-analysis-body">
 
-        {/* ── Analysis Status Banner ── */}
+        {/* ── Analysis Status Banner (always visible) ── */}
         {aiOffline ? (
           <div className="fp-banner fp-banner-warning">
             <h3>⚠️ AI Classification Unavailable — Pattern Matching Used</h3>
@@ -414,340 +425,374 @@ export default function EvaluatePage({ addToast }) {
           </div>
         )}
 
-        {/* ── Original Issue ── */}
-        {(detail.originalTitle || detail.originalDescription) && (
-          <div className="fp-card">
-            <div className="fp-card-header fp-card-header-issue">📋 Original Issue</div>
-            <div className="fp-card-body">
-              <div className="fp-issue-grid">
-                <div>
-                  <strong>Title:</strong>
-                  <p>{detail.originalTitle || '—'}</p>
-                  <strong>Description:</strong>
-                  <p className="fp-description">{detail.originalDescription || '—'}</p>
+        {/* ── Tab Bar ── */}
+        <div className="analysis-tabs">
+          <button className={`analysis-tab ${currentDetailTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'overview')}>
+            <span className="tab-icon">📋</span> Overview
+          </button>
+          <button className={`analysis-tab ${currentDetailTab === 'analysis' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'analysis')}>
+            <span className="tab-icon">🧠</span> Analysis
+          </button>
+          <button className={`analysis-tab ${currentDetailTab === 'decision' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'decision')}>
+            <span className="tab-icon">🎯</span> Decision
+            {entityCount > 0 && <span className="tab-badge">{entityCount}</span>}
+          </button>
+          <button className={`analysis-tab ${currentDetailTab === 'evaluate' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'evaluate')}>
+            <span className="tab-icon">✅</span> Evaluate
+          </button>
+        </div>
+
+        {/* ══════════ TAB: Overview ══════════ */}
+        {currentDetailTab === 'overview' && (
+          <div className="analysis-tab-panel">
+            {/* Original Issue */}
+            {(detail.originalTitle || detail.originalDescription) && (
+              <div className="fp-card">
+                <div className="fp-card-header fp-card-header-issue">📋 Original Issue</div>
+                <div className="fp-card-body">
+                  <div className="fp-issue-grid">
+                    <div>
+                      <strong>Title:</strong>
+                      <p>{detail.originalTitle || '—'}</p>
+                      <strong>Description:</strong>
+                      <p className="fp-description">{detail.originalDescription || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Classification Summary */}
+            <div className="fp-card">
+              <div className="fp-card-header fp-card-header-analysis">🤖 System's Classification</div>
+              <div className="fp-card-body">
+                <div className="fp-badge-grid">
+                  <div>
+                    <strong>Category:</strong><br />
+                    <CategoryBadge value={detail.category} />
+                  </div>
+                  <div>
+                    <strong>Intent:</strong><br />
+                    <AnalysisBadge color="#fff" bg="#27ae60">{formatFieldLabel(detail.intent)}</AnalysisBadge>
+                  </div>
+                  <div>
+                    <strong>Business Impact:</strong><br />
+                    <ImpactBadge level={detail.businessImpact} />
+                  </div>
+                  <div>
+                    <strong>Confidence:</strong><br />
+                    <AnalysisBadge color="#fff" bg="#2471a3">{Math.round((detail.confidence || 0) * 100)}%</AnalysisBadge>
+                  </div>
+                </div>
+
+                {/* Context Summary */}
+                {detail.contextSummary && (
+                  <div className="fp-context-summary">
+                    <strong>Context Summary:</strong>
+                    <div className="fp-summary-box">{detail.contextSummary}</div>
+                  </div>
+                )}
+
+                {/* Technical Complexity & Urgency */}
+                <div className="fp-complexity-grid">
+                  <div>
+                    <strong>Technical Complexity:</strong><br />
+                    <ImpactBadge level={detail.technicalComplexity} />
+                  </div>
+                  <div>
+                    <strong>Urgency Level:</strong><br />
+                    <ImpactBadge level={detail.urgencyLevel} />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── System's Analysis ── */}
-        <div className="fp-card">
-          <div className="fp-card-header fp-card-header-analysis">🤖 System's Analysis</div>
-          <div className="fp-card-body">
-            <div className="fp-badge-grid">
-              <div>
-                <strong>Category:</strong><br />
-                <CategoryBadge value={detail.category} />
+        {/* ══════════ TAB: Analysis ══════════ */}
+        {currentDetailTab === 'analysis' && (
+          <div className="analysis-tab-panel">
+            <div className="fp-card">
+              <div className="fp-card-header fp-card-header-analysis">
+                {isLLM ? '🔍 Comprehensive AI Analysis & Reasoning' : '📊 Pattern-Based Analysis & Reasoning'}
               </div>
-              <div>
-                <strong>Intent:</strong><br />
-                <AnalysisBadge color="#fff" bg="#27ae60">{formatFieldLabel(detail.intent)}</AnalysisBadge>
-              </div>
-              <div>
-                <strong>Business Impact:</strong><br />
-                <ImpactBadge level={detail.businessImpact} />
-              </div>
-              <div>
-                <strong>Confidence:</strong><br />
-                <AnalysisBadge color="#fff" bg="#2471a3">{Math.round((detail.confidence || 0) * 100)}%</AnalysisBadge>
-              </div>
-            </div>
+              <div className="fp-card-body">
+                {detail.reasoning && detail.reasoning !== detail.contextSummary && (
+                  <div className="fp-reasoning-block">
+                    <strong>{isLLM ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</strong>
+                    <div className="fp-reasoning-text">
+                      {detail.reasoning}
+                    </div>
+                  </div>
+                )}
 
-            {/* Context Summary */}
-            {detail.contextSummary && (
-              <div className="fp-context-summary">
-                <strong>Context Summary:</strong>
-                <div className="fp-summary-box">{detail.contextSummary}</div>
-              </div>
-            )}
-
-            {/* Comprehensive Reasoning */}
-            <h3 className="fp-subsection-title">
-              {isLLM ? '🔍 Comprehensive AI Analysis & Reasoning' : '📊 Pattern-Based Analysis & Reasoning'}
-            </h3>
-
-            {detail.reasoning && detail.reasoning !== detail.contextSummary && (
-              <div className="fp-reasoning-block">
-                <strong>{isLLM ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</strong>
-                <div className="fp-reasoning-text">
-                  {detail.reasoning}
+                {/* Metadata */}
+                <div className="fp-metadata">
+                  <span>Analyzed: {detail.timestamp ? formatDate(detail.timestamp) : '—'}</span>
+                  <span>Pattern Confidence: {((detail.patternConfidence || 0) * 100).toFixed(0)}%</span>
+                  <span>ID: {detail.id}</span>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Final Decision Summary ── */}
-        <div className="fp-card">
-          <div className="fp-card-header fp-card-header-decision">🎯 Final Decision Summary</div>
-          <div className="fp-card-body">
-            <div className="fp-decision-row">
-              <strong>Category Decision:</strong>{' '}
-              <CategoryBadge value={detail.category} />
-            </div>
-            <div className="fp-decision-row">
-              <strong>Intent:</strong>{' '}
-              <AnalysisBadge color="#fff" bg="#27ae60">{formatFieldLabel(detail.intent)}</AnalysisBadge>
-            </div>
-            <div className="fp-decision-row">
-              <strong>Business Impact:</strong>{' '}
-              <ImpactBadge level={detail.businessImpact} />
-            </div>
-            <div className="fp-decision-row">
-              <strong>Confidence Level:</strong>{' '}
-              <AnalysisBadge color="#fff" bg="#2471a3">{Math.round((detail.confidence || 0) * 100)}%</AnalysisBadge>
-            </div>
-
-            {isLLM ? (
-              <div className="fp-info-note">
-                ℹ️ This analysis was performed using Azure OpenAI with advanced natural language understanding.
-              </div>
-            ) : (
-              <div className="fp-warning-note">
-                ⚠️ This analysis was performed using rule-based pattern matching. AI classification was unavailable.
-              </div>
-            )}
-
-            {/* Technical Complexity & Urgency */}
-            <div className="fp-complexity-grid">
-              <div>
-                <strong>Technical Complexity:</strong><br />
-                <ImpactBadge level={detail.technicalComplexity} />
-              </div>
-              <div>
-                <strong>Urgency Level:</strong><br />
-                <ImpactBadge level={detail.urgencyLevel} />
-              </div>
-            </div>
-
-            {/* Key Concepts */}
-            {detail.keyConcepts?.length > 0 && (
-              <div className="fp-tag-section">
-                <strong>Key Concepts Identified:</strong>
-                <div className="fp-tags">
-                  {detail.keyConcepts.map((c, i) => (
-                    <AnalysisBadge key={i} color="#fff" bg="#34495e">{c}</AnalysisBadge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Semantic Keywords */}
-            {detail.semanticKeywords?.length > 0 && (
-              <div className="fp-tag-section">
-                <strong>Semantic Keywords:</strong>
-                <div className="fp-tags">
-                  {detail.semanticKeywords.map((k, i) => (
-                    <AnalysisBadge key={i} color="#fff" bg="#2980b9">{k}</AnalysisBadge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Domain Entities */}
-            {(detail.azureServices?.length > 0 || detail.technologies?.length > 0 ||
-              detail.detectedProducts?.length > 0 || detail.regions?.length > 0 ||
-              detail.technicalAreas?.length > 0 || detail.complianceFrameworks?.length > 0) && (
-              <div className="fp-entities-section">
-                <strong>Domain Entities Detected:</strong>
-                <div className="fp-entities">
-                  {detail.azureServices?.length > 0 && (
-                    <CollapsibleEntitySection title="Azure & Modern Work Services" count={detail.azureServices.length}>
-                      <div>{detail.azureServices.map((s, i) => <AnalysisBadge key={i} bg="#deecf9" color="#0078d4">{s}</AnalysisBadge>)}</div>
-                    </CollapsibleEntitySection>
-                  )}
-                  {detail.technologies?.length > 0 && (
-                    <CollapsibleEntitySection title="Technologies" count={detail.technologies.length}>
-                      <div>{detail.technologies.map((t, i) => <AnalysisBadge key={i} bg="#e8daef" color="#6c3483">{t}</AnalysisBadge>)}</div>
-                    </CollapsibleEntitySection>
-                  )}
-                  {detail.detectedProducts?.length > 0 && (
-                    <CollapsibleEntitySection title="Detected Products" count={detail.detectedProducts.length}>
-                      <div>{detail.detectedProducts.map((p, i) => <AnalysisBadge key={i} bg="#fde7e9" color="#d13438">{p}</AnalysisBadge>)}</div>
-                    </CollapsibleEntitySection>
-                  )}
-                  {detail.regions?.length > 0 && (
-                    <CollapsibleEntitySection title="Regions / Locations" count={detail.regions.length}>
-                      <div>{detail.regions.map((r, i) => <AnalysisBadge key={i} bg="#d6eaf8" color="#2471a3">{r}</AnalysisBadge>)}</div>
-                    </CollapsibleEntitySection>
-                  )}
-                  {detail.technicalAreas?.length > 0 && (
-                    <CollapsibleEntitySection title="Technical Areas" count={detail.technicalAreas.length}>
-                      <div>{detail.technicalAreas.map((a, i) => <AnalysisBadge key={i} bg="#fce4ec" color="#c0392b">{a}</AnalysisBadge>)}</div>
-                    </CollapsibleEntitySection>
-                  )}
-                  {detail.complianceFrameworks?.length > 0 && (
-                    <CollapsibleEntitySection title="Compliance Frameworks" count={detail.complianceFrameworks.length}>
-                      <div>{detail.complianceFrameworks.map((f, i) => <AnalysisBadge key={i} bg="#fff9c4" color="#f57f17">{f}</AnalysisBadge>)}</div>
-                    </CollapsibleEntitySection>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Metadata */}
-            <div className="fp-metadata">
-              <span>Analyzed: {detail.timestamp ? formatDate(detail.timestamp) : '—'}</span>
-              <span>Pattern Confidence: {((detail.patternConfidence || 0) * 100).toFixed(0)}%</span>
-              <span>ID: {detail.id}</span>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* ── Your Evaluation ── */}
-        <div className="fp-card">
-          <div className="fp-card-header fp-card-header-eval">✅ Your Evaluation</div>
-          <div className="fp-card-body">
-            <div className="fp-eval-question">
-              <strong>Is this analysis correct?</strong>
+        {/* ══════════ TAB: Decision ══════════ */}
+        {currentDetailTab === 'decision' && (
+          <div className="analysis-tab-panel">
+            <div className="fp-card">
+              <div className="fp-card-header fp-card-header-decision">🎯 Final Decision Summary</div>
+              <div className="fp-card-body">
+                <div className="fp-decision-row">
+                  <strong>Category Decision:</strong>{' '}
+                  <CategoryBadge value={detail.category} />
+                </div>
+                <div className="fp-decision-row">
+                  <strong>Intent:</strong>{' '}
+                  <AnalysisBadge color="#fff" bg="#27ae60">{formatFieldLabel(detail.intent)}</AnalysisBadge>
+                </div>
+                <div className="fp-decision-row">
+                  <strong>Business Impact:</strong>{' '}
+                  <ImpactBadge level={detail.businessImpact} />
+                </div>
+                <div className="fp-decision-row">
+                  <strong>Confidence Level:</strong>{' '}
+                  <AnalysisBadge color="#fff" bg="#2471a3">{Math.round((detail.confidence || 0) * 100)}%</AnalysisBadge>
+                </div>
 
-              <div className="fp-eval-options">
-                <label className="fp-eval-option">
-                  <input
-                    type="radio"
-                    name={`eval-${workItemId}`}
-                    checked={es.evalCorrect === true}
-                    onChange={() => updateEvalState(workItemId, { evalCorrect: true })}
-                    style={{ accentColor: 'var(--success, #107c10)' }}
-                  />
-                  <span className="fp-eval-yes">
-                    ✔ Yes, this analysis is correct
-                  </span>
-                </label>
-                <label className="fp-eval-option">
-                  <input
-                    type="radio"
-                    name={`eval-${workItemId}`}
-                    checked={es.evalCorrect === false}
-                    onChange={() => updateEvalState(workItemId, {
-                      evalCorrect: false,
-                      // Pre-populate dropdowns with current analysis values
-                      correctedCategory: es.correctedCategory || detail.category || '',
-                      correctedIntent: es.correctedIntent || detail.intent || '',
-                      correctedImpact: es.correctedImpact || detail.businessImpact || '',
-                    })}
-                    style={{ accentColor: 'var(--danger, #d13438)' }}
-                  />
-                  <span className="fp-eval-no">
-                    ✗ No, this analysis needs correction
-                  </span>
-                </label>
+                {isLLM ? (
+                  <div className="fp-info-note">
+                    ℹ️ This analysis was performed using Azure OpenAI with advanced natural language understanding.
+                  </div>
+                ) : (
+                  <div className="fp-warning-note">
+                    ⚠️ This analysis was performed using rule-based pattern matching. AI classification was unavailable.
+                  </div>
+                )}
+
+                {/* Key Concepts */}
+                {detail.keyConcepts?.length > 0 && (
+                  <div className="fp-tag-section">
+                    <strong>Key Concepts Identified:</strong>
+                    <div className="fp-tags">
+                      {detail.keyConcepts.map((c, i) => (
+                        <AnalysisBadge key={i} color="#fff" bg="#34495e">{c}</AnalysisBadge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Semantic Keywords */}
+                {detail.semanticKeywords?.length > 0 && (
+                  <div className="fp-tag-section">
+                    <strong>Semantic Keywords:</strong>
+                    <div className="fp-tags">
+                      {detail.semanticKeywords.map((k, i) => (
+                        <AnalysisBadge key={i} color="#fff" bg="#2980b9">{k}</AnalysisBadge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Entities */}
+                {entityCount > 0 && (
+                  <div className="fp-entities-section">
+                    <strong>Domain Entities Detected:</strong>
+                    <div className="fp-entities">
+                      {detail.azureServices?.length > 0 && (
+                        <CollapsibleEntitySection title="Azure & Modern Work Services" count={detail.azureServices.length} defaultOpen={true}>
+                          <div>{detail.azureServices.map((s, i) => <AnalysisBadge key={i} bg="#deecf9" color="#0078d4">{s}</AnalysisBadge>)}</div>
+                        </CollapsibleEntitySection>
+                      )}
+                      {detail.technologies?.length > 0 && (
+                        <CollapsibleEntitySection title="Technologies" count={detail.technologies.length} defaultOpen={true}>
+                          <div>{detail.technologies.map((t, i) => <AnalysisBadge key={i} bg="#e8daef" color="#6c3483">{t}</AnalysisBadge>)}</div>
+                        </CollapsibleEntitySection>
+                      )}
+                      {detail.detectedProducts?.length > 0 && (
+                        <CollapsibleEntitySection title="Detected Products" count={detail.detectedProducts.length}>
+                          <div>{detail.detectedProducts.map((p, i) => <AnalysisBadge key={i} bg="#fde7e9" color="#d13438">{p}</AnalysisBadge>)}</div>
+                        </CollapsibleEntitySection>
+                      )}
+                      {detail.regions?.length > 0 && (
+                        <CollapsibleEntitySection title="Regions / Locations" count={detail.regions.length}>
+                          <div>{detail.regions.map((r, i) => <AnalysisBadge key={i} bg="#d6eaf8" color="#2471a3">{r}</AnalysisBadge>)}</div>
+                        </CollapsibleEntitySection>
+                      )}
+                      {detail.technicalAreas?.length > 0 && (
+                        <CollapsibleEntitySection title="Technical Areas" count={detail.technicalAreas.length}>
+                          <div>{detail.technicalAreas.map((a, i) => <AnalysisBadge key={i} bg="#fce4ec" color="#c0392b">{a}</AnalysisBadge>)}</div>
+                        </CollapsibleEntitySection>
+                      )}
+                      {detail.complianceFrameworks?.length > 0 && (
+                        <CollapsibleEntitySection title="Compliance Frameworks" count={detail.complianceFrameworks.length}>
+                          <div>{detail.complianceFrameworks.map((f, i) => <AnalysisBadge key={i} bg="#fff9c4" color="#f57f17">{f}</AnalysisBadge>)}</div>
+                        </CollapsibleEntitySection>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+          </div>
+        )}
 
-            {/* ── Correction Dropdowns (shown when "No" is selected) ── */}
-            {es.evalCorrect === false && (
-              <div className="fp-correction-fields">
-                <h4 className="fp-correction-heading">Please provide the correct analysis:</h4>
-                <div className="fp-correction-row">
-                  <div className="fp-correction-field">
-                    <label htmlFor={`cat-${workItemId}`}>Correct Category:</label>
-                    <select
-                      id={`cat-${workItemId}`}
-                      className="fp-correction-select"
-                      value={es.correctedCategory}
-                      onChange={(e) => updateEvalState(workItemId, { correctedCategory: e.target.value })}
-                    >
-                      <option value="">-- Select Category --</option>
-                      {CATEGORY_OPTIONS.map((g) => (
-                        <optgroup key={g.group} label={g.group}>
-                          {g.items.map((o) => (
+        {/* ══════════ TAB: Evaluate ══════════ */}
+        {currentDetailTab === 'evaluate' && (
+          <div className="analysis-tab-panel">
+            <div className="fp-card">
+              <div className="fp-card-header fp-card-header-eval">✅ Your Evaluation</div>
+              <div className="fp-card-body">
+                <div className="fp-eval-question">
+                  <strong>Is this analysis correct?</strong>
+
+                  <div className="fp-eval-options">
+                    <label className="fp-eval-option">
+                      <input
+                        type="radio"
+                        name={`eval-${workItemId}`}
+                        checked={es.evalCorrect === true}
+                        onChange={() => updateEvalState(workItemId, { evalCorrect: true })}
+                        style={{ accentColor: 'var(--success, #107c10)' }}
+                      />
+                      <span className="fp-eval-yes">
+                        ✔ Yes, this analysis is correct
+                      </span>
+                    </label>
+                    <label className="fp-eval-option">
+                      <input
+                        type="radio"
+                        name={`eval-${workItemId}`}
+                        checked={es.evalCorrect === false}
+                        onChange={() => updateEvalState(workItemId, {
+                          evalCorrect: false,
+                          correctedCategory: es.correctedCategory || detail.category || '',
+                          correctedIntent: es.correctedIntent || detail.intent || '',
+                          correctedImpact: es.correctedImpact || detail.businessImpact || '',
+                        })}
+                        style={{ accentColor: 'var(--danger, #d13438)' }}
+                      />
+                      <span className="fp-eval-no">
+                        ✗ No, this analysis needs correction
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Correction Dropdowns */}
+                {es.evalCorrect === false && (
+                  <div className="fp-correction-fields">
+                    <h4 className="fp-correction-heading">Please provide the correct analysis:</h4>
+                    <div className="fp-correction-row">
+                      <div className="fp-correction-field">
+                        <label htmlFor={`cat-${workItemId}`}>Correct Category:</label>
+                        <select
+                          id={`cat-${workItemId}`}
+                          className="fp-correction-select"
+                          value={es.correctedCategory}
+                          onChange={(e) => updateEvalState(workItemId, { correctedCategory: e.target.value })}
+                        >
+                          <option value="">-- Select Category --</option>
+                          {CATEGORY_OPTIONS.map((g) => (
+                            <optgroup key={g.group} label={g.group}>
+                              {g.items.map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="fp-correction-field">
+                        <label htmlFor={`int-${workItemId}`}>Correct Intent:</label>
+                        <select
+                          id={`int-${workItemId}`}
+                          className="fp-correction-select"
+                          value={es.correctedIntent}
+                          onChange={(e) => updateEvalState(workItemId, { correctedIntent: e.target.value })}
+                        >
+                          <option value="">-- Select Intent --</option>
+                          {INTENT_OPTIONS.map((g) => (
+                            <optgroup key={g.group} label={g.group}>
+                              {g.items.map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="fp-correction-field">
+                        <label htmlFor={`imp-${workItemId}`}>Correct Business Impact:</label>
+                        <select
+                          id={`imp-${workItemId}`}
+                          className="fp-correction-select"
+                          value={es.correctedImpact}
+                          onChange={(e) => updateEvalState(workItemId, { correctedImpact: e.target.value })}
+                        >
+                          <option value="">-- Select Impact --</option>
+                          {BUSINESS_IMPACT_OPTIONS.map((o) => (
                             <option key={o.value} value={o.value}>{o.label}</option>
                           ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="fp-correction-field">
-                    <label htmlFor={`int-${workItemId}`}>Correct Intent:</label>
-                    <select
-                      id={`int-${workItemId}`}
-                      className="fp-correction-select"
-                      value={es.correctedIntent}
-                      onChange={(e) => updateEvalState(workItemId, { correctedIntent: e.target.value })}
-                    >
-                      <option value="">-- Select Intent --</option>
-                      {INTENT_OPTIONS.map((g) => (
-                        <optgroup key={g.group} label={g.group}>
-                          {g.items.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="fp-correction-field">
-                    <label htmlFor={`imp-${workItemId}`}>Correct Business Impact:</label>
-                    <select
-                      id={`imp-${workItemId}`}
-                      className="fp-correction-select"
-                      value={es.correctedImpact}
-                      onChange={(e) => updateEvalState(workItemId, { correctedImpact: e.target.value })}
-                    >
-                      <option value="">-- Select Impact --</option>
-                      {BUSINESS_IMPACT_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
+                )}
+
+                <div className="fp-eval-feedback">
+                  <label>{es.evalCorrect === false ? 'Explain why the analysis is wrong:' : 'General Feedback (optional):'}</label>
+                  <textarea
+                    value={es.feedback}
+                    onChange={(e) => updateEvalState(workItemId, { feedback: e.target.value })}
+                    rows={3}
+                    placeholder={es.evalCorrect === false
+                      ? 'Please explain why the system\'s analysis was incorrect and provide any additional context...'
+                      : 'Any additional feedback to help improve the system...'}
+                    className="fp-eval-textarea"
+                  />
                 </div>
+
+                {es.error && <div className="fp-eval-error">{es.error}</div>}
+
+                <div className="fp-eval-actions">
+                  {es.evalCorrect === false && (
+                    <>
+                      <button
+                        className="btn btn-primary"
+                        style={{ backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                        onClick={() => handleReanalyze(workItemId, detail)}
+                        disabled={es.submitting}
+                      >
+                        {es.submitting ? '⏳ Reanalyzing…' : '🔄 Reanalyze with Corrections'}
+                      </button>
+                      <button
+                        className="btn btn-success"
+                        onClick={() => handleSubmitCorrection(workItemId, detail, 'save_corrections')}
+                        disabled={es.submitting}
+                      >
+                        {es.submitting ? '⏳ Saving…' : '💾 Save Corrections Only'}
+                      </button>
+                    </>
+                  )}
+                  {es.evalCorrect === true && (
+                    <button
+                      className="btn btn-success"
+                      onClick={() => handleSubmitCorrection(workItemId, detail, 'approve')}
+                      disabled={es.submitting}
+                    >
+                      {es.submitting ? '⏳ Saving…' : '✔ Approve Analysis'}
+                    </button>
+                  )}
+                </div>
+
+                {es.evalCorrect === null && (
+                  <div className="fp-eval-hint">
+                    ⚠ Please select an option above
+                  </div>
+                )}
               </div>
-            )}
-
-            <div className="fp-eval-feedback">
-              <label>{es.evalCorrect === false ? 'Explain why the analysis is wrong:' : 'General Feedback (optional):'}</label>
-              <textarea
-                value={es.feedback}
-                onChange={(e) => updateEvalState(workItemId, { feedback: e.target.value })}
-                rows={3}
-                placeholder={es.evalCorrect === false
-                  ? 'Please explain why the system\'s analysis was incorrect and provide any additional context...'
-                  : 'Any additional feedback to help improve the system...'}
-                className="fp-eval-textarea"
-              />
             </div>
-
-            {es.error && <div className="fp-eval-error">{es.error}</div>}
-
-            <div className="fp-eval-actions">
-              {es.evalCorrect === false && (
-                <>
-                  <button
-                    className="btn btn-primary"
-                    style={{ backgroundColor: '#0078d4', borderColor: '#0078d4' }}
-                    onClick={() => handleReanalyze(workItemId, detail)}
-                    disabled={es.submitting}
-                  >
-                    {es.submitting ? '⏳ Reanalyzing…' : '🔄 Reanalyze with Corrections'}
-                  </button>
-                  <button
-                    className="btn btn-success"
-                    onClick={() => handleSubmitCorrection(workItemId, detail, 'save_corrections')}
-                    disabled={es.submitting}
-                  >
-                    {es.submitting ? '⏳ Saving…' : '💾 Save Corrections Only'}
-                  </button>
-                </>
-              )}
-              {es.evalCorrect === true && (
-                <button
-                  className="btn btn-success"
-                  onClick={() => handleSubmitCorrection(workItemId, detail, 'approve')}
-                  disabled={es.submitting}
-                >
-                  {es.submitting ? '⏳ Saving…' : '✔ Approve Analysis'}
-                </button>
-              )}
-            </div>
-
-            {es.evalCorrect === null && (
-              <div className="fp-eval-hint">
-                ⚠ Please select an option above
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </div>
     );
   };

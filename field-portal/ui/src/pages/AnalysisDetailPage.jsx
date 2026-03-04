@@ -218,6 +218,7 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
   const [correctedImpact, setCorrectedImpact] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const { analysis, original_input, analysis_method, reasoning, pattern_analysis_steps,
     domain_entities, key_concepts, semantic_keywords, search_strategy,
@@ -314,7 +315,7 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
         Please review the system's analysis below. Your feedback helps improve the matching accuracy over time.
       </p>
 
-      {/* ── Analysis Status Banner ── */}
+      {/* ── Analysis Status Banner (always visible) ── */}
       {aiOffline ? (
         <div style={{
           background: '#fff4ce', border: '1px solid #ffb900', borderRadius: 8,
@@ -389,433 +390,472 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
         </div>
       )}
 
-      {/* ── Original Issue ── */}
-      <div className="card">
-        <div className="card-header" style={{ background: '#fff4ce', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
-          📋 Original Issue
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <strong>Title:</strong>
-            <p style={{ margin: '4px 0' }}>{original_input?.title || '—'}</p>
-            <strong>Description:</strong>
-            <p style={{ margin: '4px 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>
-              {original_input?.description || '—'}
-            </p>
-          </div>
-          <div>
-            <strong>Impact:</strong>
-            <p style={{ margin: '4px 0', fontSize: 13 }}>{original_input?.impact || '—'}</p>
-          </div>
-        </div>
+      {/* ── Tab Bar ── */}
+      <div className="analysis-tabs">
+        <button className={`analysis-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
+          <span className="tab-icon">📋</span> Overview
+        </button>
+        <button className={`analysis-tab ${activeTab === 'analysis' ? 'active' : ''}`} onClick={() => setActiveTab('analysis')}>
+          <span className="tab-icon">🧠</span> Analysis
+        </button>
+        <button className={`analysis-tab ${activeTab === 'decision' ? 'active' : ''}`} onClick={() => setActiveTab('decision')}>
+          <span className="tab-icon">🎯</span> Decision
+          {domain_entities && <span className="tab-badge">{
+            (domain_entities.azure_services?.length || 0) + (domain_entities.technologies?.length || 0) +
+            (domain_entities.technical_areas?.length || 0) + (domain_entities.regions?.length || 0) +
+            (domain_entities.business_domains?.length || 0) + (domain_entities.discovered_services?.length || 0)
+          }</span>}
+        </button>
+        <button className={`analysis-tab ${activeTab === 'evaluate' ? 'active' : ''}`} onClick={() => setActiveTab('evaluate')}>
+          <span className="tab-icon">✅</span> Evaluate
+        </button>
       </div>
 
-      {/* ── System's Analysis ── */}
-      <div className="card">
-        <div className="card-header" style={{ background: '#deecf9', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
-          🤖 System's Analysis
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 16 }}>
-          <div>
-            <strong>Category:</strong><br />
-            <CategoryBadge value={analysis.category_display || analysis.category} />
-          </div>
-          <div>
-            <strong>Intent:</strong><br />
-            <Badge color="#fff" bg="#27ae60">{formatLabel(analysis.intent_display || analysis.intent)}</Badge>
-          </div>
-          <div>
-            <strong>Business Impact:</strong><br />
-            <ImpactBadge level={analysis.business_impact_display || analysis.business_impact} />
-          </div>
-          <div>
-            <strong>Confidence:</strong><br />
-            <Badge color="#fff" bg="#2471a3">{Math.round((analysis.confidence || 0) * 100)}%</Badge>
-          </div>
-        </div>
-
-        {/* Context Summary */}
-        {context_summary && (
-          <div style={{ marginBottom: 16 }}>
-            <strong>Context Summary:</strong>
-            <div style={{
-              background: '#f8f9fa', padding: 12, borderRadius: 6,
-              fontSize: 13, marginTop: 6, lineHeight: 1.6,
-            }}>
-              {context_summary}
+      {/* ══════════ TAB: Overview ══════════ */}
+      {activeTab === 'overview' && (
+        <div className="analysis-tab-panel">
+          {/* Original Issue */}
+          <div className="card">
+            <div className="card-header" style={{ background: '#fff4ce', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
+              📋 Original Issue
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <strong>Title:</strong>
+                <p style={{ margin: '4px 0' }}>{original_input?.title || '—'}</p>
+                <strong>Description:</strong>
+                <p style={{ margin: '4px 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>
+                  {original_input?.description || '—'}
+                </p>
+              </div>
+              <div>
+                <strong>Impact:</strong>
+                <p style={{ margin: '4px 0', fontSize: 13 }}>{original_input?.impact || '—'}</p>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* ── Comprehensive Reasoning ── */}
-        <h3 style={{ marginTop: 20 }}>
-          {isLLM ? '🔍 Comprehensive AI Analysis & Reasoning' : '📊 Pattern-Based Analysis & Reasoning'}
-        </h3>
-
-        {/* Classification reasoning text — skip when identical to context_summary (LLM source) */}
-        {reasoning && reasoning !== context_summary && (
-          <div style={{ marginBottom: 16 }}>
-            <strong>{isLLM ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</strong>
-            <div style={{
-              background: '#f3f2f1', padding: 14, borderRadius: 6, marginTop: 6,
-              fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap',
-            }}>
-              {typeof reasoning === 'object' ? JSON.stringify(reasoning, null, 2) : reasoning}
+          {/* Classification Summary */}
+          <div className="card">
+            <div className="card-header" style={{ background: '#deecf9', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
+              🤖 System's Classification
             </div>
-          </div>
-        )}
-
-        {/* Pattern Analysis Steps */}
-        {pattern_analysis_steps && pattern_analysis_steps.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <strong>📊 Pattern Analysis — Step-by-Step Process</strong>
-            <ol style={{ marginTop: 8, paddingLeft: 24, fontSize: 13, lineHeight: 1.8 }}>
-              {pattern_analysis_steps.map((step, i) => (
-                <li key={i} style={{ marginBottom: 2 }}>{step}</li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {/* Confidence Breakdown */}
-        {confidence_breakdown && confidence_breakdown.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <strong>📈 Confidence Breakdown</strong>
-            <ul style={{ marginTop: 8, paddingLeft: 20, fontSize: 13, lineHeight: 1.8 }}>
-              {confidence_breakdown.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Data Sources */}
-        {data_sources && data_sources.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <strong>📁 Data Sources Consulted</strong>
-            <ul style={{ marginTop: 8, paddingLeft: 20, fontSize: 13, lineHeight: 1.8 }}>
-              {data_sources.map((ds, i) => (
-                <li key={i}>
-                  {typeof ds === 'string' ? ds : (
-                    <>
-                      <strong>{ds.source}</strong>
-                      {ds.status && <> — <Badge color={ds.status === 'USED' ? '#fff' : '#323130'} bg={ds.status === 'USED' ? '#107c10' : '#e1dfdd'}>{ds.status}</Badge></>}
-                      {ds.reason && <span style={{ marginLeft: 4 }}>{ds.reason}</span>}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* ── Final Decision Summary ── */}
-      <div className="card">
-        <div className="card-header" style={{ background: '#fde7e9', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
-          🎯 Final Decision Summary
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <strong>Category Decision:</strong>{' '}
-          <CategoryBadge value={analysis.category_display || analysis.category} />
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <strong>Intent:</strong>{' '}
-          <Badge color="#fff" bg="#27ae60">{formatLabel(analysis.intent_display || analysis.intent)}</Badge>
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <strong>Business Impact:</strong>{' '}
-          <ImpactBadge level={analysis.business_impact_display || analysis.business_impact} />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <strong>Confidence Level:</strong>{' '}
-          <Badge color="#fff" bg="#2471a3">{Math.round((analysis.confidence || 0) * 100)}%</Badge>
-        </div>
-
-        {isLLM ? (
-          <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 16 }}>
-            ℹ️ This analysis was performed using Azure OpenAI's GPT-4o model with advanced natural language understanding.
-          </div>
-        ) : (
-          <div style={{
-            background: '#fff4ce', border: '1px solid #ffb900', borderRadius: 6,
-            padding: '10px 14px', fontSize: 12, marginBottom: 16, color: '#8a6d3b',
-          }}>
-            ⚠️ This analysis was performed using rule-based pattern matching. AI classification was unavailable.
-          </div>
-        )}
-
-        {/* Final Analysis Reasoning */}
-        {final_analysis && (final_analysis.category_reason || final_analysis.intent_reason) && (
-          <div style={{ marginBottom: 16, background: '#f8f9fa', padding: 12, borderRadius: 6, fontSize: 13 }}>
-            {final_analysis.category_reason && (
-              <p style={{ margin: '0 0 6px' }}><strong>Category Reason:</strong> {final_analysis.category_reason}</p>
-            )}
-            {final_analysis.intent_reason && (
-              <p style={{ margin: '0 0 6px' }}><strong>Intent Reason:</strong> {final_analysis.intent_reason}</p>
-            )}
-            {final_analysis.data_source_summary && (
-              <p style={{ margin: 0 }}><strong>Data Sources:</strong> {final_analysis.data_source_summary}</p>
-            )}
-          </div>
-        )}
-
-        {/* Technical Complexity & Urgency */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <strong>Technical Complexity:</strong><br />
-            <ImpactBadge level={technical_complexity} />
-          </div>
-          <div>
-            <strong>Urgency Level:</strong><br />
-            <ImpactBadge level={urgency_level} />
-          </div>
-        </div>
-
-        {/* Key Concepts */}
-        {key_concepts?.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <strong>Key Concepts Identified:</strong><br />
-            <div style={{ marginTop: 4 }}>
-              {key_concepts.map((c, i) => (
-                <Badge key={i} color="#fff" bg="#34495e">{c}</Badge>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 16 }}>
+              <div>
+                <strong>Category:</strong><br />
+                <CategoryBadge value={analysis.category_display || analysis.category} />
+              </div>
+              <div>
+                <strong>Intent:</strong><br />
+                <Badge color="#fff" bg="#27ae60">{formatLabel(analysis.intent_display || analysis.intent)}</Badge>
+              </div>
+              <div>
+                <strong>Business Impact:</strong><br />
+                <ImpactBadge level={analysis.business_impact_display || analysis.business_impact} />
+              </div>
+              <div>
+                <strong>Confidence:</strong><br />
+                <Badge color="#fff" bg="#2471a3">{Math.round((analysis.confidence || 0) * 100)}%</Badge>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Semantic Keywords */}
-        {semantic_keywords?.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <strong>Semantic Keywords:</strong><br />
-            <div style={{ marginTop: 4 }}>
-              {semantic_keywords.map((k, i) => (
-                <Badge key={i} color="#fff" bg="#2980b9">{k}</Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Domain Entities */}
-        {domain_entities && (
-          <div style={{ marginTop: 16 }}>
-            <strong>Domain Entities Detected:</strong>
-            <div style={{ marginTop: 8 }}>
-              {domain_entities.azure_services?.length > 0 && (
-                <CollapsibleSection title="Azure Services" count={domain_entities.azure_services.length}>
-                  <div>{domain_entities.azure_services.map((s, i) => <Badge key={i} bg="#deecf9" color="#0078d4">{s}</Badge>)}</div>
-                </CollapsibleSection>
-              )}
-              {domain_entities.technologies?.length > 0 && (
-                <CollapsibleSection title="Technologies" count={domain_entities.technologies.length}>
-                  <div>{domain_entities.technologies.map((t, i) => <Badge key={i} bg="#e8daef" color="#6c3483">{t}</Badge>)}</div>
-                </CollapsibleSection>
-              )}
-              {domain_entities.technical_areas?.length > 0 && (
-                <CollapsibleSection title="Technical Areas" count={domain_entities.technical_areas.length}>
-                  <div>{domain_entities.technical_areas.map((t, i) => <Badge key={i} bg="#d5f5e3" color="#1e8449">{t}</Badge>)}</div>
-                </CollapsibleSection>
-              )}
-              {domain_entities.business_domains?.length > 0 && (
-                <CollapsibleSection title="Business Domains" count={domain_entities.business_domains.length}>
-                  <div>{domain_entities.business_domains.map((b, i) => <Badge key={i} bg="#fde7e9" color="#d13438">{b}</Badge>)}</div>
-                </CollapsibleSection>
-              )}
-              {domain_entities.regions?.length > 0 && (
-                <CollapsibleSection title="Regions" count={domain_entities.regions.length}>
-                  <div>{domain_entities.regions.map((r, i) => <Badge key={i} bg="#d6eaf8" color="#2471a3">{r}</Badge>)}</div>
-                </CollapsibleSection>
-              )}
-              {domain_entities.discovered_services?.length > 0 && (
-                <CollapsibleSection title="Discovered Services" count={domain_entities.discovered_services.length}>
-                  <div>{domain_entities.discovered_services.map((s, i) => <Badge key={i} bg="#fde7e9" color="#a93226">{s}</Badge>)}</div>
-                </CollapsibleSection>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Search Strategy */}
-        {search_strategy && Object.keys(search_strategy).length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <strong>Recommended Search Strategy:</strong>
-            <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-              {Object.entries(search_strategy).map(([key, val]) => (
-                <div key={key} style={{ fontSize: 13 }}>
-                  {val === true && <span>✔ {formatLabel(key)}</span>}
-                  {val === false && <span style={{ opacity: 0.5 }}>✗ {formatLabel(key)}</span>}
-                  {typeof val === 'string' && <span>✔ {formatLabel(key)}: {val}</span>}
+            {/* Context Summary */}
+            {context_summary && (
+              <div style={{ marginBottom: 16 }}>
+                <strong>Context Summary:</strong>
+                <div style={{
+                  background: '#f8f9fa', padding: 12, borderRadius: 6,
+                  fontSize: 13, marginTop: 6, lineHeight: 1.6,
+                }}>
+                  {context_summary}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            )}
 
-      {/* ── Your Evaluation ── */}
-      <div className="card">
-        <div className="card-header" style={{ background: '#dff6dd', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
-          ✅ Your Evaluation
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <strong>Is this analysis correct?</strong>
-
-          <div style={{ marginTop: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }}>
-              <input
-                type="radio"
-                name="eval"
-                checked={evalCorrect === true}
-                onChange={() => setEvalCorrect(true)}
-                style={{ accentColor: 'var(--color-success)' }}
-              />
-              <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>
-                ✔ Yes, this analysis is correct — proceed with matching
-              </span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="eval"
-                checked={evalCorrect === false}
-                onChange={() => {
-                  setEvalCorrect(false);
-                  // Pre-populate with current analysis values
-                  if (!correctedCategory) setCorrectedCategory(analysis?.category || '');
-                  if (!correctedIntent) setCorrectedIntent(analysis?.intent || '');
-                  if (!correctedImpact) setCorrectedImpact(analysis?.business_impact || '');
-                }}
-                style={{ accentColor: 'var(--color-danger)' }}
-              />
-              <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
-                ✗ No, this analysis needs correction
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {/* ── Correction Dropdowns (shown when "No" is selected) ── */}
-        {evalCorrect === false && (
-          <div style={{
-            background: 'var(--color-bg-secondary, #f3f2f1)', border: '1px solid var(--color-border, #edebe9)',
-            borderLeft: '4px solid var(--color-primary, #0078d4)', borderRadius: 6, padding: 16, marginBottom: 16,
-          }}>
-            <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary, #0078d4)', margin: '0 0 12px 0' }}>
-              Please provide the correct analysis:
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {/* Technical Complexity & Urgency */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Category:</label>
-                <select
-                  value={correctedCategory}
-                  onChange={(e) => setCorrectedCategory(e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
-                >
-                  <option value="">-- Select Category --</option>
-                  {CATEGORY_OPTIONS.map((g) => (
-                    <optgroup key={g.group} label={g.group}>
-                      {g.items.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <strong>Technical Complexity:</strong><br />
+                <ImpactBadge level={technical_complexity} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Intent:</label>
-                <select
-                  value={correctedIntent}
-                  onChange={(e) => setCorrectedIntent(e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
-                >
-                  <option value="">-- Select Intent --</option>
-                  {INTENT_OPTIONS.map((g) => (
-                    <optgroup key={g.group} label={g.group}>
-                      {g.items.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Business Impact:</label>
-                <select
-                  value={correctedImpact}
-                  onChange={(e) => setCorrectedImpact(e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
-                >
-                  <option value="">-- Select Impact --</option>
-                  {BUSINESS_IMPACT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <strong>Urgency Level:</strong><br />
+                <ImpactBadge level={urgency_level} />
               </div>
             </div>
           </div>
-        )}
-
-        <div className="form-group">
-          <label>{evalCorrect === false ? 'Explain why the analysis is wrong:' : 'General Feedback (optional):'}</label>
-          <textarea
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            rows={3}
-            placeholder={evalCorrect === false
-              ? 'Please explain why the system\'s analysis was incorrect and provide any additional context...'
-              : 'Any additional feedback to help improve the system...'}
-          />
         </div>
+      )}
 
-        {error && <div className="alert alert-danger" style={{ fontSize: 13 }}>{error}</div>}
+      {/* ══════════ TAB: Analysis ══════════ */}
+      {activeTab === 'analysis' && (
+        <div className="analysis-tab-panel">
+          <div className="card">
+            <div className="card-header" style={{ background: '#deecf9', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
+              {isLLM ? '🔍 Comprehensive AI Analysis & Reasoning' : '📊 Pattern-Based Analysis & Reasoning'}
+            </div>
 
-        <div className="btn-group" style={{ justifyContent: 'center' }}>
-          {evalCorrect === false && (
-            <>
-              <button className="btn btn-primary" onClick={handleReanalyze} disabled={submitting}>
-                🔄 Reanalyze with Corrections
-              </button>
-              <button className="btn btn-success" onClick={handleSaveCorrections} disabled={submitting}>
-                💾 Save Corrections Only
-              </button>
-            </>
-          )}
-          {evalCorrect === true && (
-            <button
-              className="btn btn-success"
-              onClick={async () => {
-                setSubmitting(true);
-                try {
-                  await submitCorrection({
-                    session_id: sessionId,
-                    action: 'approve',
-                    correction_notes: feedback || undefined,
-                  });
-                  navigate('/searching', { state: { sessionId } });
-                } catch (err) { setError(err.message); }
-                finally { setSubmitting(false); }
-              }}
-              disabled={submitting}
-            >
-              ✔ Approve & Continue to Search →
-            </button>
-          )}
-        </div>
+            {/* Classification reasoning text */}
+            {reasoning && reasoning !== context_summary && (
+              <div style={{ marginBottom: 16 }}>
+                <strong>{isLLM ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</strong>
+                <div style={{
+                  background: '#f3f2f1', padding: 14, borderRadius: 6, marginTop: 6,
+                  fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap',
+                }}>
+                  {typeof reasoning === 'object' ? JSON.stringify(reasoning, null, 2) : reasoning}
+                </div>
+              </div>
+            )}
 
-        {evalCorrect === null && (
-          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-            ⚠ Please select an option above
+            {/* Pattern Analysis Steps */}
+            {pattern_analysis_steps && pattern_analysis_steps.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <strong>📊 Pattern Analysis — Step-by-Step Process</strong>
+                <ol style={{ marginTop: 8, paddingLeft: 24, fontSize: 13, lineHeight: 1.8 }}>
+                  {pattern_analysis_steps.map((step, i) => (
+                    <li key={i} style={{ marginBottom: 2 }}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {/* Confidence Breakdown */}
+            {confidence_breakdown && confidence_breakdown.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <strong>📈 Confidence Breakdown</strong>
+                <ul style={{ marginTop: 8, paddingLeft: 20, fontSize: 13, lineHeight: 1.8 }}>
+                  {confidence_breakdown.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Data Sources */}
+            {data_sources && data_sources.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <strong>📁 Data Sources Consulted</strong>
+                <ul style={{ marginTop: 8, paddingLeft: 20, fontSize: 13, lineHeight: 1.8 }}>
+                  {data_sources.map((ds, i) => (
+                    <li key={i}>
+                      {typeof ds === 'string' ? ds : (
+                        <>
+                          <strong>{ds.source}</strong>
+                          {ds.status && <> — <Badge color={ds.status === 'USED' ? '#fff' : '#323130'} bg={ds.status === 'USED' ? '#107c10' : '#e1dfdd'}>{ds.status}</Badge></>}
+                          {ds.reason && <span style={{ marginLeft: 4 }}>{ds.reason}</span>}
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Final Analysis Reasoning */}
+            {final_analysis && (final_analysis.category_reason || final_analysis.intent_reason) && (
+              <div style={{ marginBottom: 16, background: '#f8f9fa', padding: 12, borderRadius: 6, fontSize: 13 }}>
+                {final_analysis.category_reason && (
+                  <p style={{ margin: '0 0 6px' }}><strong>Category Reason:</strong> {final_analysis.category_reason}</p>
+                )}
+                {final_analysis.intent_reason && (
+                  <p style={{ margin: '0 0 6px' }}><strong>Intent Reason:</strong> {final_analysis.intent_reason}</p>
+                )}
+                {final_analysis.data_source_summary && (
+                  <p style={{ margin: 0 }}><strong>Data Sources:</strong> {final_analysis.data_source_summary}</p>
+                )}
+              </div>
+            )}
           </div>
-        )}
-
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ fontSize: 13 }}>
-            ✗ Cancel
-          </button>
         </div>
-      </div>
+      )}
+
+      {/* ══════════ TAB: Decision ══════════ */}
+      {activeTab === 'decision' && (
+        <div className="analysis-tab-panel">
+          <div className="card">
+            <div className="card-header" style={{ background: '#fde7e9', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
+              🎯 Final Decision Summary
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <strong>Category Decision:</strong>{' '}
+              <CategoryBadge value={analysis.category_display || analysis.category} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <strong>Intent:</strong>{' '}
+              <Badge color="#fff" bg="#27ae60">{formatLabel(analysis.intent_display || analysis.intent)}</Badge>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <strong>Business Impact:</strong>{' '}
+              <ImpactBadge level={analysis.business_impact_display || analysis.business_impact} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <strong>Confidence Level:</strong>{' '}
+              <Badge color="#fff" bg="#2471a3">{Math.round((analysis.confidence || 0) * 100)}%</Badge>
+            </div>
+
+            {isLLM ? (
+              <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 16 }}>
+                ℹ️ This analysis was performed using Azure OpenAI's GPT-4o model with advanced natural language understanding.
+              </div>
+            ) : (
+              <div style={{
+                background: '#fff4ce', border: '1px solid #ffb900', borderRadius: 6,
+                padding: '10px 14px', fontSize: 12, marginBottom: 16, color: '#8a6d3b',
+              }}>
+                ⚠️ This analysis was performed using rule-based pattern matching. AI classification was unavailable.
+              </div>
+            )}
+
+            {/* Key Concepts */}
+            {key_concepts?.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <strong>Key Concepts Identified:</strong><br />
+                <div style={{ marginTop: 4 }}>
+                  {key_concepts.map((c, i) => (
+                    <Badge key={i} color="#fff" bg="#34495e">{c}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Semantic Keywords */}
+            {semantic_keywords?.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <strong>Semantic Keywords:</strong><br />
+                <div style={{ marginTop: 4 }}>
+                  {semantic_keywords.map((k, i) => (
+                    <Badge key={i} color="#fff" bg="#2980b9">{k}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Domain Entities */}
+            {domain_entities && (
+              <div style={{ marginTop: 16 }}>
+                <strong>Domain Entities Detected:</strong>
+                <div style={{ marginTop: 8 }}>
+                  {domain_entities.azure_services?.length > 0 && (
+                    <CollapsibleSection title="Azure Services" count={domain_entities.azure_services.length} defaultOpen={true}>
+                      <div>{domain_entities.azure_services.map((s, i) => <Badge key={i} bg="#deecf9" color="#0078d4">{s}</Badge>)}</div>
+                    </CollapsibleSection>
+                  )}
+                  {domain_entities.technologies?.length > 0 && (
+                    <CollapsibleSection title="Technologies" count={domain_entities.technologies.length} defaultOpen={true}>
+                      <div>{domain_entities.technologies.map((t, i) => <Badge key={i} bg="#e8daef" color="#6c3483">{t}</Badge>)}</div>
+                    </CollapsibleSection>
+                  )}
+                  {domain_entities.technical_areas?.length > 0 && (
+                    <CollapsibleSection title="Technical Areas" count={domain_entities.technical_areas.length}>
+                      <div>{domain_entities.technical_areas.map((t, i) => <Badge key={i} bg="#d5f5e3" color="#1e8449">{t}</Badge>)}</div>
+                    </CollapsibleSection>
+                  )}
+                  {domain_entities.business_domains?.length > 0 && (
+                    <CollapsibleSection title="Business Domains" count={domain_entities.business_domains.length}>
+                      <div>{domain_entities.business_domains.map((b, i) => <Badge key={i} bg="#fde7e9" color="#d13438">{b}</Badge>)}</div>
+                    </CollapsibleSection>
+                  )}
+                  {domain_entities.regions?.length > 0 && (
+                    <CollapsibleSection title="Regions" count={domain_entities.regions.length}>
+                      <div>{domain_entities.regions.map((r, i) => <Badge key={i} bg="#d6eaf8" color="#2471a3">{r}</Badge>)}</div>
+                    </CollapsibleSection>
+                  )}
+                  {domain_entities.discovered_services?.length > 0 && (
+                    <CollapsibleSection title="Discovered Services" count={domain_entities.discovered_services.length}>
+                      <div>{domain_entities.discovered_services.map((s, i) => <Badge key={i} bg="#fde7e9" color="#a93226">{s}</Badge>)}</div>
+                    </CollapsibleSection>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Search Strategy */}
+            {search_strategy && Object.keys(search_strategy).length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <strong>Recommended Search Strategy:</strong>
+                <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+                  {Object.entries(search_strategy).map(([key, val]) => (
+                    <div key={key} style={{ fontSize: 13 }}>
+                      {val === true && <span>✔ {formatLabel(key)}</span>}
+                      {val === false && <span style={{ opacity: 0.5 }}>✗ {formatLabel(key)}</span>}
+                      {typeof val === 'string' && <span>✔ {formatLabel(key)}: {val}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ TAB: Evaluate ══════════ */}
+      {activeTab === 'evaluate' && (
+        <div className="analysis-tab-panel">
+          <div className="card">
+            <div className="card-header" style={{ background: '#dff6dd', margin: '-24px -24px 16px', padding: '12px 24px', borderRadius: '8px 8px 0 0' }}>
+              ✅ Your Evaluation
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <strong>Is this analysis correct?</strong>
+
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="radio"
+                    name="eval"
+                    checked={evalCorrect === true}
+                    onChange={() => setEvalCorrect(true)}
+                    style={{ accentColor: 'var(--color-success)' }}
+                  />
+                  <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>
+                    ✔ Yes, this analysis is correct — proceed with matching
+                  </span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="eval"
+                    checked={evalCorrect === false}
+                    onChange={() => {
+                      setEvalCorrect(false);
+                      if (!correctedCategory) setCorrectedCategory(analysis?.category || '');
+                      if (!correctedIntent) setCorrectedIntent(analysis?.intent || '');
+                      if (!correctedImpact) setCorrectedImpact(analysis?.business_impact || '');
+                    }}
+                    style={{ accentColor: 'var(--color-danger)' }}
+                  />
+                  <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
+                    ✗ No, this analysis needs correction
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Correction Dropdowns */}
+            {evalCorrect === false && (
+              <div style={{
+                background: 'var(--color-bg-secondary, #f3f2f1)', border: '1px solid var(--color-border, #edebe9)',
+                borderLeft: '4px solid var(--color-primary, #0078d4)', borderRadius: 6, padding: 16, marginBottom: 16,
+              }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary, #0078d4)', margin: '0 0 12px 0' }}>
+                  Please provide the correct analysis:
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Category:</label>
+                    <select
+                      value={correctedCategory}
+                      onChange={(e) => setCorrectedCategory(e.target.value)}
+                      style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
+                    >
+                      <option value="">-- Select Category --</option>
+                      {CATEGORY_OPTIONS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.items.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Intent:</label>
+                    <select
+                      value={correctedIntent}
+                      onChange={(e) => setCorrectedIntent(e.target.value)}
+                      style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
+                    >
+                      <option value="">-- Select Intent --</option>
+                      {INTENT_OPTIONS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.items.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Correct Business Impact:</label>
+                    <select
+                      value={correctedImpact}
+                      onChange={(e) => setCorrectedImpact(e.target.value)}
+                      style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--color-border, #8a8886)', borderRadius: 4, fontSize: 13 }}
+                    >
+                      <option value="">-- Select Impact --</option>
+                      {BUSINESS_IMPACT_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>{evalCorrect === false ? 'Explain why the analysis is wrong:' : 'General Feedback (optional):'}</label>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                rows={3}
+                placeholder={evalCorrect === false
+                  ? 'Please explain why the system\'s analysis was incorrect and provide any additional context...'
+                  : 'Any additional feedback to help improve the system...'}
+              />
+            </div>
+
+            {error && <div className="alert alert-danger" style={{ fontSize: 13 }}>{error}</div>}
+
+            <div className="btn-group" style={{ justifyContent: 'center' }}>
+              {evalCorrect === false && (
+                <>
+                  <button className="btn btn-primary" onClick={handleReanalyze} disabled={submitting}>
+                    🔄 Reanalyze with Corrections
+                  </button>
+                  <button className="btn btn-success" onClick={handleSaveCorrections} disabled={submitting}>
+                    💾 Save Corrections Only
+                  </button>
+                </>
+              )}
+              {evalCorrect === true && (
+                <button
+                  className="btn btn-success"
+                  onClick={async () => {
+                    setSubmitting(true);
+                    try {
+                      await submitCorrection({
+                        session_id: sessionId,
+                        action: 'approve',
+                        correction_notes: feedback || undefined,
+                      });
+                      navigate('/searching', { state: { sessionId } });
+                    } catch (err) { setError(err.message); }
+                    finally { setSubmitting(false); }
+                  }}
+                  disabled={submitting}
+                >
+                  ✔ Approve & Continue to Search →
+                </button>
+              )}
+            </div>
+
+            {evalCorrect === null && (
+              <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                ⚠ Please select an option above
+              </div>
+            )}
+
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ fontSize: 13 }}>
+                ✗ Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

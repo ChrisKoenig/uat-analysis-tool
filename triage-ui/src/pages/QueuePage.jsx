@@ -169,6 +169,7 @@ export default function QueuePage({ addToast }) {
   const [analysisDetail, setAnalysisDetail] = useState(null);
   const [analysisDetailId, setAnalysisDetailId] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [bladeTab, setBladeTab] = useState('overview');
 
   // Analysis progress panel state
   const [analysisProgress, setAnalysisProgress] = useState(null);
@@ -888,6 +889,7 @@ export default function QueuePage({ addToast }) {
       return;
     }
     setAnalysisDetailId(workItemId);
+    setBladeTab('overview');
     setLoadingDetail(true);
     try {
       const detail = await api.getAnalysisDetail(workItemId);
@@ -1555,137 +1557,164 @@ export default function QueuePage({ addToast }) {
                   </div>
                 )}
 
-                {/* Quality Score (prominent) */}
-                <section className="analysis-section analysis-quality-section">
-                  <div className="quality-score-display">
-                    <div className={`quality-score-ring ${analysisDetail.confidence >= 0.8 ? 'high' : analysisDetail.confidence >= 0.5 ? 'medium' : 'low'}`}>
-                      <span className="quality-score-value">{((analysisDetail.confidence || 0) * 100).toFixed(0)}</span>
-                      <span className="quality-score-label">%</span>
-                    </div>
-                    <div className="quality-score-meta">
-                      <span className="quality-score-title">Confidence Score</span>
-                      <span className="quality-score-source">Source: {analysisDetail.source || 'Unknown'}</span>
-                      {analysisDetail.agreement !== undefined && (
-                        <span className="quality-score-agreement">{analysisDetail.agreement ? '✅ Models agree' : '❌ Models disagree'}</span>
-                      )}
-                    </div>
+                {/* ── Tab Bar ── */}
+                <div className="analysis-tabs">
+                  <button className={`analysis-tab ${bladeTab === 'overview' ? 'active' : ''}`} onClick={() => setBladeTab('overview')}>
+                    <span className="tab-icon">📊</span> Overview
+                  </button>
+                  <button className={`analysis-tab ${bladeTab === 'details' ? 'active' : ''}`} onClick={() => setBladeTab('details')}>
+                    <span className="tab-icon">🏷️</span> Details
+                    {(() => { const c = (analysisDetail.keyConcepts?.length || 0) + (analysisDetail.azureServices?.length || 0) + (analysisDetail.technologies?.length || 0) + (analysisDetail.detectedProducts?.length || 0) + (analysisDetail.regions?.length || 0) + (analysisDetail.technicalAreas?.length || 0) + (analysisDetail.complianceFrameworks?.length || 0); return c > 0 ? <span className="tab-badge">{c}</span> : null; })()}
+                  </button>
+                </div>
+
+                {/* ══════════ TAB: Overview ══════════ */}
+                {bladeTab === 'overview' && (
+                  <div className="analysis-tab-panel">
+                    {/* Quality Score (prominent) */}
+                    <section className="analysis-section analysis-quality-section">
+                      <div className="quality-score-display">
+                        <div className={`quality-score-ring ${analysisDetail.confidence >= 0.8 ? 'high' : analysisDetail.confidence >= 0.5 ? 'medium' : 'low'}`}>
+                          <span className="quality-score-value">{((analysisDetail.confidence || 0) * 100).toFixed(0)}</span>
+                          <span className="quality-score-label">%</span>
+                        </div>
+                        <div className="quality-score-meta">
+                          <span className="quality-score-title">Confidence Score</span>
+                          <span className="quality-score-source">Source: {analysisDetail.source || 'Unknown'}</span>
+                          {analysisDetail.agreement !== undefined && (
+                            <span className="quality-score-agreement">{analysisDetail.agreement ? '✅ Models agree' : '❌ Models disagree'}</span>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* Classification */}
+                    <section className="analysis-section">
+                      <h4>Classification</h4>
+                      <div className="analysis-field-grid">
+                        <div className="analysis-field">
+                          <label>Category</label>
+                          <span className="queue-badge analysis-category-badge">{(analysisDetail.category || '').replace(/_/g, ' ')}</span>
+                        </div>
+                        <div className="analysis-field">
+                          <label>Intent</label>
+                          <span>{(analysisDetail.intent || '').replace(/_/g, ' ')}</span>
+                        </div>
+                        <div className="analysis-field">
+                          <label>Business Impact</label>
+                          <span className={`impact-badge impact-${(analysisDetail.businessImpact || '').toLowerCase()}`}>
+                            {analysisDetail.businessImpact || '—'}
+                          </span>
+                        </div>
+                        <div className="analysis-field">
+                          <label>Technical Complexity</label>
+                          <span>{analysisDetail.technicalComplexity || '—'}</span>
+                        </div>
+                        <div className="analysis-field">
+                          <label>Urgency</label>
+                          <span className={`impact-badge impact-${(analysisDetail.urgencyLevel || '').toLowerCase()}`}>
+                            {analysisDetail.urgencyLevel || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* AI Analysis Summary */}
+                    {analysisDetail.contextSummary && (
+                      <section className="analysis-section">
+                        <h4>AI Analysis Summary</h4>
+                        <p className="analysis-summary-text">{analysisDetail.contextSummary}</p>
+                      </section>
+                    )}
+
+                    {/* Metadata */}
+                    <section className="analysis-section analysis-meta">
+                      <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '—'}</span>
+                      <span className="text-muted">ID: {analysisDetail.id}</span>
+                    </section>
                   </div>
-                </section>
+                )}
 
-                {/* Classification */}
-                <section className="analysis-section">
-                  <h4>Classification</h4>
-                  <div className="analysis-field-grid">
-                    <div className="analysis-field">
-                      <label>Category</label>
-                      <span className="queue-badge analysis-category-badge">{(analysisDetail.category || '').replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="analysis-field">
-                      <label>Intent</label>
-                      <span>{(analysisDetail.intent || '').replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="analysis-field">
-                      <label>Business Impact</label>
-                      <span className={`impact-badge impact-${(analysisDetail.businessImpact || '').toLowerCase()}`}>
-                        {analysisDetail.businessImpact || '—'}
-                      </span>
-                    </div>
-                    <div className="analysis-field">
-                      <label>Technical Complexity</label>
-                      <span>{analysisDetail.technicalComplexity || '—'}</span>
-                    </div>
-                    <div className="analysis-field">
-                      <label>Urgency</label>
-                      <span className={`impact-badge impact-${(analysisDetail.urgencyLevel || '').toLowerCase()}`}>
-                        {analysisDetail.urgencyLevel || '—'}
-                      </span>
-                    </div>
+                {/* ══════════ TAB: Details ══════════ */}
+                {bladeTab === 'details' && (
+                  <div className="analysis-tab-panel">
+                    {/* Key Concepts */}
+                    {analysisDetail.keyConcepts?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Key Concepts</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.keyConcepts.map((c, i) => <span key={i} className="analysis-tag tag-concept">{c}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Azure & Modern Work Services */}
+                    {analysisDetail.azureServices?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Azure & Modern Work Services</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag tag-service">{s}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Technologies */}
+                    {analysisDetail.technologies?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Technologies</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag tag-tech">{t}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Technical Areas */}
+                    {analysisDetail.technicalAreas?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Technical Areas</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.technicalAreas.map((a, i) => <span key={i} className="analysis-tag tag-area">{a}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Regions / Locations */}
+                    {analysisDetail.regions?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Regions / Locations</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.regions.map((r, i) => <span key={i} className="analysis-tag tag-region">{r}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Compliance Frameworks */}
+                    {analysisDetail.complianceFrameworks?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Compliance Frameworks</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.complianceFrameworks.map((f, i) => <span key={i} className="analysis-tag tag-compliance">{f}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Products */}
+                    {analysisDetail.detectedProducts?.length > 0 && (
+                      <section className="analysis-section">
+                        <h4>Detected Products</h4>
+                        <div className="analysis-tags">
+                          {analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag tag-product">{p}</span>)}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Metadata */}
+                    <section className="analysis-section analysis-meta">
+                      <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '—'}</span>
+                      <span className="text-muted">ID: {analysisDetail.id}</span>
+                    </section>
                   </div>
-                </section>
-
-                {/* AI Analysis Summary */}
-                {analysisDetail.contextSummary && (
-                  <section className="analysis-section">
-                    <h4>AI Analysis Summary</h4>
-                    <p className="analysis-summary-text">{analysisDetail.contextSummary}</p>
-                  </section>
                 )}
-
-                {/* Key Concepts */}
-                {analysisDetail.keyConcepts?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Key Concepts</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.keyConcepts.map((c, i) => <span key={i} className="analysis-tag tag-concept">{c}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Azure & Modern Work Services */}
-                {analysisDetail.azureServices?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Azure & Modern Work Services</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag tag-service">{s}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Technologies */}
-                {analysisDetail.technologies?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Technologies</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag tag-tech">{t}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Technical Areas */}
-                {analysisDetail.technicalAreas?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Technical Areas</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.technicalAreas.map((a, i) => <span key={i} className="analysis-tag tag-area">{a}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Regions / Locations */}
-                {analysisDetail.regions?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Regions / Locations</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.regions.map((r, i) => <span key={i} className="analysis-tag tag-region">{r}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Compliance Frameworks */}
-                {analysisDetail.complianceFrameworks?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Compliance Frameworks</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.complianceFrameworks.map((f, i) => <span key={i} className="analysis-tag tag-compliance">{f}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Products */}
-                {analysisDetail.detectedProducts?.length > 0 && (
-                  <section className="analysis-section">
-                    <h4>Detected Products</h4>
-                    <div className="analysis-tags">
-                      {analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag tag-product">{p}</span>)}
-                    </div>
-                  </section>
-                )}
-
-                {/* Metadata */}
-                <section className="analysis-section analysis-meta">
-                  <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '—'}</span>
-                  <span className="text-muted">ID: {analysisDetail.id}</span>
-                </section>
               </div>
             ) : (
               <div className="analysis-detail-loading">No analysis data available.</div>

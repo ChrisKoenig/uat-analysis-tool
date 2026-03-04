@@ -1506,6 +1506,74 @@
 }
 
 
+/* ── Analysis Detail Blade Tabs ────────────────────────── */
+.analysis-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--muted-bg, #f0f2f5);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.analysis-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light, #666);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.analysis-tab:hover {
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--text, #333);
+}
+
+.analysis-tab.active {
+  background: #fff;
+  color: var(--primary, #0078d4);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.analysis-tab .tab-icon {
+  font-size: 13px;
+}
+
+.analysis-tab .tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--primary, #0078d4);
+  color: #fff;
+  line-height: 1;
+}
+
+.analysis-tab-panel {
+  animation: fadeInPanel 0.25s ease;
+}
+
+@keyframes fadeInPanel {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Dark mode: Column Filter Dropdown ────────────────────────── */
 @media (prefers-color-scheme: dark) {
   .col-filter-dropdown {
