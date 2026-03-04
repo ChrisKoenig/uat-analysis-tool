@@ -644,14 +644,61 @@ export function addCorrection(correction) {
   return post('/admin/corrections', correction);
 }
 
-/** Update a correction by index (zero-based) */
-export function updateCorrection(index, correction) {
-  return put(`/admin/corrections/${index}`, correction);
+/** Update a correction by document ID */
+export function updateCorrection(id, correction) {
+  return put(`/admin/corrections/${id}`, correction);
 }
 
-/** Delete a correction by index (zero-based) */
-export function deleteCorrection(index) {
-  return del(`/admin/corrections/${index}`);
+/** Delete a correction by document ID */
+export function deleteCorrection(id) {
+  return del(`/admin/corrections/${id}`);
+}
+
+
+// =============================================================================
+// Training Signals API (ENG-003 Active Learning)
+// =============================================================================
+
+/**
+ * Submit a training signal from a disagreement resolution.
+ * @param {Object} signal
+ * @param {string} signal.workItemId
+ * @param {string} signal.llmCategory
+ * @param {string} signal.patternCategory
+ * @param {"llm"|"pattern"|"neither"} signal.humanChoice
+ * @param {string} [signal.resolvedCategory] - Required when humanChoice is "neither"
+ * @param {string} [signal.resolvedIntent]
+ * @param {string} [signal.notes]
+ */
+export function submitTrainingSignal(signal) {
+  return post('/admin/training-signals', signal);
+}
+
+/** List recent training signals */
+export function listTrainingSignals(limit = 50, workItemId = null) {
+  let url = `/admin/training-signals?limit=${limit}`;
+  if (workItemId) url += `&work_item_id=${workItemId}`;
+  return get(url);
+}
+
+
+// =============================================================================
+// Pattern Weight Tuning API (ENG-003 Step 3)
+// =============================================================================
+
+/**
+ * Trigger the pattern weight tuning batch.
+ * Reads training signals, computes per-category multipliers, stores in Cosmos.
+ */
+export function tunePatternWeights() {
+  return post('/admin/tune-weights', {});
+}
+
+/**
+ * Get the current pattern weight adjustments.
+ */
+export function getPatternWeights() {
+  return get('/admin/pattern-weights');
 }
 
 

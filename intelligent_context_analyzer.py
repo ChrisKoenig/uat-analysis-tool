@@ -247,7 +247,18 @@ class IntelligentContextAnalyzer:
         
         print("[DEBUG INTEL 9] Loading knowledge base...", flush=True)
         self._load_knowledge_base()
-        print("[DEBUG INTEL 10] IntelligentContextAnalyzer.__init__() completed!", flush=True)
+        
+        # Load active-learning weight adjustments (ENG-003 Step 3)
+        # These multipliers are produced by weight_tuner.py batch process
+        # and stored in the training-signals Cosmos container.
+        print("[DEBUG INTEL 10] Loading pattern weight adjustments...", flush=True)
+        self._weight_multipliers = self._load_weight_adjustments()
+        if self._weight_multipliers:
+            print(f"[DEBUG INTEL 10a] Loaded weight adjustments for {len(self._weight_multipliers)} categories")
+        else:
+            print("[DEBUG INTEL 10a] No weight adjustments found (defaults will be used)")
+        
+        print("[DEBUG INTEL 11] IntelligentContextAnalyzer.__init__() completed!", flush=True)
     
     def _get_cached_data(self, cache_key: str) -> Optional[Dict]:
         """
@@ -1359,6 +1370,27 @@ class IntelligentContextAnalyzer:
         except Exception as e:
             self.logger.error(f"[ERROR] Error loading corrections data: {e}")
         return {"corrections": []}
+    
+    def _load_weight_adjustments(self) -> Dict[str, float]:
+        """
+        Load active-learning weight adjustments from Cosmos.
+        
+        Returns a dict mapping category name (str) to a float multiplier.
+        Returns empty dict if no adjustments exist or Cosmos unavailable.
+        
+        These adjustments are produced by weight_tuner.py and stored as a
+        single document in the training-signals Cosmos container.
+        """
+        try:
+            from weight_tuner import PatternWeightTuner
+            tuner = PatternWeightTuner()
+            multipliers = tuner.get_multipliers()
+            if multipliers:
+                self.logger.info(f"[OK] Loaded weight adjustments for {len(multipliers)} categories")
+            return multipliers
+        except Exception as e:
+            self.logger.warning(f"[WARNING] Could not load weight adjustments: {e}")
+            return {}
     
     def _track_data_source_usage(self, text: str, reasoning_tracker: Dict):
         """Track which data sources were used or skipped and why"""
@@ -2608,6 +2640,21 @@ class IntelligentContextAnalyzer:
             sustainability_indicators += 0.8
         category_scores[IssueCategory.SUSTAINABILITY] = sustainability_indicators
         
+        # ====================================================================
+        # ENG-003 Step 3: Apply active-learning weight adjustments
+        # ====================================================================
+        # Multipliers are computed by weight_tuner.py from human-resolved
+        # disagreement signals.  They nudge category scores up or down so
+        # the pattern engine converges toward human preferences over time.
+        if self._weight_multipliers:
+            for cat_enum, score in list(category_scores.items()):
+                cat_key = cat_enum.value if hasattr(cat_enum, 'value') else str(cat_enum)
+                multiplier = self._weight_multipliers.get(cat_key, 1.0)
+                if multiplier != 1.0 and score > 0:
+                    adjusted = score * multiplier
+                    print(f"[WeightAdj] {cat_key}: {score:.3f} × {multiplier:.3f} → {adjusted:.3f}")
+                    category_scores[cat_enum] = adjusted
+
         # Find highest scoring category
         best_category = max(category_scores.items(), key=lambda x: x[1])
         

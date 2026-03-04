@@ -618,20 +618,18 @@ class AzureDevOpsClient:
                     "value": milestone_id
                 })
             
-            # Custom field: StatusUpdate (set to 'WizardAuto')
-            # Uses Custom.StatusUpdate — must match the production ADO org
-            operations.append({
+            # Custom fields (StatusUpdate, pChallengeDetails) are applied
+            # via a separate PATCH after creation so that orgs without these
+            # custom fields still get the work item created successfully.
+            custom_field_ops = []
+            custom_field_ops.append({
                 "op": "add",
                 "path": "/fields/Custom.StatusUpdate",
                 "value": "WizardAuto"
             })
-
-            # Custom field: pChallengeDetails (AI evaluation summary HTML)
-            # Uses Custom.pChallengeDetails — the 'p' prefix matches the
-            # production ADO org field definition and triage/services/ado_writer.py.
             evaluation_html = issue_data.get('evaluation_summary_html', '')
             if evaluation_html:
-                operations.append({
+                custom_field_ops.append({
                     "op": "add",
                     "path": "/fields/Custom.pChallengeDetails",
                     "value": evaluation_html
@@ -692,36 +690,26 @@ class AzureDevOpsClient:
             print(f"[ADO]   Status Code: {response.status_code}")
             print(f"[ADO]   Status Text: {response.reason}")
             
-            # If we get TF51535 "Cannot find field custom.X", strip that field
-            # and retry.  The test org may not have all custom fields defined.
-            if response.status_code == 400 and 'TF51535' in response.text:
-                import re as _re
-                missing = _re.search(r'Cannot find field (\S+)', response.text)
-                if missing:
-                    bad_field = missing.group(1).rstrip('.,')
-                    print(f"[ADO]   ⚠️ Custom field '{bad_field}' not found — retrying without it")
-                    operations = [
-                        op for op in operations
-                        if not op.get("path", "").endswith(bad_field)
-                    ]
-                    response = requests.post(url, json=operations, headers=headers)
-                    print(f"[ADO]   Retry status: {response.status_code}")
-                    # If another custom field is also missing, strip and retry once more
-                    if response.status_code == 400 and 'TF51535' in response.text:
-                        missing2 = _re.search(r'Cannot find field (\S+)', response.text)
-                        if missing2:
-                            bad_field2 = missing2.group(1).rstrip('.,')
-                            print(f"[ADO]   ⚠️ Custom field '{bad_field2}' also missing — retrying")
-                            operations = [
-                                op for op in operations
-                                if not op.get("path", "").endswith(bad_field2)
-                            ]
-                            response = requests.post(url, json=operations, headers=headers)
-            
             if response.status_code == 200:
                 print(f"[ADO] STEP 7: Success! Parsing response JSON...")
                 work_item = response.json()
-                print(f"[ADO]   ✓ Work item created: ID {work_item['id']}")
+                work_item_id = work_item['id']
+                print(f"[ADO]   ✓ Work item created: ID {work_item_id}")
+
+                # Best-effort: PATCH custom fields onto the new work item.
+                # If the org doesn't have these fields, log and move on.
+                if custom_field_ops:
+                    try:
+                        patch_url = f"{self.config.BASE_URL}/{quote(self.config.PROJECT)}/_apis/wit/workitems/{work_item_id}?api-version={self.config.API_VERSION}"
+                        patch_resp = requests.patch(patch_url, json=custom_field_ops, headers=headers)
+                        if patch_resp.status_code == 200:
+                            print(f"[ADO]   ✓ Custom fields applied successfully")
+                        else:
+                            print(f"[ADO]   ⚠️ Custom fields PATCH returned {patch_resp.status_code} — skipping (work item still created)")
+                            print(f"[ADO]     Response: {patch_resp.text[:300]}")
+                    except Exception as patch_err:
+                        print(f"[ADO]   ⚠️ Custom fields PATCH failed: {patch_err} — skipping")
+
                 print("="*80)
                 return {
                     'success': True,

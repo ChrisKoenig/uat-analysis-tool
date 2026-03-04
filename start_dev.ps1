@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # GCS Development Startup - Clean Start All Services
 # ============================================================================
 #
@@ -95,7 +95,7 @@ Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 
 # -- Step 3: Write local UI config -------------------------------------------------
 
-Write-Host "`n[3/6] Writing local UI configs (config.local.json → config.json)..." -ForegroundColor Yellow
+Write-Host "`n[3/6] Writing local UI configs (config.local.json -> config.json)..." -ForegroundColor Yellow
 
 $uiConfigs = @(
     @{ Label = "Triage UI";       Dir = "$Root\triage-ui\public" },
@@ -106,9 +106,9 @@ foreach ($ui in $uiConfigs) {
     $dest = Join-Path $ui.Dir "config.json"
     if (Test-Path $src) {
         Copy-Item $src $dest -Force
-        Write-Host "  $($ui.Label): config.json ← config.local.json" -ForegroundColor Green
+        Write-Host "  $($ui.Label): config.json <- config.local.json" -ForegroundColor Green
     } else {
-        Write-Host "  $($ui.Label): config.local.json NOT FOUND — skipped" -ForegroundColor Red
+        Write-Host "  $($ui.Label): config.local.json NOT FOUND - skipped" -ForegroundColor Red
     }
 }
 

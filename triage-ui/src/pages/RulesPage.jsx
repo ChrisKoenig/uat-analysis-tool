@@ -328,7 +328,7 @@ export default function RulesPage({ addToast }) {
                       {Object.entries(references.references).map(([type, ids]) =>
                         ids.map((id) => (
                           <li key={`${type}-${id}`}>
-                            <StatusBadge status="active" /> {type}: {id}
+                            <StatusBadge status="active" /> {type}: {references.referenceNames?.[id] || id}
                           </li>
                         ))
                       )}

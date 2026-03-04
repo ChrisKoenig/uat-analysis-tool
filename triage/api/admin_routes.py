@@ -9,7 +9,12 @@ without touching the legacy Flask code.
 Endpoints:
     GET    /admin/corrections         — List all corrections
     POST   /admin/corrections         — Add a correction
-    DELETE /admin/corrections/{index} — Remove a correction
+    PUT    /admin/corrections/{id}    — Update a correction
+    DELETE /admin/corrections/{id}    — Remove a correction
+    POST   /admin/training-signals    — Submit a training signal
+    GET    /admin/training-signals    — List training signals
+    POST   /admin/tune-weights        — Run pattern weight tuning batch
+    GET    /admin/pattern-weights     — View current weight adjustments
     GET    /admin/health              — Comprehensive health dashboard
     GET    /admin/health/services     — Individual service status
 """
@@ -18,11 +23,12 @@ import json
 import logging
 import os
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("triage.api.admin")
@@ -33,6 +39,7 @@ logger = logging.getLogger("triage.api.admin")
 
 class CorrectionItem(BaseModel):
     """A single corrective learning entry."""
+    id: str = Field("", description="Unique document ID")
     original_text: str = Field("", description="Text that triggered the wrong category")
     pattern: str = Field("", description="Pattern name that matched")
     original_category: str = Field(..., description="Category the system assigned")
@@ -41,6 +48,7 @@ class CorrectionItem(BaseModel):
     correction_notes: str = Field("", description="Human explanation")
     timestamp: Optional[str] = None
     confidence_boost: float = Field(0.15, description="Extra confidence for matched corrections")
+    workItemId: str = Field("general", description="Associated work item ID or 'general'")
 
 
 class CorrectionCreate(BaseModel):
@@ -80,6 +88,48 @@ class HealthDashboardResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Training Signal models (ENG-003 Active Learning)
+# ---------------------------------------------------------------------------
+
+class TrainingSignalCreate(BaseModel):
+    """Request body for submitting a training signal."""
+    workItemId: str = Field(..., description="Work item ID where disagreement was observed")
+    llmCategory: str = Field(..., description="Category chosen by LLM classifier")
+    llmIntent: str = Field("", description="Intent chosen by LLM classifier")
+    patternCategory: str = Field(..., description="Category chosen by pattern engine")
+    patternIntent: str = Field("", description="Intent chosen by pattern engine")
+    humanChoice: Literal["llm", "pattern", "neither"] = Field(
+        ..., description="Which classification the human selected"
+    )
+    resolvedCategory: str = Field("", description="Final category (auto-filled or manual for 'neither')")
+    resolvedIntent: str = Field("", description="Final intent (auto-filled or manual for 'neither')")
+    notes: str = Field("", description="Optional human notes on the decision")
+    resolvedBy: str = Field("user", description="Who resolved the disagreement")
+
+
+class TrainingSignalItem(BaseModel):
+    """A stored training signal document."""
+    id: str
+    workItemId: str
+    llmCategory: str
+    llmIntent: str = ""
+    patternCategory: str
+    patternIntent: str = ""
+    humanChoice: str  # "llm", "pattern", "neither"
+    resolvedCategory: str
+    resolvedIntent: str = ""
+    notes: str = ""
+    resolvedBy: str = "user"
+    timestamp: str = ""
+
+
+class TrainingSignalListResponse(BaseModel):
+    """Paginated training signals list."""
+    signals: List[TrainingSignalItem]
+    total: int
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -89,7 +139,7 @@ _CORRECTIONS_FILE = Path(os.path.dirname(os.path.dirname(os.path.dirname(
 
 
 def _load_corrections() -> dict:
-    """Load corrections.json, returning the full dict."""
+    """Load corrections.json, returning the full dict (legacy fallback)."""
     try:
         with open(_CORRECTIONS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -100,11 +150,67 @@ def _load_corrections() -> dict:
 
 
 def _save_corrections(data: dict):
-    """Write corrections.json atomically."""
+    """Write corrections.json atomically (legacy fallback)."""
     tmp = _CORRECTIONS_FILE.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     tmp.replace(_CORRECTIONS_FILE)
+
+
+_corrections_migrated = False
+
+
+def _get_corrections_container():
+    """Get the Cosmos corrections container, seeding from JSON if needed."""
+    global _corrections_migrated
+    try:
+        from ..config.cosmos_config import get_cosmos_config
+        cfg = get_cosmos_config()
+        if cfg._in_memory:
+            return None   # fall back to file
+        container = cfg.get_container("corrections")
+        if not _corrections_migrated:
+            _seed_corrections_from_json(container)
+            _corrections_migrated = True
+        return container
+    except Exception as e:
+        logger.warning(f"Cannot get Cosmos corrections container: {e}")
+        return None
+
+
+def _seed_corrections_from_json(container):
+    """One-time migration: seed Cosmos corrections from corrections.json."""
+    try:
+        existing = list(container.query_items(
+            "SELECT VALUE COUNT(1) FROM c",
+            enable_cross_partition_query=True
+        ))
+        if existing and existing[0] > 0:
+            return  # already seeded
+        data = _load_corrections()
+        for i, corr in enumerate(data.get("corrections", [])):
+            doc = {
+                "id": f"corr-{uuid.uuid4().hex[:8]}",
+                "workItemId": corr.get("workItemId", "general"),
+                **corr,
+            }
+            container.upsert_item(doc)
+            logger.info(f"Seeded correction {i}: {corr.get('original_category')} → {corr.get('corrected_category')}")
+    except Exception as e:
+        logger.warning(f"Corrections seed failed: {e}")
+
+
+def _get_training_signals_container():
+    """Get the Cosmos training-signals container."""
+    try:
+        from ..config.cosmos_config import get_cosmos_config
+        cfg = get_cosmos_config()
+        if cfg._in_memory:
+            return None
+        return cfg.get_container("training-signals")
+    except Exception as e:
+        logger.warning(f"Cannot get Cosmos training-signals container: {e}")
+        return None
 
 
 def _build_diagnostics(name: str, status: str, detail: Optional[Dict],
@@ -255,11 +361,39 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/corrections", response_model=CorrectionsListResponse,
             summary="List corrections")
 async def list_corrections():
-    """Return all corrective learning entries."""
+    """Return all corrective learning entries (Cosmos-backed with JSON fallback)."""
+    container = _get_corrections_container()
+    if container:
+        try:
+            items = list(container.query_items(
+                "SELECT * FROM c ORDER BY c.timestamp DESC",
+                enable_cross_partition_query=True
+            ))
+            corrections = [CorrectionItem(
+                id=item.get("id", ""),
+                original_text=item.get("original_text", ""),
+                pattern=item.get("pattern", ""),
+                original_category=item.get("original_category", ""),
+                corrected_category=item.get("corrected_category", ""),
+                corrected_intent=item.get("corrected_intent", ""),
+                correction_notes=item.get("correction_notes", ""),
+                timestamp=item.get("timestamp"),
+                confidence_boost=item.get("confidence_boost", 0.15),
+                workItemId=item.get("workItemId", "general"),
+            ) for item in items]
+            return CorrectionsListResponse(corrections=corrections, total=len(corrections))
+        except Exception as e:
+            logger.warning(f"Cosmos corrections read failed, falling back to JSON: {e}")
+    # Fallback to JSON
     data = _load_corrections()
     items = data.get("corrections", [])
     return CorrectionsListResponse(
-        corrections=[CorrectionItem(**c) for c in items],
+        corrections=[CorrectionItem(
+            id=f"legacy-{i}",
+            original_category=c.get("original_category", ""),
+            corrected_category=c.get("corrected_category", ""),
+            **{k: c[k] for k in c if k not in ("original_category", "corrected_category")}
+        ) for i, c in enumerate(items)],
         total=len(items),
     )
 
@@ -273,60 +407,317 @@ async def add_correction(req: CorrectionCreate):
     The hybrid analyzer will use this to bias future classifications
     for similar text toward the corrected category/intent.
     """
-    data = _load_corrections()
+    doc_id = f"corr-{uuid.uuid4().hex[:8]}"
+    ts = datetime.now(timezone.utc).isoformat()
     entry = {
+        "id": doc_id,
+        "workItemId": "general",
         "original_text": req.original_text,
         "pattern": req.pattern,
         "original_category": req.original_category,
         "corrected_category": req.corrected_category,
         "corrected_intent": req.corrected_intent,
         "correction_notes": req.correction_notes,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": ts,
         "confidence_boost": req.confidence_boost,
     }
+    container = _get_corrections_container()
+    if container:
+        try:
+            container.upsert_item(entry)
+            logger.info(f"Added correction {doc_id}: {req.original_category} → {req.corrected_category}")
+            return CorrectionItem(**entry)
+        except Exception as e:
+            logger.warning(f"Cosmos correction write failed, falling back to JSON: {e}")
+    # Fallback to JSON
+    data = _load_corrections()
     data.setdefault("corrections", []).append(entry)
     _save_corrections(data)
-    logger.info(f"Added correction: {req.original_category} → {req.corrected_category}")
+    logger.info(f"Added correction (JSON): {req.original_category} → {req.corrected_category}")
     return CorrectionItem(**entry)
 
 
-@router.delete("/corrections/{index}", status_code=204,
+@router.delete("/corrections/{correction_id}", status_code=204,
                summary="Delete a correction")
-async def delete_correction(index: int):
-    """Remove a correction by its zero-based index."""
-    data = _load_corrections()
-    corrections = data.get("corrections", [])
-    if index < 0 or index >= len(corrections):
-        raise HTTPException(404, f"Correction index {index} not found (have {len(corrections)})")
-    removed = corrections.pop(index)
-    _save_corrections(data)
-    logger.info(f"Deleted correction #{index}: {removed.get('original_category')} → {removed.get('corrected_category')}")
-    return None
+async def delete_correction(correction_id: str):
+    """Remove a correction by its document ID."""
+    container = _get_corrections_container()
+    if container:
+        try:
+            # Try to read the item first to get its partition key
+            items = list(container.query_items(
+                f"SELECT * FROM c WHERE c.id = @id",
+                parameters=[{"name": "@id", "value": correction_id}],
+                enable_cross_partition_query=True
+            ))
+            if not items:
+                raise HTTPException(404, f"Correction {correction_id} not found")
+            pk = items[0].get("workItemId", "general")
+            container.delete_item(item=correction_id, partition_key=pk)
+            logger.info(f"Deleted correction {correction_id}")
+            return None
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Cosmos delete failed, falling back: {e}")
+    # Fallback: index-based for legacy IDs like "legacy-0"
+    if correction_id.startswith("legacy-"):
+        idx = int(correction_id.split("-")[1])
+        data = _load_corrections()
+        corrections = data.get("corrections", [])
+        if idx < 0 or idx >= len(corrections):
+            raise HTTPException(404, f"Correction {correction_id} not found")
+        corrections.pop(idx)
+        _save_corrections(data)
+        logger.info(f"Deleted legacy correction #{idx}")
+        return None
+    raise HTTPException(404, f"Correction {correction_id} not found")
 
 
-@router.put("/corrections/{index}", response_model=CorrectionItem,
+@router.put("/corrections/{correction_id}", response_model=CorrectionItem,
             summary="Update a correction")
-async def update_correction(index: int, req: CorrectionCreate):
-    """Update an existing correction by its zero-based index."""
-    data = _load_corrections()
-    corrections = data.get("corrections", [])
-    if index < 0 or index >= len(corrections):
-        raise HTTPException(404, f"Correction index {index} not found (have {len(corrections)})")
-    existing = corrections[index]
-    updated = {
-        "original_text": req.original_text,
-        "pattern": req.pattern,
-        "original_category": req.original_category,
-        "corrected_category": req.corrected_category,
-        "corrected_intent": req.corrected_intent,
-        "correction_notes": req.correction_notes,
-        "timestamp": existing.get("timestamp", datetime.now(timezone.utc).isoformat()),
-        "confidence_boost": req.confidence_boost,
+async def update_correction(correction_id: str, req: CorrectionCreate):
+    """Update an existing correction by its document ID."""
+    container = _get_corrections_container()
+    if container:
+        try:
+            items = list(container.query_items(
+                f"SELECT * FROM c WHERE c.id = @id",
+                parameters=[{"name": "@id", "value": correction_id}],
+                enable_cross_partition_query=True
+            ))
+            if not items:
+                raise HTTPException(404, f"Correction {correction_id} not found")
+            existing = items[0]
+            updated = {
+                "id": correction_id,
+                "workItemId": existing.get("workItemId", "general"),
+                "original_text": req.original_text,
+                "pattern": req.pattern,
+                "original_category": req.original_category,
+                "corrected_category": req.corrected_category,
+                "corrected_intent": req.corrected_intent,
+                "correction_notes": req.correction_notes,
+                "timestamp": existing.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                "confidence_boost": req.confidence_boost,
+            }
+            container.upsert_item(updated)
+            logger.info(f"Updated correction {correction_id}: {req.original_category} → {req.corrected_category}")
+            return CorrectionItem(**updated)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Cosmos update failed, falling back: {e}")
+    # Fallback for legacy IDs
+    if correction_id.startswith("legacy-"):
+        idx = int(correction_id.split("-")[1])
+        data = _load_corrections()
+        corrections = data.get("corrections", [])
+        if idx < 0 or idx >= len(corrections):
+            raise HTTPException(404, f"Correction {correction_id} not found")
+        updated = {
+            "id": correction_id,
+            "workItemId": "general",
+            "original_text": req.original_text,
+            "pattern": req.pattern,
+            "original_category": req.original_category,
+            "corrected_category": req.corrected_category,
+            "corrected_intent": req.corrected_intent,
+            "correction_notes": req.correction_notes,
+            "timestamp": corrections[idx].get("timestamp", datetime.now(timezone.utc).isoformat()),
+            "confidence_boost": req.confidence_boost,
+        }
+        corrections[idx] = updated
+        _save_corrections(data)
+        logger.info(f"Updated legacy correction #{idx}")
+        return CorrectionItem(**updated)
+    raise HTTPException(404, f"Correction {correction_id} not found")
+
+
+# ==========================================================================
+# Training Signal endpoints (ENG-003 Active Learning)
+# ==========================================================================
+
+@router.post("/training-signals", response_model=TrainingSignalItem, status_code=201,
+             summary="Submit a training signal")
+async def submit_training_signal(req: TrainingSignalCreate):
+    """
+    Record a human resolution of an LLM/Pattern disagreement.
+
+    The 'humanChoice' field indicates which classifier the human agreed with:
+      - "llm"     → LLM was correct
+      - "pattern" → Pattern engine was correct
+      - "neither" → Both wrong; resolvedCategory/resolvedIntent specified manually
+    """
+    doc_id = f"ts-{uuid.uuid4().hex[:8]}"
+    ts = datetime.now(timezone.utc).isoformat()
+
+    # Auto-fill resolved category/intent from the chosen classifier
+    resolved_cat = req.resolvedCategory
+    resolved_int = req.resolvedIntent
+    if req.humanChoice == "llm" and not resolved_cat:
+        resolved_cat = req.llmCategory
+        resolved_int = req.llmIntent
+    elif req.humanChoice == "pattern" and not resolved_cat:
+        resolved_cat = req.patternCategory
+        resolved_int = req.patternIntent
+
+    doc = {
+        "id": doc_id,
+        "workItemId": req.workItemId,
+        "llmCategory": req.llmCategory,
+        "llmIntent": req.llmIntent,
+        "patternCategory": req.patternCategory,
+        "patternIntent": req.patternIntent,
+        "humanChoice": req.humanChoice,
+        "resolvedCategory": resolved_cat,
+        "resolvedIntent": resolved_int,
+        "notes": req.notes,
+        "resolvedBy": req.resolvedBy,
+        "timestamp": ts,
     }
-    corrections[index] = updated
-    _save_corrections(data)
-    logger.info(f"Updated correction #{index}: {req.original_category} → {req.corrected_category}")
-    return CorrectionItem(**updated)
+
+    container = _get_training_signals_container()
+    if container:
+        try:
+            container.upsert_item(doc)
+            logger.info(
+                f"Training signal {doc_id}: work item {req.workItemId}, "
+                f"choice={req.humanChoice}, resolved={resolved_cat}"
+            )
+            return TrainingSignalItem(**doc)
+        except Exception as e:
+            logger.error(f"Failed to store training signal: {e}")
+            raise HTTPException(500, f"Failed to store training signal: {e}")
+    else:
+        raise HTTPException(503, "Training signals require Cosmos DB (not available in fallback mode)")
+
+
+@router.get("/training-signals", response_model=TrainingSignalListResponse,
+            summary="List training signals")
+async def list_training_signals(
+    limit: int = Query(50, ge=1, le=500, description="Max results"),
+    work_item_id: Optional[str] = Query(None, description="Filter by work item ID"),
+):
+    """Return recent training signals, optionally filtered by work item."""
+    container = _get_training_signals_container()
+    if not container:
+        raise HTTPException(503, "Training signals require Cosmos DB")
+
+    try:
+        if work_item_id:
+            query = "SELECT * FROM c WHERE c.workItemId = @wid ORDER BY c.timestamp DESC"
+            params = [{"name": "@wid", "value": work_item_id}]
+        else:
+            query = "SELECT * FROM c ORDER BY c.timestamp DESC"
+            params = []
+        items = list(container.query_items(
+            query, parameters=params, enable_cross_partition_query=True,
+            max_item_count=limit,
+        ))[:limit]
+        signals = [TrainingSignalItem(
+            id=item.get("id", ""),
+            workItemId=item.get("workItemId", ""),
+            llmCategory=item.get("llmCategory", ""),
+            llmIntent=item.get("llmIntent", ""),
+            patternCategory=item.get("patternCategory", ""),
+            patternIntent=item.get("patternIntent", ""),
+            humanChoice=item.get("humanChoice", ""),
+            resolvedCategory=item.get("resolvedCategory", ""),
+            resolvedIntent=item.get("resolvedIntent", ""),
+            notes=item.get("notes", ""),
+            resolvedBy=item.get("resolvedBy", "user"),
+            timestamp=item.get("timestamp", ""),
+        ) for item in items]
+        return TrainingSignalListResponse(signals=signals, total=len(signals))
+    except Exception as e:
+        logger.error(f"Failed to list training signals: {e}")
+        raise HTTPException(500, f"Failed to read training signals: {e}")
+
+
+# ==========================================================================
+# Pattern weight tuning endpoints (ENG-003 Step 3)
+# ==========================================================================
+
+class WeightAdjustmentDetail(BaseModel):
+    multiplier: float = 1.0
+    accuracy: float = 0.0
+    signals: int = 0
+    pattern_wins: int = 0
+    llm_wins: int = 0
+    neither_wins: int = 0
+    status: str = "neutral"
+
+class WeightTuningResponse(BaseModel):
+    status: str = "ok"
+    message: str = ""
+    totalSignals: int = 0
+    adjustments: Dict[str, WeightAdjustmentDetail] = {}
+    lastTuned: str = ""
+
+
+@router.post("/tune-weights", response_model=WeightTuningResponse,
+             summary="Run pattern weight tuning batch",
+             description="Reads training signals, computes per-category weight adjustments, and stores them for the pattern engine.")
+async def tune_pattern_weights():
+    """Execute the weight tuning batch process."""
+    try:
+        from weight_tuner import PatternWeightTuner
+        tuner = PatternWeightTuner()
+        doc = tuner.run()
+
+        if doc.get("status") == "no_signals":
+            return WeightTuningResponse(
+                status="no_signals",
+                message=doc.get("message", "No training signals found."),
+                totalSignals=0,
+            )
+
+        return WeightTuningResponse(
+            status="ok",
+            message=f"Tuned weights from {doc.get('totalSignals', 0)} signals.",
+            totalSignals=doc.get("totalSignals", 0),
+            adjustments={
+                k: WeightAdjustmentDetail(**v)
+                for k, v in doc.get("adjustments", {}).items()
+            },
+            lastTuned=doc.get("lastTuned", ""),
+        )
+    except Exception as e:
+        logger.error(f"Weight tuning failed: {e}")
+        raise HTTPException(500, f"Weight tuning failed: {e}")
+
+
+@router.get("/pattern-weights", response_model=WeightTuningResponse,
+            summary="Get current pattern weight adjustments",
+            description="Returns the most recent weight adjustments computed by the tuning batch.")
+async def get_pattern_weights():
+    """Return the stored weight adjustments document."""
+    try:
+        from weight_tuner import PatternWeightTuner
+        tuner = PatternWeightTuner()
+        doc = tuner.get_weights()
+
+        if doc is None:
+            return WeightTuningResponse(
+                status="not_tuned",
+                message="No weight adjustments found. Run POST /admin/tune-weights first.",
+                totalSignals=0,
+            )
+
+        return WeightTuningResponse(
+            status="ok",
+            message="Current weight adjustments.",
+            totalSignals=doc.get("totalSignals", 0),
+            adjustments={
+                k: WeightAdjustmentDetail(**v)
+                for k, v in doc.get("adjustments", {}).items()
+            },
+            lastTuned=doc.get("lastTuned", ""),
+        )
+    except Exception as e:
+        logger.error(f"Failed to read pattern weights: {e}")
+        raise HTTPException(500, f"Failed to read pattern weights: {e}")
 
 
 # ==========================================================================

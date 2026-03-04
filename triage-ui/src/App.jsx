@@ -19,6 +19,7 @@ import React, { Suspense, lazy, useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MsalProvider } from '@azure/msal-react';
 import AppLayout from './components/layout/AppLayout';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import AuthGate from './auth/AuthGate';
 import NoAuthProvider from './auth/NoAuthProvider';
 
@@ -105,6 +106,7 @@ export default function App({ msalInstance }) {
         )}
 
         {/* Page routes */}
+        <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/"           element={<Dashboard addToast={addToast} />} />
@@ -121,6 +123,7 @@ export default function App({ msalInstance }) {
             <Route path="/teams"      element={<TriageTeamsPage addToast={addToast} />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </AppLayout>
     </BrowserRouter>
   );

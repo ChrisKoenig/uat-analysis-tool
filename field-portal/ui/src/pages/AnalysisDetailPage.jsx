@@ -494,7 +494,7 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
             </div>
 
             {/* Classification reasoning text */}
-            {reasoning && reasoning !== context_summary && (
+            {reasoning && (
               <div style={{ marginBottom: 16 }}>
                 <strong>{isLLM ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</strong>
                 <div style={{

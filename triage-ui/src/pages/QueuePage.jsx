@@ -179,6 +179,35 @@ export default function QueuePage({ addToast }) {
   const [analysisProgress, setAnalysisProgress] = useState(null);
   // Shape: { total, completed, failed, currentId, items: [ { id, title, status, category, intent, confidence, source, error } ] }
 
+  // ── ENG-003: Disagreement resolution state ──────────────────
+  const [bladeDisagreement, setBladeDisagreement] = useState({});
+  // bladeDisagreement[workItemId] = { choice, neitherCategory, neitherIntent, notes, submitting, submitted }
+  const getBladeDs = (wid) => bladeDisagreement[wid] || { choice: null, neitherCategory: '', neitherIntent: '', notes: '', submitting: false, submitted: false };
+  const updateBladeDs = (wid, patch) =>
+    setBladeDisagreement(prev => ({ ...prev, [wid]: { ...getBladeDs(wid), ...patch } }));
+
+  const handleBladeSubmitSignal = async (wid) => {
+    const ds = getBladeDs(wid);
+    if (!ds.choice || !analysisDetail) return;
+    updateBladeDs(wid, { submitting: true });
+    try {
+      await api.submitTrainingSignal({
+        workItemId: String(wid),
+        llmCategory: analysisDetail.category || '',
+        llmIntent: analysisDetail.intent || '',
+        patternCategory: analysisDetail.patternCategory || '',
+        patternIntent: analysisDetail.patternIntent || '',
+        humanChoice: ds.choice,
+        resolvedCategory: ds.choice === 'neither' ? ds.neitherCategory : '',
+        resolvedIntent: ds.choice === 'neither' ? ds.neitherIntent : '',
+        notes: ds.notes,
+      });
+      updateBladeDs(wid, { submitting: false, submitted: true });
+    } catch (err) {
+      updateBladeDs(wid, { submitting: false });
+    }
+  };
+
   // ── Derived: active columns for the current query ───────────
   const COLUMNS = useMemo(() => buildColumns(queryColumns), [queryColumns]);
 
@@ -1422,10 +1451,10 @@ export default function QueuePage({ addToast }) {
                                 {evalResult.analysisState}
                               </span>
                               {evalResult.matchedTrigger && (
-                                <span className="queue-result-tag">⚡ {evalResult.matchedTrigger}</span>
+                                <span className="queue-result-tag" title={evalResult.matchedTrigger}>⚡ {evalResult.triggerNames?.[evalResult.matchedTrigger] || evalResult.matchedTrigger}</span>
                               )}
                               {evalResult.appliedRoute && (
-                                <span className="queue-result-tag">🔀 {evalResult.appliedRoute}</span>
+                                <span className="queue-result-tag" title={evalResult.appliedRoute}>🔀 {evalResult.routeNames?.[evalResult.appliedRoute] || evalResult.appliedRoute}</span>
                               )}
                             </div>
 
@@ -1615,13 +1644,118 @@ export default function QueuePage({ addToast }) {
                   </div>
                 </section>
 
-                {/* AI Analysis Summary */}
+                {/* AI Reasoning */}
                 <section className="analysis-section">
-                  <h4>AI Analysis Summary</h4>
-                  {analysisDetail.contextSummary
-                    ? <p className="analysis-summary-text">{analysisDetail.contextSummary}</p>
+                  <h4>{(analysisDetail.source || '').includes('llm') || (analysisDetail.source || '').includes('hybrid')
+                    ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</h4>
+                  {analysisDetail.reasoning
+                    ? <p className="analysis-summary-text" style={{ whiteSpace: 'pre-wrap' }}>
+                        {typeof analysisDetail.reasoning === 'object'
+                          ? JSON.stringify(analysisDetail.reasoning, null, 2)
+                          : analysisDetail.reasoning}
+                      </p>
                     : <p className="no-data">No data</p>}
                 </section>
+
+                {/* Pattern Comparison */}
+                {analysisDetail.patternCategory && (
+                  <section className="analysis-section">
+                    <h4>📊 Pattern Engine Comparison</h4>
+                    <div className="analysis-field-grid">
+                      <div className="analysis-field">
+                        <label>Pattern Category</label>
+                        <span className="queue-badge analysis-category-badge">{(analysisDetail.patternCategory || '').replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="analysis-field">
+                        <label>Pattern Confidence</label>
+                        <span>{((analysisDetail.patternConfidence || 0) * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="analysis-field">
+                        <label>Agreement</label>
+                        <span>{analysisDetail.agreement ? '✅ LLM & Pattern agree' : '⚠️ Disagreement'}</span>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* ENG-003: Disagreement Resolution */}
+                {analysisDetail.patternCategory && !analysisDetail.agreement && analysisDetailId && (() => {
+                  const ds = getBladeDs(analysisDetailId);
+                  if (ds.submitted) {
+                    return (
+                      <section className="analysis-section" style={{ background: '#f0faf0', borderRadius: 8, padding: 12 }}>
+                        <h4>✅ Training Signal Submitted</h4>
+                        <p className="no-data" style={{ color: '#555' }}>
+                          You selected <strong>{ds.choice === 'llm' ? 'LLM' : ds.choice === 'pattern' ? 'Pattern' : 'Neither'}</strong>.
+                        </p>
+                      </section>
+                    );
+                  }
+                  return (
+                    <section className="analysis-section" style={{ border: '2px solid #e67e22', borderRadius: 8, padding: 12, background: '#fef9f3' }}>
+                      <h4>🎓 Resolve Disagreement</h4>
+                      <p style={{ margin: '4px 0 10px', color: '#555', fontSize: 13 }}>
+                        LLM says <strong>{(analysisDetail.category || '').replace(/_/g, ' ')}</strong>,
+                        Pattern says <strong>{(analysisDetail.patternCategory || '').replace(/_/g, ' ')}</strong>.
+                        Which is correct?
+                      </p>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          className={`btn btn-sm ${ds.choice === 'llm' ? 'btn-primary' : 'btn-ghost'}`}
+                          onClick={() => updateBladeDs(analysisDetailId, { choice: 'llm' })}
+                          disabled={ds.submitting}
+                        >🧠 LLM</button>
+                        <button
+                          className={`btn btn-sm ${ds.choice === 'pattern' ? 'btn-primary' : 'btn-ghost'}`}
+                          onClick={() => updateBladeDs(analysisDetailId, { choice: 'pattern' })}
+                          disabled={ds.submitting}
+                        >📊 Pattern</button>
+                        <button
+                          className={`btn btn-sm ${ds.choice === 'neither' ? 'btn-primary' : 'btn-ghost'}`}
+                          onClick={() => updateBladeDs(analysisDetailId, { choice: 'neither' })}
+                          disabled={ds.submitting}
+                        >❌ Neither</button>
+                      </div>
+                      {ds.choice === 'neither' && (
+                        <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <input
+                            type="text"
+                            placeholder="Correct category..."
+                            value={ds.neitherCategory}
+                            onChange={(e) => updateBladeDs(analysisDetailId, { neitherCategory: e.target.value })}
+                            style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, width: 160 }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Correct intent..."
+                            value={ds.neitherIntent}
+                            onChange={(e) => updateBladeDs(analysisDetailId, { neitherIntent: e.target.value })}
+                            style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, width: 160 }}
+                          />
+                        </div>
+                      )}
+                      {ds.choice && (
+                        <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            placeholder="Notes (optional)..."
+                            value={ds.notes}
+                            onChange={(e) => updateBladeDs(analysisDetailId, { notes: e.target.value })}
+                            style={{ flex: 1, padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                            disabled={ds.submitting}
+                          />
+                          <button
+                            className="btn btn-sm btn-primary"
+                            onClick={() => handleBladeSubmitSignal(analysisDetailId)}
+                            disabled={ds.submitting || (ds.choice === 'neither' && !ds.neitherCategory)}
+                          >
+                            {ds.submitting ? '...' : 'Submit'}
+                          </button>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })()}
 
                 {/* Key Concepts */}
                 <section className="analysis-section">

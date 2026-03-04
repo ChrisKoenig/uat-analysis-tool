@@ -393,19 +393,38 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     @app.get(f"/api/v1/{plural}/{{entity_id}}/references", tags=[tag])
     async def get_references(entity_id: str):
         """Get cross-references (which entities use this one).
-        Returns empty refs when Cosmos DB is unavailable."""
+        Returns empty refs when Cosmos DB is unavailable.
+        Includes referenceNames map for friendly display."""
         try:
             crud = get_crud()
             refs = crud.find_references(entity_type, entity_id)
-            return ReferenceResponse(
-                entityType=entity_type,
-                entityId=entity_id,
-                references=refs
-            )
+
+            # Build name lookup for referenced entity IDs
+            ref_names = {}
+            try:
+                cosmos = get_cosmos_config()
+                for ref_type, ref_ids in refs.items():
+                    container_name = ref_type  # e.g. "triggers", "routes"
+                    container = cosmos.get_container(container_name)
+                    for doc in container.query_items(
+                        query="SELECT c.id, c.name FROM c",
+                        enable_cross_partition_query=True,
+                    ):
+                        if doc["id"] in ref_ids:
+                            ref_names[doc["id"]] = doc.get("name", doc["id"])
+            except Exception:
+                pass  # Non-fatal
+
+            return {
+                "entityType": entity_type,
+                "entityId": entity_id,
+                "references": refs,
+                "referenceNames": ref_names,
+            }
         except Exception as e:
             logger.warning("References unavailable (Cosmos offline): %s", e)
             return {"entityType": entity_type, "entityId": entity_id,
-                    "references": [], "warning": str(e)}
+                    "references": [], "referenceNames": {}, "warning": str(e)}
     
     get_references.__name__ = f"get_{entity_type}_references"
     get_references.__qualname__ = f"get_{entity_type}_references"
@@ -483,17 +502,35 @@ async def evaluate(body: EvaluateRequest):
         for failed_id in batch_result.get("failed_ids", []):
             errors.append(f"Failed to fetch work item {failed_id}")
     
-    # Build rule-ID → rule-name lookup for friendly display
+    # Build ID → name lookup maps for friendly display
     rule_name_map = {}
+    trigger_name_map = {}
+    route_name_map = {}
+    action_name_map = {}
     try:
-        rules_container = get_cosmos_config().get_container("rules")
-        for rdoc in rules_container.query_items(
+        cosmos = get_cosmos_config()
+        for rdoc in cosmos.get_container("rules").query_items(
             query="SELECT c.id, c.name FROM c",
             enable_cross_partition_query=True,
         ):
             rule_name_map[rdoc["id"]] = rdoc.get("name", rdoc["id"])
+        for tdoc in cosmos.get_container("triggers").query_items(
+            query="SELECT c.id, c.name FROM c",
+            enable_cross_partition_query=True,
+        ):
+            trigger_name_map[tdoc["id"]] = tdoc.get("name", tdoc["id"])
+        for rtdoc in cosmos.get_container("routes").query_items(
+            query="SELECT c.id, c.name FROM c",
+            enable_cross_partition_query=True,
+        ):
+            route_name_map[rtdoc["id"]] = rtdoc.get("name", rtdoc["id"])
+        for adoc in cosmos.get_container("actions").query_items(
+            query="SELECT c.id, c.name FROM c",
+            enable_cross_partition_query=True,
+        ):
+            action_name_map[adoc["id"]] = adoc.get("name", adoc["id"])
     except Exception:
-        pass  # Non-fatal — frontend will fall back to rule IDs
+        pass  # Non-fatal — frontend will fall back to raw IDs
 
     # Run evaluation pipeline for each item
     for item in items_data:
@@ -531,6 +568,9 @@ async def evaluate(body: EvaluateRequest):
             "actionsExecuted": evaluation.actionsExecuted,
             "ruleResults": evaluation.ruleResults,
             "ruleNames": rule_name_map,
+            "triggerNames": trigger_name_map,
+            "routeNames": route_name_map,
+            "actionNames": action_name_map,
             "fieldsChanged": evaluation.fieldsChanged,
             "errors": evaluation.errors,
             "isDryRun": evaluation.isDryRun,

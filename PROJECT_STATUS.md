@@ -357,7 +357,7 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 
 ---
 
-## Recent Changes (Mar 4, 2026) — FR-1999: Tabbed Analysis Detail Views
+## Recent Changes (Mar 4, 2026) — FR-1994, FR-1999: Tabbed Analysis Detail Views
 
 ### Tabbed Interface for Analysis Detail Pages (commits `b640e7b`, `4b06cff`)
 

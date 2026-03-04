@@ -173,6 +173,38 @@ export default function EvaluatePage({ addToast }) {
   const setActiveDetailTab = (workItemId, tab) =>
     setActiveDetailTabs(prev => ({ ...prev, [workItemId]: tab }));
 
+  // ── Disagreement resolution state (ENG-003 Active Learning) ─
+  const [disagreementStates, setDisagreementStates] = useState({});
+  // disagreementStates[workItemId] = { choice: null | 'llm' | 'pattern' | 'neither', neitherCategory: '', neitherIntent: '', notes: '', submitting: false, submitted: false }
+  const defaultDisagreementState = { choice: null, neitherCategory: '', neitherIntent: '', notes: '', submitting: false, submitted: false };
+  const getDisagreementState = (workItemId) => disagreementStates[workItemId] || defaultDisagreementState;
+  const updateDisagreementState = (workItemId, patch) =>
+    setDisagreementStates(prev => ({ ...prev, [workItemId]: { ...getDisagreementState(workItemId), ...patch } }));
+
+  const handleSubmitDisagreement = async (workItemId, detail) => {
+    const ds = getDisagreementState(workItemId);
+    if (!ds.choice) return;
+    updateDisagreementState(workItemId, { submitting: true });
+    try {
+      await api.submitTrainingSignal({
+        workItemId: String(workItemId),
+        llmCategory: detail.category || '',
+        llmIntent: detail.intent || '',
+        patternCategory: detail.patternCategory || '',
+        patternIntent: detail.patternIntent || '',
+        humanChoice: ds.choice,
+        resolvedCategory: ds.choice === 'neither' ? ds.neitherCategory : '',
+        resolvedIntent: ds.choice === 'neither' ? ds.neitherIntent : '',
+        notes: ds.notes,
+      });
+      updateDisagreementState(workItemId, { submitting: false, submitted: true });
+      addToast?.(`Training signal submitted for #${workItemId}`, 'success');
+    } catch (err) {
+      updateDisagreementState(workItemId, { submitting: false });
+      addToast?.(`Failed to submit signal: ${err.message}`, 'error');
+    }
+  };
+
   const defaultEvalState = { evalCorrect: null, feedback: '', correctedCategory: '', correctedIntent: '', correctedImpact: '', submitting: false, error: '' };
   const getEvalState = (workItemId) => evalStates[workItemId] || defaultEvalState;
   const updateEvalState = (workItemId, patch) =>
@@ -521,11 +553,154 @@ export default function EvaluatePage({ addToast }) {
                 {isLLM ? '🔍 Comprehensive AI Analysis & Reasoning' : '📊 Pattern-Based Analysis & Reasoning'}
               </div>
               <div className="fp-card-body">
-                {detail.reasoning && detail.reasoning !== detail.contextSummary && (
+                {/* AI / Classification Reasoning */}
+                {detail.reasoning && (
                   <div className="fp-reasoning-block">
                     <strong>{isLLM ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</strong>
                     <div className="fp-reasoning-text">
-                      {detail.reasoning}
+                      {typeof detail.reasoning === 'object'
+                        ? JSON.stringify(detail.reasoning, null, 2)
+                        : detail.reasoning}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pattern vs LLM Comparison */}
+                {detail.patternCategory && (
+                  <div className="fp-reasoning-block" style={{ marginTop: 16 }}>
+                    <strong>📊 Pattern Engine Comparison</strong>
+                    <div className="fp-badge-grid" style={{ marginTop: 8 }}>
+                      <div>
+                        <strong>Pattern Category:</strong><br />
+                        <CategoryBadge value={detail.patternCategory} />
+                      </div>
+                      <div>
+                        <strong>Pattern Confidence:</strong><br />
+                        <AnalysisBadge color="#fff" bg="#7f8c8d">
+                          {((detail.patternConfidence || 0) * 100).toFixed(0)}%
+                        </AnalysisBadge>
+                      </div>
+                      <div>
+                        <strong>Agreement:</strong><br />
+                        <AnalysisBadge
+                          color="#fff"
+                          bg={detail.agreement ? '#27ae60' : '#e67e22'}
+                        >
+                          {detail.agreement ? '✓ LLM & Pattern Agree' : '⚠ Disagreement'}
+                        </AnalysisBadge>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── ENG-003: Disagreement Resolution Prompt ── */}
+                {detail.patternCategory && !detail.agreement && (() => {
+                  const ds = getDisagreementState(workItemId);
+                  if (ds.submitted) {
+                    return (
+                      <div className="fp-reasoning-block" style={{ marginTop: 16, background: '#f0faf0', borderRadius: 8, padding: 16 }}>
+                        <strong>✅ Training Signal Submitted</strong>
+                        <p style={{ margin: '8px 0 0', color: '#555' }}>
+                          You selected <strong>{ds.choice === 'llm' ? 'LLM' : ds.choice === 'pattern' ? 'Pattern' : 'Neither'}</strong> for this disagreement.
+                          This signal will be used to improve future classifications.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="fp-reasoning-block" style={{ marginTop: 16, border: '2px solid #e67e22', borderRadius: 8, padding: 16, background: '#fef9f3' }}>
+                      <strong>🎓 Help Resolve This Disagreement</strong>
+                      <p style={{ margin: '8px 0 12px', color: '#555', fontSize: 13 }}>
+                        The LLM classified this as <strong>{formatFieldLabel(detail.category)}</strong> but
+                        the pattern engine says <strong>{formatFieldLabel(detail.patternCategory)}</strong>.
+                        Which is correct?
+                      </p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          className={`btn btn-sm ${ds.choice === 'llm' ? 'btn-primary' : 'btn-ghost'}`}
+                          onClick={() => updateDisagreementState(workItemId, { choice: 'llm' })}
+                          disabled={ds.submitting}
+                        >
+                          🧠 LLM is correct
+                        </button>
+                        <button
+                          className={`btn btn-sm ${ds.choice === 'pattern' ? 'btn-primary' : 'btn-ghost'}`}
+                          onClick={() => updateDisagreementState(workItemId, { choice: 'pattern' })}
+                          disabled={ds.submitting}
+                        >
+                          📊 Pattern is correct
+                        </button>
+                        <button
+                          className={`btn btn-sm ${ds.choice === 'neither' ? 'btn-primary' : 'btn-ghost'}`}
+                          onClick={() => updateDisagreementState(workItemId, { choice: 'neither' })}
+                          disabled={ds.submitting}
+                        >
+                          ❌ Neither is correct
+                        </button>
+                      </div>
+                      {ds.choice === 'neither' && (
+                        <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <select
+                            value={ds.neitherCategory}
+                            onChange={(e) => updateDisagreementState(workItemId, { neitherCategory: e.target.value })}
+                            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                          >
+                            <option value="">— Select correct category —</option>
+                            {CATEGORY_OPTIONS.flatMap(g => g.items).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={ds.neitherIntent}
+                            onChange={(e) => updateDisagreementState(workItemId, { neitherIntent: e.target.value })}
+                            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                          >
+                            <option value="">— Select correct intent —</option>
+                            {INTENT_OPTIONS.flatMap(g => g.items).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {ds.choice && (
+                        <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            placeholder="Optional notes..."
+                            value={ds.notes}
+                            onChange={(e) => updateDisagreementState(workItemId, { notes: e.target.value })}
+                            style={{ flex: 1, padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                            disabled={ds.submitting}
+                          />
+                          <button
+                            className="btn btn-sm btn-primary"
+                            onClick={() => handleSubmitDisagreement(workItemId, detail)}
+                            disabled={ds.submitting || (ds.choice === 'neither' && !ds.neitherCategory)}
+                          >
+                            {ds.submitting ? 'Saving...' : 'Submit Signal'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Category Scores */}
+                {detail.categoryScores && Object.keys(detail.categoryScores).length > 0 && (
+                  <div className="fp-reasoning-block" style={{ marginTop: 16 }}>
+                    <strong>📈 Category Score Breakdown</strong>
+                    <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {Object.entries(detail.categoryScores)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([cat, score]) => (
+                          <AnalysisBadge
+                            key={cat}
+                            color={score > 0.5 ? '#fff' : '#333'}
+                            bg={score > 0.5 ? '#2471a3' : '#e8e8e8'}
+                          >
+                            {formatFieldLabel(cat)}: {(score * 100).toFixed(0)}%
+                          </AnalysisBadge>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -533,7 +708,7 @@ export default function EvaluatePage({ addToast }) {
                 {/* Metadata */}
                 <div className="fp-metadata">
                   <span>Analyzed: {detail.timestamp ? formatDate(detail.timestamp) : '—'}</span>
-                  <span>Pattern Confidence: {((detail.patternConfidence || 0) * 100).toFixed(0)}%</span>
+                  <span>Source: {detail.source || '—'}</span>
                   <span>ID: {detail.id}</span>
                 </div>
               </div>
@@ -915,13 +1090,13 @@ export default function EvaluatePage({ addToast }) {
                     {evalResult.analysisState === 'No Match' ? 'No Trigger Matched' : evalResult.analysisState}
                   </span>
                   {evalResult.matchedTrigger && (
-                    <span className="evaluate-matched">
-                      ⚡ {evalResult.matchedTrigger}
+                    <span className="evaluate-matched" title={evalResult.matchedTrigger}>
+                      ⚡ {evalResult.triggerNames?.[evalResult.matchedTrigger] || evalResult.matchedTrigger}
                     </span>
                   )}
                   {evalResult.appliedRoute && (
-                    <span className="evaluate-route">
-                      🔀 {evalResult.appliedRoute}
+                    <span className="evaluate-route" title={evalResult.appliedRoute}>
+                      🔀 {evalResult.routeNames?.[evalResult.appliedRoute] || evalResult.appliedRoute}
                     </span>
                   )}
                 </div>
@@ -990,13 +1165,16 @@ export default function EvaluatePage({ addToast }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {Object.entries(evalResult.fieldsChanged).map(([field, change]) => (
-                            <tr key={field}>
-                              <td><code className="field-ref">{field}</code></td>
-                              <td className="text-muted">{change.from ?? '—'}</td>
-                              <td><strong>{change.to ?? '—'}</strong></td>
-                            </tr>
-                          ))}
+                          {Object.entries(evalResult.fieldsChanged).map(([field, change]) => {
+                            const c = (change && typeof change === 'object') ? change : {};
+                            return (
+                              <tr key={field}>
+                                <td><code className="field-ref">{field}</code></td>
+                                <td className="text-muted">{c.from ?? '—'}</td>
+                                <td><strong>{c.to ?? '—'}</strong></td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1008,7 +1186,7 @@ export default function EvaluatePage({ addToast }) {
                       <h4>Actions Executed</h4>
                       <ol className="evaluate-actions-list">
                         {evalResult.actionsExecuted.map((actionId, i) => (
-                          <li key={i}>{actionId}</li>
+                          <li key={i} title={actionId}>{evalResult.actionNames?.[actionId] || actionId}</li>
                         ))}
                       </ol>
                     </div>

@@ -18,9 +18,10 @@
 7. [Webhook Endpoint](#webhook-endpoint)
 8. [Audit Endpoints](#audit-endpoints)
 9. [Validation Endpoints](#validation-endpoints)
-10. [Health Check](#health-check)
-11. [Error Handling](#error-handling)
-11. [Schemas](#schemas)
+10. [Admin Endpoints](#admin-endpoints) (Corrections, Training Signals, Weight Tuning)
+11. [Health Check](#health-check)
+12. [Error Handling](#error-handling)
+13. [Schemas](#schemas)
 
 ---
 
@@ -553,6 +554,175 @@ Returns system-wide validation warnings:
 ```
 GET /api/v1/validation/references/{entity_type}/{entity_id}
 ```
+
+---
+
+## Admin Endpoints
+
+Admin endpoints manage corrections, training signals (active learning), and pattern weight tuning. All endpoints are prefixed with `/admin`.
+
+### Corrections
+
+Corrections store human feedback on AI misclassifications. Data is stored in the Cosmos `corrections` container (migrated from `corrections.json`).
+
+#### List Corrections
+
+```
+GET /admin/corrections
+```
+
+Returns all corrections from Cosmos DB (falls back to `corrections.json` if Cosmos unavailable).
+
+**Response**:
+```json
+{
+  "status": "success",
+  "source": "cosmos",
+  "corrections": [
+    {
+      "id": "corr-abc123",
+      "originalText": "...",
+      "originalCategory": "technical_support",
+      "correctedCategory": "business_desk",
+      "originalIntent": "reporting_issue",
+      "correctedIntent": "business_process",
+      "notes": "This is a funding request",
+      "createdDate": "2026-03-01T..."
+    }
+  ],
+  "count": 5
+}
+```
+
+#### Add Correction
+
+```
+POST /admin/corrections
+```
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `originalText` | string | Yes | Text that was misclassified |
+| `originalCategory` | string | Yes | AI-assigned category |
+| `correctedCategory` | string | Yes | Correct category |
+| `originalIntent` | string | No | AI-assigned intent |
+| `correctedIntent` | string | No | Correct intent |
+| `notes` | string | No | Explanation |
+
+#### Update Correction
+
+```
+PUT /admin/corrections/{id}
+```
+
+Same body as create. Uses document ID (not array index).
+
+#### Delete Correction
+
+```
+DELETE /admin/corrections/{id}
+```
+
+### Training Signals
+
+Training signals capture human resolutions of LLM/Pattern classification disagreements. Part of the ENG-003 Active Learning system.
+
+#### Submit Training Signal
+
+```
+POST /admin/training-signals
+```
+
+**Request Body** (`TrainingSignalCreate`):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workItemId` | integer | Yes | ADO work item ID |
+| `llmCategory` | string | Yes | LLM's classification |
+| `patternCategory` | string | Yes | Pattern engine's classification |
+| `humanChoice` | string | Yes | The correct category (as chosen by user) |
+| `resolution` | string | Yes | `"llm"` \| `"pattern"` \| `"neither"` |
+| `correctionNotes` | string | No | Optional explanation (especially for "neither") |
+
+**Response** (201):
+```json
+{
+  "status": "success",
+  "id": "ts-713300-1709571234",
+  "message": "Training signal recorded"
+}
+```
+
+#### List Training Signals
+
+```
+GET /admin/training-signals
+```
+
+Returns all training signals from the `training-signals` Cosmos container.
+
+### Pattern Weight Tuning
+
+Batch process that reads accumulated training signals and computes per-category score multipliers for the pattern engine.
+
+#### Run Weight Tuning
+
+```
+POST /admin/tune-weights
+```
+
+Reads all training signals, aggregates by pattern category, computes accuracy-based multipliers, and stores the result.
+
+**Response** (`WeightTuningResponse`):
+```json
+{
+  "status": "success",
+  "message": "Weight tuning complete",
+  "totalSignals": 24,
+  "adjustments": {
+    "technical_support": {
+      "multiplier": 1.15,
+      "accuracy": 0.83,
+      "signals": 6,
+      "pattern_wins": 5,
+      "llm_wins": 1,
+      "neither_wins": 0,
+      "status": "boosted"
+    },
+    "capacity": {
+      "multiplier": 0.75,
+      "accuracy": 0.25,
+      "signals": 4,
+      "pattern_wins": 1,
+      "llm_wins": 2,
+      "neither_wins": 1,
+      "status": "penalized"
+    }
+  },
+  "lastTuned": "2026-03-05T10:30:00Z"
+}
+```
+
+**Multiplier mapping** (piecewise linear):
+
+| Accuracy | Multiplier | Effect |
+|----------|------------|--------|
+| 0.0 | 0.60× | Strong penalty |
+| 0.4 | 0.90× | Mild penalty |
+| 0.7 | 1.00× | Neutral |
+| 1.0 | 1.30× | Boost |
+
+Categories with fewer than 3 signals remain at 1.0× (no adjustment).
+
+#### View Pattern Weights
+
+```
+GET /admin/pattern-weights
+```
+
+Returns the current weight adjustments without re-computing. Returns `{"status": "not_tuned"}` if tuning has never been run.
 
 ---
 

@@ -6,7 +6,7 @@ Complete reference for all data entities in the Triage Management System.
 
 ## Overview
 
-The system has 8 entity types stored across 8 Cosmos DB containers (or in-memory equivalents):
+The system has 11 entity types stored across 11 Cosmos DB containers (or in-memory equivalents):
 
 | Entity | Container | Partition Key | Description |
 |--------|-----------|---------------|-------------|
@@ -18,6 +18,9 @@ The system has 8 entity types stored across 8 Cosmos DB containers (or in-memory
 | AnalysisResult | `analysis-results` | `/workItemId` | Structured analysis output |
 | FieldSchema | `field-schema` | `/source` | ADO field definitions and metadata |
 | AuditEntry | `audit-log` | `/entityType` | Change tracking records |
+| Correction | `corrections` | `/workItemId` | AI classification corrections (corrective learning) |
+| TrainingSignal | `training-signals` | `/workItemId` | Human resolutions of LLM/Pattern disagreements |
+| WeightAdjustment | `training-signals` | `/workItemId` | Computed pattern weight multipliers (system document) |
 
 ---
 
@@ -234,6 +237,77 @@ Actions are executed in order. Each action's field change is computed and collec
 
 ---
 
+## Correction
+
+**Container**: `corrections`  
+**Partition key**: `workItemId`
+
+Corrections store human feedback on AI classifications, used to improve future analysis.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Cosmos-generated document ID |
+| `workItemId` | string | ADO work item ID this correction applies to |
+| `originalCategory` | string | Category the AI originally assigned |
+| `correctedCategory` | string | Category the human selected |
+| `reason` | string | Why the correction was made |
+| `correctedBy` | string | User who submitted the correction |
+| `timestamp` | string | ISO 8601 timestamp of the correction |
+| `applied` | boolean | Whether this correction has been consumed by retraining |
+
+---
+
+## TrainingSignal
+
+**Container**: `training-signals`  
+**Partition key**: `workItemId`
+
+Training signals capture human resolutions when the LLM and Pattern engines disagree on classification. These feed the active learning feedback loop.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | `signal-{uuid}` |
+| `workItemId` | string | ADO work item ID |
+| `llmCategory` | string | Category chosen by the LLM engine |
+| `patternCategory` | string | Category chosen by the Pattern engine |
+| `humanChoice` | string | `llm` \| `pattern` \| `neither` |
+| `resolution` | string | Final category (human-confirmed or manually entered) |
+| `correctionNotes` | string | Optional notes explaining the choice |
+| `resolvedBy` | string | User who resolved the disagreement |
+| `timestamp` | string | ISO 8601 timestamp |
+
+---
+
+## WeightAdjustment (System Document)
+
+**Container**: `training-signals`  
+**Partition key**: `workItemId` = `_system`
+
+A single system document that stores computed pattern weight multipliers. Updated by the batch tuning process (`POST /admin/tune-weights`).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Always `"pattern-weight-adjustments"` |
+| `workItemId` | string | Always `"_system"` (system-level document) |
+| `adjustments` | object | `{category: multiplier, ...}` — e.g., `{"capacity": 1.15, "bug_report": 0.72}` |
+| `lastTuned` | string | ISO 8601 timestamp of last tune operation |
+| `signalsProcessed` | integer | Number of training signals used in the last tune |
+
+### Weight Multiplier Derivation
+
+Multipliers are computed from per-category accuracy of the pattern engine vs. human resolutions:
+
+| Accuracy Range | Multiplier | Effect |
+|---------------|------------|--------|
+| 0.0 (0%) | 0.60× | Heavy suppression — pattern rarely correct |
+| 0.4 (40%) | 0.90× | Mild penalty |
+| 0.7 (70%) | 1.00× | Neutral — no adjustment |
+| 1.0 (100%) | 1.30× | Boost — pattern consistently correct |
+
+Categories with fewer than 3 signals are excluded (insufficient data).
+
+---
+
 ## Entity Relationships
 
 ```
@@ -263,8 +337,9 @@ Action ──referenced by──▶ Route (via actions list)
 | `evaluations` | `/workItemId` | Optimized for per-item history |
 | `analysis-results` | `/workItemId` | Optimized for per-item lookup |
 | `field-schema` | `/source` | Grouped by data source |
-| `audit-log` | `/entityType` | Grouped by entity type for filtering |
-
+| `audit-log` | `/entityType` | Grouped by entity type for filtering || `corrections` | `/workItemId` | AI classification corrections |
+| `training-signals` | `/workItemId` | Disagreement resolutions + weight adjustments |
+| `queue-cache` | `/id` | Cached queue data |
 All containers are auto-created on first startup.
 
 ---

@@ -386,7 +386,8 @@ Actions execute in the order shown (top to bottom).
 ## 8. Corrections
 
 The Corrections page tracks AI classification errors to improve future analysis
-accuracy.
+accuracy. Corrections are stored in Cosmos DB (container: `corrections`,
+partition key: `/workItemId`) and are managed via the Admin API.
 
 ### Adding a Correction
 
@@ -399,14 +400,108 @@ accuracy.
    - **Notes** — explain why the correction is needed.
 3. Click **Add Correction**.
 
+Corrections can also be submitted directly from the **Evaluate > Analyze** page
+when reviewing AI results (see Section 3, Analyze Mode).
+
 ### Editing and Deleting
 
 - Click any row to open the detail panel → modify → **Save Changes**.
 - Click **Delete** → confirm in the dialog.
+- Each correction is identified by its Cosmos document ID.
 
 ---
 
-## 9. Validation
+## 9. Disagreement Resolution (Active Learning)
+
+When the LLM engine and the Pattern engine **disagree** on an item's category,
+the system surfaces a resolution prompt so a human can arbitrate. This is the
+primary input to the active learning feedback loop.
+
+### Where Disagreements Appear
+
+- **Evaluate Page (Analyze Mode)** — after analyzing a work item, if the two
+  engines disagree, a **"Classification Disagreement"** panel appears showing:
+  - LLM's category and confidence.
+  - Pattern engine's category and confidence.
+  - Three resolution buttons: **Use LLM**, **Use Pattern**, **Neither**.
+- **Queue Page** — items in the Analysis or Triage tab that have disagreements
+  show a disagreement indicator. Clicking it opens the same resolution UI.
+
+### Resolving a Disagreement
+
+1. Review both classifications and their confidence scores.
+2. Choose one of:
+   - **Use LLM** — accept the LLM's category.
+   - **Use Pattern** — accept the Pattern engine's category.
+   - **Neither** — enter the correct category manually.
+3. Optionally add **correction notes** explaining your choice.
+4. Click **Submit**.
+
+The resolution is saved as a **Training Signal** in Cosmos DB (`training-signals`
+container). Over time, these signals are aggregated to tune pattern weights
+automatically (see Section 10).
+
+### Why This Matters
+
+Every disagreement resolution teaches the system which engine to trust more for
+specific categories. After enough signals accumulate (minimum 3 per category),
+running weight tuning adjusts the pattern engine's influence accordingly.
+
+---
+
+## 10. Pattern Weight Tuning
+
+Pattern weight tuning is a batch process that adjusts the pattern engine's
+influence per category based on accumulated training signals.
+
+### How It Works
+
+1. The system collects all training signals (disagreement resolutions).
+2. For each category, it calculates how often the pattern engine agreed with
+   the human's final choice (accuracy).
+3. A **multiplier** is computed using a piecewise linear function:
+
+   | Pattern Accuracy | Multiplier | Effect |
+   |-----------------|------------|--------|
+   | 0% | 0.60× | Heavy suppression |
+   | 40% | 0.90× | Mild penalty |
+   | 70% | 1.00× | Neutral — no change |
+   | 100% | 1.30× | Boost — pattern is reliable |
+
+4. Categories with fewer than 3 signals are skipped (insufficient data).
+5. The multipliers are stored as a system document in the `training-signals`
+   container.
+
+### Running Weight Tuning
+
+Weight tuning is triggered via the Admin API:
+
+```
+POST /admin/tune-weights
+```
+
+The response shows: total signals processed, per-category accuracy, computed
+multipliers, and any categories skipped due to insufficient data.
+
+### Viewing Current Weights
+
+```
+GET /admin/pattern-weights
+```
+
+Returns the current multiplier for each category and the timestamp of the last
+tune operation.
+
+### Effect on Analysis
+
+During AI analysis, the `intelligent_context_analyzer` loads the current weight
+adjustments and applies them to pattern engine scores before selecting the
+winning category. For example, if `capacity` has a 1.15× multiplier, the
+pattern engine's confidence for capacity is multiplied by 1.15 before comparison.
+
+---
+
+## 11. Validation
 
 The Validation page runs integrity checks across all rules, actions, triggers,
 and routes. It detects broken references, orphaned entities, and configuration
@@ -434,7 +529,7 @@ errors.
 
 ---
 
-## 10. Audit Log
+## 12. Audit Log
 
 The Audit Log records every create, update, delete, status-change, copy, and
 evaluate operation in the system.
@@ -466,7 +561,7 @@ evaluate operation in the system.
 
 ---
 
-## 11. Evaluation History
+## 13. Evaluation History
 
 Look up past evaluation runs for a specific work item.
 
@@ -507,10 +602,16 @@ Rules  →  combined into →  Trigger Expressions  →  point to →  Routes  �
 ### Evaluation Pipeline
 
 1. AI analysis classifies the work item (category, intent, confidence).
+   - Pattern engine scores are adjusted by **learned weight multipliers** from
+     active learning (see Section 10).
+   - If LLM and Pattern engines **disagree**, the disagreement is flagged for
+     human resolution (see Section 9).
 2. Triggers are evaluated in priority order against the work item + analysis.
 3. The first matching trigger fires its route.
 4. The route's actions execute in sequence, modifying ADO fields.
 5. Results are recorded in the audit log and evaluation history.
+6. Disagreement resolutions feed back as **training signals**, which are
+   periodically aggregated to tune pattern weights.
 
 ---
 
@@ -523,5 +624,9 @@ Rules  →  combined into →  Trigger Expressions  →  point to →  Routes  �
   confidence and reasoning — use it to verify classifications before triage.
 - **Corrections improve the AI.** When you see a misclassification, record it
   on the Corrections page or via the Evaluate page's correction flow.
+- **Resolve disagreements promptly.** The more training signals you provide,
+  the better the pattern weight tuning becomes.
+- **Run weight tuning periodically.** After accumulating new training signals,
+  call `POST /admin/tune-weights` to update pattern multipliers.
 - **Bookmark history URLs.** `/history?id=12345` gives you a direct link to a
   work item's evaluation history.

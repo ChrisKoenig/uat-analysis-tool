@@ -32,7 +32,7 @@ the results back to ADO — with human review at the decision point.
 | Subsystem | What It Does | Status |
 |-----------|-------------|--------|
 | **Input System** | Ad-hoc analysis via web form or Teams bot — user pastes title/description, gets classification | Built (legacy Flask app) |
-| **Analysis Engine** | Hybrid AI classifier — pattern matching + GPT-4o + vector search + corrective learning | Built, shared by both systems |
+| **Analysis Engine** | Hybrid AI classifier — pattern matching + GPT-4o + vector search + corrective learning + active learning feedback loop | Built, shared by both systems |
 | **Triage Management** | Queue-based batch processing — pull items from ADO, analyze, apply rules/triggers/routes, write back | Built (FastAPI + React) |
 
 ---
@@ -74,7 +74,8 @@ the results back to ADO — with human review at the decision point.
 │                       │          │  /api/v1/audit       Audit log           │
 │                       │          │  /api/v1/validation  Warnings            │
 │                       │          │  /api/v1/classify    Standalone classify  │
-│                       │          │  /api/v1/admin/*     Corrections, health  │
+│                       │          │  /api/v1/admin/*     Corrections, signals, │
+│                       │          │                      weight tuning, health │
 │                       │          │  /health             Health + Cosmos     │
 └───────────┬───────────┘          └──────────┬───────────────────────────────┘
             │                                  │
@@ -104,6 +105,8 @@ the results back to ADO — with human review at the decision point.
 │  │  2. Vector similarity   │   │  IntentType enum      │                      │
 │  │  3. LLM classification  │   │  Pattern rules        │                      │
 │  │  4. Corrective learning │   │  Product detection    │                      │
+│  │  5. Active learning     │   │  Weight adjustments   │                      │
+│  │     weight tuning       │   │  (from user signals)  │                      │
 │  │                         │   │  Keyword extraction   │                      │
 │  │  Falls back gracefully  │   └──────────────────────┘                      │
 │  │  if AI unavailable      │                                                 │
@@ -157,7 +160,7 @@ the results back to ADO — with human review at the decision point.
 │  │ DB: triage-      │  │ - OpenAI config  │  │ Deployments:     │            │
 │  │   management     │  │ - ADO PAT        │  │ - gpt-4o-standard│            │
 │  │                  │  │ - Storage keys   │  │ - text-embedding-│            │
-│  │ 10 containers:   │  │ - App Insights   │  │   3-large        │            │
+│  │ 11 containers:   │  │ - App Insights   │  │   3-large        │            │
 │  │ rules, actions,  │  │                  │  │                  │            │
 │  │ triggers, routes,│  │ Auth: Default    │  │ Auth: AAD only   │            │
 │  │ analysis-results,│  │ AzureCredential  │  │ (keys disabled)  │            │
@@ -165,6 +168,7 @@ the results back to ADO — with human review at the decision point.
 │  │ evaluations,     │  │ (pre-prod)       │  │                  │            │
 │  │ queue-cache,     │  │                  │  │                  │            │
 │  │ corrections,     │  │                  │  │                  │            │
+│  │ training-signals,│  │                  │  │                  │            │
 │  │ field-schema     │  │                  │  │                  │            │
 │  │                  │  │                  │  │                  │            │
 │  │ Auth: AAD only   │  │                  │  │                  │            │
@@ -223,6 +227,7 @@ the results back to ADO — with human review at the decision point.
 | AI Config | `ai_config.py` | LLM Classifier, Embedding Service |
 | Cosmos Config | `triage/config/cosmos_config.py` | Triage API |
 | Cache Manager | `cache_manager.py` | LLM Classifier |
+| Weight Tuner | `weight_tuner.py` | Pattern Analyzer (via active learning) |
 
 ### Triage Engines (deterministic logic, no AI)
 
@@ -254,12 +259,15 @@ the results back to ADO — with human review at the decision point.
 | AnalysisResult | `triage/models/analysis_result.py` | `analysis-results` |
 | AuditEntry | `triage/models/audit_entry.py` | `audit-log` |
 | FieldSchema | `triage/models/field_schema.py` | `field-schema` |
-| Correction | *(schema in cosmos_client.py)* | `corrections` |
+| Correction | *(schema in admin_routes.py)* | `corrections` |
+| TrainingSignal | *(schema in admin_routes.py)* | `training-signals` |
 
 > **Shared containers:** The `evaluations` container is written by both the
 > triage system (`source: "triage"`) and the field portal (`source: "field-portal"`).
-> The `corrections` container is written by the field portal and consumed by
-> the fine-tuning engine.
+> The `corrections` container stores AI classification corrections (migrated from
+> `corrections.json` to Cosmos) and is consumed by the corrective learning engine.
+> The `training-signals` container stores human resolutions of LLM/Pattern
+> disagreements and computed weight adjustments (produced by `weight_tuner.py`).
 
 ### Frontend Pages (React)
 
@@ -314,7 +322,10 @@ For each work item:
     │       │       → category, intent, confidence, reasoning
     │       │
     │       └── 4. Corrective learning (apply user corrections)
-    │               → corrections.json hints in LLM prompt
+    │       │       → Cosmos corrections (fallback: corrections.json)
+    │       │
+    │       └── 5. Active learning weight adjustments
+    │               → weight_tuner.py multipliers applied to pattern scores
     │
     ├── Map result to AnalysisResult dataclass
     │       → _enum_val() converts IssueCategory/IntentType to strings
@@ -413,6 +424,44 @@ Step 9   ▼ Create UAT work item in ADO
          ├── create_work_item_from_issue() → ADO (+ ChallengeDetails field)
          └── store_field_portal_evaluation() → Cosmos "evaluations" container
               └── source: "field-portal" (triage can detect & skip re-analysis)
+```
+
+### Flow 5: Active Learning Feedback Loop (ENG-003)
+
+```
+1. LLM and Pattern Engine produce different classifications
+         │
+         ▼
+2. Disagreement UI appears (EvaluatePage Analysis tab / QueuePage blade)
+   ├── 🧠 "LLM is correct"     (single click)
+   ├── 📊 "Pattern is correct"  (single click)
+   └── ❌ "Neither is correct"  (expands category/intent inputs)
+         │
+         ▼
+3. POST /admin/training-signals → Cosmos "training-signals" container
+   {workItemId, llmCategory, patternCategory, humanChoice, resolution, notes}
+         │
+         ▼
+4. Admin runs batch: POST /admin/tune-weights
+         │
+         ├── Fetch all training signals from Cosmos
+         ├── Aggregate by patternCategory (pattern_wins, llm_wins, neither_wins)
+         ├── Compute accuracy per category → multiplier (0.6× – 1.3×)
+         │       0% accuracy → 0.60× (strong penalty)
+         │       40% accuracy → 0.90× (mild penalty)
+         │       70% accuracy → 1.00× (neutral)
+         │       100% accuracy → 1.30× (boost)
+         ├── Require ≥ 3 signals per category (below threshold stays 1.0×)
+         └── Store as single doc: id="pattern-weight-adjustments", workItemId="_system"
+         │
+         ▼
+5. Pattern engine loads multipliers at initialization
+   └── _classify_category() applies multipliers to category_scores
+       before selecting the winning category
+         │
+         ▼
+6. GET /admin/pattern-weights → View current adjustments
+   (per-category accuracy, signal counts, boosted/penalized/neutral status)
 ```
 
 ---
@@ -547,7 +596,7 @@ resource group `rg-nonprod-aitriage`, North Central US.
 
 | Resource | Type | Key Detail |
 |----------|------|------------|
-| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 10 containers |
+| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 11 containers |
 | `kv-aitriage` | Key Vault | OpenAI, Cosmos, ADO secrets via MI |
 | `openai-aitriage-nonprod` | Azure OpenAI | gpt-4o-standard + text-embedding-3-large |
 | `TechRoB-Automation-DEV` | User-Assigned Managed Identity | Assigned to all 4 App Services |
@@ -572,7 +621,8 @@ Database: `triage-management`
 | `evaluations` | `/id` | Trigger evaluation history |
 | `audit-log` | `/id` | Change tracking |
 | `queue-cache` | `/id` | Cached queue data |
-| `corrections` | `/id` | AI classification corrections (fine-tuning) |
+| `corrections` | `/id` | AI classification corrections (Cosmos-backed, migrated from JSON) |
+| `training-signals` | `/id` | Human resolutions of LLM/Pattern disagreements + computed weight adjustments |
 | `field-schema` | `/id` | Field Portal schema definitions |
 
 ---
@@ -601,7 +651,8 @@ C:\Projects\Hack\
 ├── embedding_service.py          ← text-embedding-3-large service
 ├── vector_search.py              ← Similarity search
 ├── cache_manager.py              ← LLM response caching (7-day TTL)
-├── corrections.json              ← User feedback for corrective learning
+├── corrections.json              ← Legacy correction file (migrated to Cosmos)
+├── weight_tuner.py               ← Active learning: pattern weight adjustment batch
 │
 ├── ─── CONFIGURATION ─────────────────────────────────
 ├── keyvault_config.py            ← Key Vault integration
@@ -614,7 +665,7 @@ C:\Projects\Hack\
 │   │   ├── routes.py             ← FastAPI app, core triage endpoints (:8009)
 │   │   ├── schemas.py            ← Pydantic request/response models
 │   │   ├── classify_routes.py    ← Standalone classify API (new platform)
-│   │   └── admin_routes.py       ← Corrections + health API (new platform)
+│   │   └── admin_routes.py       ← Corrections, training signals, weight tuning, health API
 │   ├── config/
 │   │   └── cosmos_config.py      ← Cosmos DB connection + AAD auth
 │   ├── engines/
@@ -718,7 +769,7 @@ npm run dev
 |-----------|-------|
 | Triage API (FastAPI :8009) | Full CRUD, evaluate, analyze, ADO integration |
 | React SPA (:3000) | 11 pages (ClassifyPage removed, HealthPage merged into Dashboard) |
-| Cosmos DB persistence | 10 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
+| Cosmos DB persistence | 11 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
 | Hybrid Analysis Engine | Pattern + LLM + vectors + corrections |
 | Rules Engine (15 operators) | Full evaluation logic |
 | Trigger Engine (AND/OR/NOT) | Priority-ordered, first-match-wins |
@@ -728,7 +779,8 @@ npm run dev
 | Desktop launcher | GUI with process management |
 | Queue caching | Cached across navigation |
 | Standalone Classify API | Decoupled from ADO — raw text in, classification out |
-| Corrections management UI | CRUD for corrective learning entries |
+| Corrections management UI | CRUD for corrective learning entries (Cosmos-backed) |
+| Active learning feedback loop | Disagreement resolution UI, training signals, pattern weight tuning |
 | Health dashboard | Comprehensive component-by-component status |
 | Input Web App (:5003) | Legacy Flask UI |
 | Admin Portal (:8008) | Config management |
@@ -745,7 +797,7 @@ npm run dev
 | Key Vault secrets | Cosmos, OpenAI, ADO config stored in `kv-aitriage` |
 | MSAL SPA auth | `GCS-Triage-NonProd` app registration, Corp tenant |
 | Pre-prod OpenAI | `openai-aitriage-nonprod` with MI-based AAD auth |
-| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 10 containers, MI auth |
+| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 11 containers, MI auth |
 
 ### Planned / Not Yet Built
 
@@ -755,7 +807,7 @@ npm run dev
 | Analytics dashboard | Trends, accuracy, volume metrics |
 | Full automation mode | Trigger → route → ADO write without human review |
 | Container deployment | Docker images for each service (alternative to App Service) |
-| Classification tuning | Review accuracy, refine LLM prompt, add corrections |
+| Classification tuning | Few-shot injection from training signals into LLM prompt (ENG-003 Step 4), dashboard agreement rate metric (ENG-003 Step 5) |
 | Copilot API plugin | Expose classify/search endpoints as Copilot agent skills |
 | Legacy UI retirement | Migrate remaining Flask pages to React, retire :5003/:8008 |
 | End-to-end pre-prod testing | Full 9-step field flow and triage workflow through App Services |

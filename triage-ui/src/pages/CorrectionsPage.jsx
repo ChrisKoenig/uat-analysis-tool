@@ -131,9 +131,7 @@ export default function CorrectionsPage({ addToast }) {
     setLoading(true);
     try {
       const data = await api.listCorrections();
-      setCorrections(
-        (data.corrections || []).map((c, i) => ({ ...c, _index: i }))
-      );
+      setCorrections(data.corrections || []);
     } catch (err) {
       addToast?.('Failed to load corrections: ' + err.message, 'error');
     } finally {
@@ -185,7 +183,7 @@ export default function CorrectionsPage({ addToast }) {
       };
       delete payload.original_intent;
       if (formMode === 'edit' && selected != null) {
-        await api.updateCorrection(selected._index, payload);
+        await api.updateCorrection(selected.id, payload);
         addToast?.('Correction updated', 'success');
       } else {
         await api.addCorrection(payload);
@@ -209,9 +207,9 @@ export default function CorrectionsPage({ addToast }) {
   async function handleDeleteConfirm() {
     if (deleteTarget == null) return;
     try {
-      await api.deleteCorrection(deleteTarget._index);
+      await api.deleteCorrection(deleteTarget.id);
       addToast?.('Correction deleted', 'success');
-      if (selected?._index === deleteTarget._index) handleClosePanel();
+      if (selected?.id === deleteTarget.id) handleClosePanel();
       loadCorrections();
     } catch (err) {
       addToast?.('Failed to delete: ' + err.message, 'error');

@@ -261,7 +261,7 @@ class TestEvaluationAPI:
         mock_evaluation.appliedRoute = None
         mock_evaluation.actionsExecuted = []
         mock_evaluation.ruleResults = {}
-        mock_evaluation.fieldsChanged = []
+        mock_evaluation.fieldsChanged = {}
         mock_evaluation.errors = []
         mock_evaluation.isDryRun = True
         mock_evaluation.summaryHtml = "<p>No match</p>"
@@ -297,7 +297,7 @@ class TestEvaluationAPI:
         mock_result.appliedRoute = None
         mock_result.actionsExecuted = []
         mock_result.ruleResults = {}
-        mock_result.fieldsChanged = []
+        mock_result.fieldsChanged = {}
         mock_result.errors = []
         mock_result.isDryRun = True
         mock_result.summaryHtml = ""

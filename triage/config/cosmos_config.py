@@ -89,6 +89,10 @@ CONTAINER_DEFINITIONS = {
         "partition_key": "/workItemId",
         "description": "User corrections to AI classifications, fed back into fine-tuning"
     },
+    "training-signals": {
+        "partition_key": "/workItemId",
+        "description": "Active learning signals from LLM/Pattern disagreements resolved by humans"
+    },
     "triage-teams": {
         "partition_key": "/status",
         "description": "Triage team configurations (team name, ADO query, display order)"

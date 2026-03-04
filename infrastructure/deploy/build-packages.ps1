@@ -32,6 +32,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# =============================================================================
+# Configuration
+# =============================================================================
+$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
+$RG             = "rg-nonprod-aitriage"
+$TRIAGE_API     = "app-triage-api-nonprod"
+$FIELD_API      = "app-field-api-nonprod"
+$TRIAGE_UI      = "app-triage-ui-nonprod"
+$FIELD_UI       = "app-field-ui-nonprod"
+
 $repoRoot = $PSScriptRoot | Split-Path | Split-Path
 $outDir   = Join-Path $PSScriptRoot "packages"
 
@@ -62,9 +72,11 @@ $sharedFiles = @(
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Build Deployment Packages ($Env)"     -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Repo root: $repoRoot"
-Write-Host "  Output:    $outDir"
-Write-Host "  Config:    config.$configSuffix.json"
+Write-Host "  Subscription: $SUBSCRIPTION"
+Write-Host "  Resource Grp: $RG"
+Write-Host "  Repo root:    $repoRoot"
+Write-Host "  Output:       $outDir"
+Write-Host "  Config:       config.$configSuffix.json"
 
 # =============================================================================
 # 1. Triage API
@@ -241,8 +253,11 @@ Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Upload all 4 zips to Cloud Shell"
 Write-Host "  2. Run these commands in Cloud Shell:"
 Write-Host ""
-Write-Host "  `$RG = `"rg-nonprod-aitriage`"" -ForegroundColor White
-Write-Host "  az webapp deploy --name app-triage-api-nonprod --resource-group `$RG --src-path triage-api.zip --type zip" -ForegroundColor White
-Write-Host "  az webapp deploy --name app-field-api-nonprod  --resource-group `$RG --src-path field-api.zip  --type zip" -ForegroundColor White
-Write-Host "  az webapp deploy --name app-triage-ui-nonprod  --resource-group `$RG --src-path triage-ui.zip  --type zip" -ForegroundColor White
-Write-Host "  az webapp deploy --name app-field-ui-nonprod   --resource-group `$RG --src-path field-ui.zip   --type zip" -ForegroundColor White
+Write-Host "  az account set --subscription $SUBSCRIPTION" -ForegroundColor White
+Write-Host "  `$RG = `"$RG`"" -ForegroundColor White
+Write-Host "  az webapp deploy --name $TRIAGE_API --resource-group `$RG --src-path triage-api.zip --type zip" -ForegroundColor White
+Write-Host "  az webapp deploy --name $FIELD_API  --resource-group `$RG --src-path field-api.zip  --type zip" -ForegroundColor White
+Write-Host "  az webapp deploy --name $TRIAGE_UI  --resource-group `$RG --src-path triage-ui.zip  --type zip" -ForegroundColor White
+Write-Host "  az webapp deploy --name $FIELD_UI   --resource-group `$RG --src-path field-ui.zip   --type zip" -ForegroundColor White
+Write-Host ""
+Write-Host "  Subscription: $SUBSCRIPTION" -ForegroundColor DarkGray

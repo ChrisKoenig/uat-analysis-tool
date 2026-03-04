@@ -295,32 +295,9 @@ class HybridContextAnalyzer:
     
     def _load_corrections(self) -> Dict:
         """
-        Load user corrections from corrections.json for continuous learning
+        Load user corrections for continuous learning.
         
-        PHASE 1 - CORRECTIVE LEARNING SYSTEM:
-        --------------------------------------
-        This method implements Phase 1 of the corrections system, which focuses
-        on loading and utilizing existing corrections without validation or
-        conflict resolution.
-        
-        CORRECTIONS FILE FORMAT (corrections.json):
-        -------------------------------------------
-        {
-            "corrections": [
-                {
-                    "timestamp": "2025-12-31T10:30:00",
-                    "original_title": "Need Azure OpenAI capacity",
-                    "original_category": "technical_support",
-                    "original_intent": "seeking_guidance",
-                    "correct_category": "capacity",
-                    "correct_intent": "capacity_request",
-                    "correct_business_impact": "high",
-                    "user_feedback": "This is a capacity request, not support",
-                    "issue_description": "Full issue description...",
-                    "impact": "Business impact statement..."
-                }
-            ]
-        }
+        Tries Cosmos DB first, falls back to corrections.json.
         
         USAGE IN ANALYSIS:
         ------------------
@@ -328,20 +305,28 @@ class HybridContextAnalyzer:
         1. Pattern Matching: Similar corrections add context to features
         2. LLM Prompting: Relevant corrections included in prompt as examples
         
-        MATCHING STRATEGY:
-        ------------------
-        Corrections are matched to new issues by:
-        - Word overlap between issue text and correction text
-        - Threshold: At least 3 overlapping words
-        - Sorted by relevance (word count)
-        
         Returns:
             Dict: Corrections data structure with 'corrections' list
-                  Empty dict with empty list if file doesn't exist
+                  Empty dict with empty list if unavailable
         """
+        # Try Cosmos first
         try:
-            # Resolve relative to this module's directory (project root),
-            # not the cwd (which may be field-portal/).
+            from triage.config.cosmos_config import get_cosmos_config
+            cfg = get_cosmos_config()
+            if not cfg._in_memory:
+                container = cfg.get_container("corrections")
+                items = list(container.query_items(
+                    "SELECT * FROM c",
+                    enable_cross_partition_query=True
+                ))
+                if items:
+                    print(f"[HybridAnalyzer] Loaded {len(items)} corrections from Cosmos")
+                    return {"corrections": items}
+        except Exception as e:
+            print(f"[HybridAnalyzer] Cosmos corrections load failed, falling back to file: {e}")
+        
+        # Fallback to JSON file
+        try:
             module_dir = Path(__file__).resolve().parent
             corrections_file = module_dir / 'corrections.json'
             if corrections_file.exists():

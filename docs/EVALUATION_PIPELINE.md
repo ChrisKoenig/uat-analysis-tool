@@ -13,6 +13,11 @@ ADO Work Item
       │
       ▼
 ┌─────────────────┐
+│  0. Weight      │  Load pattern weight adjustments from training-signals
+│     Adjustments │  (applied during analysis, before evaluation)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
 │  1. Load Data   │  Load all active rules, triggers, actions, routes
 └────────┬────────┘
          ▼
@@ -37,7 +42,49 @@ ADO Work Item
 └─────────────────┘
 ```
 
-> **Pre-requisite — Analysis Engine**: Before evaluation, work items typically pass through the **Analysis Engine** (`POST /api/v1/analyze`), which classifies items using pattern matching + optional Azure OpenAI. Analysis results populate `Analysis.*` fields that rules can reference in conditions. Check engine availability via `GET /api/v1/analyze/status`. See the [API Reference](API_REFERENCE.md#analysis-endpoints) for details.
+> **Pre-requisite — Analysis Engine**: Before evaluation, work items typically pass through the **Analysis Engine** (`POST /api/v1/analyze`), which classifies items using pattern matching + optional Azure OpenAI. Analysis results populate `Analysis.*` fields that rules can reference in conditions. The analysis engine applies **learned pattern weight multipliers** from the active learning feedback loop (see below) to adjust pattern engine scores before selecting the winning category. Check engine availability via `GET /api/v1/analyze/status`. See the [API Reference](API_REFERENCE.md#analysis-endpoints) for details.
+
+---
+
+## Active Learning Weight Adjustments
+
+The analysis engine incorporates feedback from human disagreement resolutions to
+improve classification accuracy over time.
+
+### How Weights Affect Analysis
+
+During `_classify_category()`, the `intelligent_context_analyzer` loads pattern
+weight adjustments (if any) from the `training-signals` Cosmos container. Each
+category may have a **multiplier** that scales the pattern engine's confidence
+score before comparison with the LLM engine.
+
+For example, if `capacity` has a 1.15× multiplier and the pattern engine scores
+capacity at 0.70, the adjusted score becomes 0.805 — potentially changing which
+engine wins the category selection.
+
+### Multiplier Source
+
+Multipliers are computed by `POST /admin/tune-weights`, which aggregates all
+training signals (human resolutions of LLM/Pattern disagreements) and calculates
+per-category accuracy using a piecewise linear function:
+
+| Pattern Accuracy | Multiplier | Effect |
+|-----------------|------------|--------|
+| 0% | 0.60× | Heavy suppression |
+| 40% | 0.90× | Mild penalty |
+| 70% | 1.00× | Neutral |
+| 100% | 1.30× | Boost |
+
+Categories with fewer than 3 signals are excluded. If no weight adjustments
+exist, the analysis engine runs with default (1.0×) multipliers — no effect.
+
+### Disagreement Detection
+
+When the LLM and pattern engines produce different categories, the analysis
+result includes `agreement: false` and populates both `patternCategory` and
+`patternConfidence` fields. The UI surfaces a resolution prompt (see the
+[Admin User Guide](TRIAGE_ADMIN_USER_GUIDE.md#9-disagreement-resolution-active-learning)).
+Each resolution is stored as a **training signal** that feeds future weight tuning.
 
 ---
 

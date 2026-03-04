@@ -297,7 +297,7 @@ export default function ActionsPage({ addToast }) {
                     <ul className="reference-list">
                       {Object.entries(references.references).map(([type, ids]) =>
                         ids.map((id) => (
-                          <li key={`${type}-${id}`}>{type}: {id}</li>
+                          <li key={`${type}-${id}`}>{type}: {references.referenceNames?.[id] || id}</li>
                         ))
                       )}
                     </ul>
