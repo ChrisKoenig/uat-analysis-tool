@@ -3,18 +3,23 @@
 
 Write-Host "`n=== Adding Azure OpenAI Configuration to Key Vault ===" -ForegroundColor Cyan
 
-# Azure OpenAI Configuration from infrastructure\GET_CONNECTION_STRINGS.md
-$AZURE_OPENAI_ENDPOINT = "https://OpenAI-bp-NorthCentral.openai.azure.com/"
-$AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT = "gpt-4o-02"
-$AZURE_OPENAI_EMBEDDING_DEPLOYMENT = "text-embedding-3-large"
+# Load environment config (defaults to dev; set APP_ENV to override)
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
+$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+if (Test-Path $_configFile) { . $_configFile } else {
+    Write-Error "Config file not found: $_configFile"; exit 1
+}
+
+# Derive values from loaded config
+$AZURE_OPENAI_ENDPOINT = "https://$OPENAI_ACCOUNT.openai.azure.com/"
+$AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT = $OPENAI_CLASSIFICATION_DEPLOYMENT
+$AZURE_OPENAI_EMBEDDING_DEPLOYMENT = $OPENAI_EMBEDDING_DEPLOYMENT
+$kvName = $KV_NAME
 
 Write-Host "`nNote: Using Azure AD authentication (API key not required)" -ForegroundColor Yellow
 Write-Host "AZURE_OPENAI_USE_AAD is already set to 'true' in Key Vault`n" -ForegroundColor Gray
 
-Write-Host "`nAdding secrets to Key Vault..." -ForegroundColor Yellow
-
-# Get Key Vault name
-$kvName = "kv-gcs-dev-gg4a6y"
+Write-Host "`nAdding secrets to Key Vault ($kvName)..." -ForegroundColor Yellow
 
 # Add secrets using Azure CLI
 Write-Host "   1. AZURE_OPENAI_ENDPOINT..." -ForegroundColor Gray

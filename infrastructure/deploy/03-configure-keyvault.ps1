@@ -27,17 +27,15 @@ param(
 $ErrorActionPreference = "Stop"
 
 # =============================================================================
-# Configuration
+# Configuration — loaded from shared environment config file
 # =============================================================================
-$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
-$RG             = "rg-nonprod-aitriage"
-$KV_NAME        = "kv-aitriage"
-$COSMOS_ACCOUNT = "cosmos-aitriage-nonprod"
-$OPENAI_ACCOUNT = "openai-aitriage-nonprod"
-
-# App Insights (pre-existing)
-$APP_INSIGHTS_KEY = "766a42c9-7235-42cb-a02f-6bb80cdf4f26"
-$APP_INSIGHTS_CS  = "InstrumentationKey=766a42c9-7235-42cb-a02f-6bb80cdf4f26;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=32904105-1d0d-4926-a5bb-e7762f68f9c6"
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
+$_configFile = Join-Path $PSScriptRoot "..\..\config\environments\$_env.ps1"
+if (-not (Test-Path $_configFile)) {
+    Write-Error "Environment config not found: $_configFile  (valid: dev, preprod, prod)"
+    exit 1
+}
+. $_configFile
 
 # =============================================================================
 # Helper
@@ -105,8 +103,8 @@ if ($WhatIf) {
 $secrets = @(
     @{ name = "COSMOS-ENDPOINT";                         value = $cosmosEndpoint }
     @{ name = "AZURE-OPENAI-ENDPOINT";                   value = $oaiEndpoint }
-    @{ name = "AZURE-OPENAI-CLASSIFICATION-DEPLOYMENT";  value = "gpt-4o-standard" }
-    @{ name = "AZURE-OPENAI-EMBEDDING-DEPLOYMENT";       value = "text-embedding-3-large" }
+    @{ name = "AZURE-OPENAI-CLASSIFICATION-DEPLOYMENT";  value = $OPENAI_CLASSIFICATION_DEPLOYMENT }
+    @{ name = "AZURE-OPENAI-EMBEDDING-DEPLOYMENT";       value = $OPENAI_EMBEDDING_DEPLOYMENT }
     @{ name = "AZURE-OPENAI-USE-AAD";                    value = "true" }
     @{ name = "azure-app-insights-instrumentation-key";  value = $APP_INSIGHTS_KEY }
     @{ name = "azure-app-insights-connection-string";     value = $APP_INSIGHTS_CS }

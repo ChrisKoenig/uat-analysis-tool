@@ -25,34 +25,25 @@ param(
 $ErrorActionPreference = "Stop"
 
 # =============================================================================
-# Configuration — UPDATE THESE AFTER RUNNING 04
+# Configuration — loaded from shared environment config file
 # =============================================================================
-$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
-$RG             = "rg-nonprod-aitriage"
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
+$_configFile = Join-Path $PSScriptRoot "..\..\config\environments\$_env.ps1"
+if (-not (Test-Path $_configFile)) {
+    Write-Error "Environment config not found: $_configFile  (valid: dev, preprod, prod)"
+    exit 1
+}
+. $_configFile
 
-# Managed Identity
-$MI_CLIENT_ID   = "0fe9d340-a359-4849-8c0f-d3c9640017ee"
-
-# Key Vault
-$KV_NAME        = "kv-aitriage"
-
-# MSAL — App Registration created by script 04
-$MSAL_CLIENT_ID = "6257f944-71eb-49b9-8ef6-ab006383d54c"
-$MSAL_TENANT_ID = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-
-# App Insights
-$APP_INSIGHTS_CS = "InstrumentationKey=766a42c9-7235-42cb-a02f-6bb80cdf4f26;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=32904105-1d0d-4926-a5bb-e7762f68f9c6"
-
-# App Service names
-$TRIAGE_API = "app-triage-api-nonprod"
-$FIELD_API  = "app-field-api-nonprod"
-$TRIAGE_UI  = "app-triage-ui-nonprod"
-$FIELD_UI   = "app-field-ui-nonprod"
+# App Service names (from config app_services list)
+$TRIAGE_API = $APP_SERVICES | Where-Object { $_ -like "*triage-api*" } | Select-Object -First 1
+$FIELD_API  = $APP_SERVICES | Where-Object { $_ -like "*field-api*" }  | Select-Object -First 1
+$TRIAGE_UI  = $APP_SERVICES | Where-Object { $_ -like "*triage-ui*" } | Select-Object -First 1
+$FIELD_UI   = $APP_SERVICES | Where-Object { $_ -like "*field-ui*" }  | Select-Object -First 1
 
 # ADO organizations
-$ADO_WRITE_ORG = "unifiedactiontrackertest"
+$ADO_WRITE_ORG = $ADO_ORG
 $ADO_READ_ORG  = "unifiedactiontracker"
-$ADO_PROJECT   = "Unified Action Tracker Test"
 
 # =============================================================================
 # Helper

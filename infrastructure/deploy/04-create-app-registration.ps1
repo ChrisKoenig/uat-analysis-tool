@@ -26,15 +26,21 @@ param(
 $ErrorActionPreference = "Stop"
 
 # =============================================================================
-# Configuration
+# Configuration — loaded from shared environment config file
 # =============================================================================
-$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
-$RG             = "rg-nonprod-aitriage"
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
+$_configFile = Join-Path $PSScriptRoot "..\..\config\environments\$_env.ps1"
+if (-not (Test-Path $_configFile)) {
+    Write-Error "Environment config not found: $_configFile  (valid: dev, preprod, prod)"
+    exit 1
+}
+. $_configFile
+
 $APP_REG_NAME   = "GCS-Triage-NonProd"
 
-# App Service names (to derive redirect URIs)
-$TRIAGE_UI      = "app-triage-ui-nonprod"
-$FIELD_UI       = "app-field-ui-nonprod"
+# App Service names (from config — falls back for environments that don't define them)
+$TRIAGE_UI      = if ($APP_SERVICES) { $APP_SERVICES | Where-Object { $_ -like "*triage-ui*" } | Select-Object -First 1 } else { "app-triage-ui-nonprod" }
+$FIELD_UI       = if ($APP_SERVICES) { $APP_SERVICES | Where-Object { $_ -like "*field-ui*" }  | Select-Object -First 1 } else { "app-field-ui-nonprod" }
 
 # =============================================================================
 # Helper

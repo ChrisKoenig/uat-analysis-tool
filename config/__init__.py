@@ -200,3 +200,27 @@ def _bool_override(cfg: AppConfig, attr: str, *env_vars: str) -> None:
         if val is not None:
             setattr(cfg, attr, val.lower() in ("true", "1", "yes"))
             return
+
+
+# ── JSON-based config loading ────────────────────────────────────────────────
+
+import dataclasses as _dc
+import json as _json
+from pathlib import Path as _Path
+
+_APP_CONFIG_FIELDS = {f.name for f in _dc.fields(AppConfig)}
+
+
+def _load_from_json(json_filename: str) -> AppConfig:
+    """
+    Load an AppConfig from a JSON file in config/environments/.
+
+    Keys in the JSON that do not correspond to AppConfig fields (e.g.
+    PS1-only values like ``app_services``) are silently ignored.
+    """
+    json_path = _Path(__file__).parent / "environments" / json_filename
+    with open(json_path, encoding="utf-8") as fh:
+        data = _json.load(fh)
+
+    kwargs = {k: v for k, v in data.items() if k in _APP_CONFIG_FIELDS}
+    return AppConfig(**kwargs)

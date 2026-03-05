@@ -1,5 +1,5 @@
 ﻿# ============================================================================
-# GCS Development Startup - Clean Start All Services
+# GCS Startup - Clean Start All Services
 # ============================================================================
 #
 # Starts all 4 services required for local development:
@@ -9,13 +9,19 @@
 #   - Field Portal UI   (port 3001)  - Vite dev server
 #
 # Usage:
-#   .\start_dev.ps1            - Start everything
-#   .\start_dev.ps1 -SkipUI    - APIs only (UIs already running)
-#   .\start_dev.ps1 -SkipAPI   - UIs only  (APIs already running)
+#   .\start_dev.ps1                         - Start with dev config (default)
+#   .\start_dev.ps1 -Environment preprod    - Start with preprod config
+#   .\start_dev.ps1 -Env preprod            - Same (short alias)
+#   .\start_dev.ps1 -SkipUI                 - APIs only (UIs already running)
+#   .\start_dev.ps1 -SkipAPI                - UIs only  (APIs already running)
+#   .\start_dev.ps1 -Env preprod -SkipUI
 #
 # ============================================================================
 
 param(
+    [Alias("Env")]
+    [ValidateSet("dev", "preprod", "prod")]
+    [string]$Environment = "dev",
     [switch]$SkipUI,
     [switch]$SkipAPI
 )
@@ -23,11 +29,13 @@ param(
 $ErrorActionPreference = "Continue"
 $Root = $PSScriptRoot
 
+$_envColor = switch ($Environment) { "dev" { "Cyan" } "preprod" { "Yellow" } "prod" { "Green" } default { "White" } }
+
 Write-Host ""
-Write-Host "================================================================================" -ForegroundColor Cyan
-Write-Host "  GCS Development Environment - Clean Start" -ForegroundColor Cyan
+Write-Host "================================================================================" -ForegroundColor $_envColor
+Write-Host "  GCS Environment Startup ($Environment)" -ForegroundColor $_envColor
 Write-Host "  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGray
-Write-Host "================================================================================" -ForegroundColor Cyan
+Write-Host "================================================================================" -ForegroundColor $_envColor
 
 # -- Step 1: Kill existing processes -----------------------------------------------
 
@@ -38,7 +46,8 @@ $pyProcs = Get-Process -Name python -ErrorAction SilentlyContinue
 if ($pyProcs) {
     Write-Host "  Stopping $($pyProcs.Count) Python process(es)..." -ForegroundColor Gray
     $pyProcs | Stop-Process -Force -ErrorAction SilentlyContinue
-} else {
+}
+else {
     Write-Host "  No Python processes running" -ForegroundColor Gray
 }
 
@@ -66,26 +75,32 @@ if ($busy.Count -gt 0) {
     Write-Host "  WARNING: Ports still in use: $($busy -join ', ')" -ForegroundColor Red
     Write-Host "  Waiting 5 more seconds..." -ForegroundColor Yellow
     Start-Sleep -Seconds 5
-} else {
+}
+else {
     Write-Host "  All ports free" -ForegroundColor Green
 }
 
-# -- Step 2: Set environment variables ---------------------------------------------
+# -- Step 2: Load config & set environment variables -----------------------------------
 
-Write-Host "`n[2/6] Setting environment variables..." -ForegroundColor Yellow
+Write-Host "`n[2/6] Loading config & setting environment variables..." -ForegroundColor Yellow
 
-$env:COSMOS_ENDPOINT    = "https://cosmos-gcs-dev.documents.azure.com:443/"
-$env:COSMOS_USE_AAD     = "true"
-$env:COSMOS_TENANT_ID   = "16b3c013-d300-468d-ac64-7eda0820b6d3"
-$env:PYTHONIOENCODING   = "utf-8"
-$env:PYTHONPATH         = $Root
+# Load config from the shared JSON (single source of truth)
+$env:APP_ENV = $Environment
+$_configJsonPath = Join-Path $Root "config\environments\$Environment.json"
+. (Join-Path $Root "config\environments\_load-config.ps1")
+
+$env:COSMOS_ENDPOINT = "https://$COSMOS_ACCOUNT.documents.azure.com:443/"
+$env:COSMOS_USE_AAD = "true"
+$env:COSMOS_TENANT_ID = $TENANT_ID
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONPATH = $Root
 
 # Azure OpenAI (workaround while Key Vault public access is disabled)
-$env:AZURE_OPENAI_ENDPOINT = "https://openai-bp-northcentral.openai.azure.com/"
-$env:AZURE_OPENAI_USE_AAD  = "true"
+$env:AZURE_OPENAI_ENDPOINT = "https://$($OPENAI_ACCOUNT.ToLower()).openai.azure.com/"
+$env:AZURE_OPENAI_USE_AAD = "true"
 
 # Application Insights (telemetry for both APIs)
-$env:APPLICATIONINSIGHTS_CONNECTION_STRING = "InstrumentationKey=59506f54-8a7a-4c57-b26c-ed2a0dc7daae;IngestionEndpoint=https://northcentralus-0.in.applicationinsights.azure.com/;LiveEndpoint=https://northcentralus.livediagnostics.monitor.azure.com/;ApplicationId=6a7da292-a8af-4742-9af7-cd7909178530"
+$env:APPLICATIONINSIGHTS_CONNECTION_STRING = $APP_INSIGHTS_CS
 
 Write-Host "  COSMOS_ENDPOINT  = $env:COSMOS_ENDPOINT" -ForegroundColor Gray
 Write-Host "  COSMOS_USE_AAD   = $env:COSMOS_USE_AAD" -ForegroundColor Gray
@@ -98,16 +113,17 @@ Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 Write-Host "`n[3/6] Writing local UI configs (config.local.json -> config.json)..." -ForegroundColor Yellow
 
 $uiConfigs = @(
-    @{ Label = "Triage UI";       Dir = "$Root\triage-ui\public" },
+    @{ Label = "Triage UI"; Dir = "$Root\triage-ui\public" },
     @{ Label = "Field Portal UI"; Dir = "$Root\field-portal\ui\public" }
 )
 foreach ($ui in $uiConfigs) {
-    $src  = Join-Path $ui.Dir "config.local.json"
+    $src = Join-Path $ui.Dir "config.local.json"
     $dest = Join-Path $ui.Dir "config.json"
     if (Test-Path $src) {
         Copy-Item $src $dest -Force
         Write-Host "  $($ui.Label): config.json <- config.local.json" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "  $($ui.Label): config.local.json NOT FOUND - skipped" -ForegroundColor Red
     }
 }
@@ -141,17 +157,19 @@ if (-not $SkipAPI) {
 
     # Health checks
     foreach ($svc in @(
-        @{ Name = "Triage API";       Url = "http://localhost:8009/health" },
-        @{ Name = "Field Portal API"; Url = "http://localhost:8010/health" }
-    )) {
+            @{ Name = "Triage API"; Url = "http://localhost:8009/health" },
+            @{ Name = "Field Portal API"; Url = "http://localhost:8010/health" }
+        )) {
         try {
             $null = Invoke-WebRequest -Uri $svc.Url -Method GET -UseBasicParsing -TimeoutSec 5
             Write-Host "  $($svc.Name): HEALTHY" -ForegroundColor Green
-        } catch {
+        }
+        catch {
             Write-Host "  $($svc.Name): May still be starting..." -ForegroundColor Yellow
         }
     }
-} else {
+}
+else {
     Write-Host "`n[4/6] Skipping APIs (-SkipAPI)" -ForegroundColor DarkGray
 }
 
@@ -175,7 +193,8 @@ if (-not $SkipUI) {
     Write-Host "    PID: $($fieldUi.Id)" -ForegroundColor DarkGray
 
     Start-Sleep -Seconds 5
-} else {
+}
+else {
     Write-Host "`n[5/6] Skipping UIs (-SkipUI)" -ForegroundColor DarkGray
 }
 
@@ -185,10 +204,10 @@ Write-Host "`n[6/6] Verifying services..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
 
 $services = @(
-    @{ Name = "Triage API";       Port = 8009; Url = "http://localhost:8009" },
+    @{ Name = "Triage API"; Port = 8009; Url = "http://localhost:8009" },
     @{ Name = "Field Portal API"; Port = 8010; Url = "http://localhost:8010" },
-    @{ Name = "Triage UI";        Port = 3000; Url = "http://localhost:3000" },
-    @{ Name = "Field Portal UI";  Port = 3001; Url = "http://localhost:3001" }
+    @{ Name = "Triage UI"; Port = 3000; Url = "http://localhost:3000" },
+    @{ Name = "Field Portal UI"; Port = 3001; Url = "http://localhost:3001" }
 )
 
 Write-Host ""
@@ -202,7 +221,8 @@ foreach ($svc in $services) {
         Write-Host "  $($svc.Name.PadRight(23)) :$($svc.Port)   " -NoNewline -ForegroundColor White
         Write-Host "UP" -NoNewline -ForegroundColor Green
         Write-Host "  (PID $procId)" -ForegroundColor DarkGray
-    } else {
+    }
+    else {
         Write-Host "  $($svc.Name.PadRight(23)) :$($svc.Port)   " -NoNewline -ForegroundColor White
         Write-Host "DOWN" -ForegroundColor Red
     }
