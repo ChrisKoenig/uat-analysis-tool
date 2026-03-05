@@ -122,3 +122,34 @@ async def execute_import(body: ImportExecuteRequest):
     except Exception as e:
         logger.exception("Import execution failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Backups
+# =============================================================================
+
+@router.get("/backups")
+async def list_backups(limit: int = 20):
+    """List persisted pre-import backups (summary only)."""
+    try:
+        svc = get_dm_service()
+        return {"backups": svc.list_backups(limit=limit)}
+    except Exception as e:
+        logger.exception("List backups failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/backups/{audit_id}")
+async def get_backup(audit_id: str):
+    """Retrieve the full backup bundle for a given audit entry."""
+    try:
+        svc = get_dm_service()
+        bundle = svc.get_backup_for_audit(audit_id)
+        if bundle is None:
+            raise HTTPException(status_code=404, detail="Backup not found")
+        return bundle
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Get backup failed")
+        raise HTTPException(status_code=500, detail=str(e))

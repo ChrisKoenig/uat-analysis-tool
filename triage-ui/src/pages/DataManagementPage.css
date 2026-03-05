@@ -421,19 +421,122 @@
   margin: 0;
 }
 
-.dm-backup-tag {
-  display: inline-block;
-  margin-top: var(--space-xs);
-  font-size: var(--font-size-xs);
-  color: var(--primary);
-}
-
 /* ---------- Loading ---------- */
 
 .dm-loading {
   text-align: center;
   color: var(--text-light);
   padding: var(--space-md);
+}
+
+/* Loading overlay with spinner */
+.dm-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl, 40px) var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}
+
+.dm-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: dm-spin 0.8s linear infinite;
+}
+
+@keyframes dm-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Export Filename ---------- */
+
+.dm-export-filename {
+  margin: var(--space-xs) 0 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* ---------- Backup Link (replaces old .dm-backup-tag) ---------- */
+
+.dm-backup-link {
+  display: inline-block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.dm-backup-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Backups Tab ---------- */
+
+.dm-backup-desc {
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+  margin: var(--space-xs) 0 0 0;
+}
+
+.dm-empty {
+  color: var(--text-light);
+  text-align: center;
+  padding: var(--space-md);
+}
+
+.dm-backup-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.dm-backup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dm-backup-actor {
+  margin-left: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+}
+
+.dm-btn-restore {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  background: var(--warning, #f0ad4e);
+}
+
+.dm-btn-restore:hover:not(:disabled) {
+  background: #ec971f;
+}
+
+.dm-backup-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.dm-count-total {
+  font-weight: 600;
+}
+
+.dm-backup-reason {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  font-style: italic;
 }
 
 /* ---------- Import record highlight ---------- */

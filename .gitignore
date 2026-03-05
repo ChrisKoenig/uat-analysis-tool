@@ -82,3 +82,4 @@ field-portal/ui/public/config.json
 *.log
 flask_*.log
 debug_*.log
+test_bundle.json

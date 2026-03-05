@@ -630,6 +630,52 @@ Auto-backup of affected types is created before import. Import order: Rules → 
 }
 ```
 
+### List Backups
+
+```
+GET /api/v1/data-management/backups?limit=20
+```
+
+Returns a list of previously created backup snapshots (stored as audit-log entries). Backups are created automatically before each import.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit`   | int  | 20      | Maximum number of backups to return |
+
+**Response:**
+```json
+{
+  "backups": [
+    {
+      "auditId": "audit-abc123",
+      "timestamp": "2026-02-06T14:30:00Z",
+      "reason": "Pre-import backup",
+      "actor": "user@example.com",
+      "entityCounts": { "rules": 5, "actions": 3, "routes": 2, "triggers": 1 },
+      "totalEntities": 11
+    }
+  ]
+}
+```
+
+### Get Backup
+
+```
+GET /api/v1/data-management/backups/{audit_id}
+```
+
+Returns a full export bundle from a specific backup. The bundle can be used to restore entities via the Import Execute endpoint.
+
+**Path Parameters:**
+
+| Parameter  | Type   | Description |
+|------------|--------|-------------|
+| `audit_id` | string | The audit-log entry ID for the backup |
+
+**Response:** Full export bundle (same format as Export Entities response) or `404` if not found.
+
 ---
 
 ## Admin Endpoints

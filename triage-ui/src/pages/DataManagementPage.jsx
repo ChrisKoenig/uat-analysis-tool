@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import * as api from '../api/triageApi';
 import './DataManagementPage.css';
 
@@ -12,6 +13,97 @@ const ENTITY_TYPES = [
 /** Import order — dependencies first */
 const IMPORT_ORDER = ['rules', 'actions', 'routes', 'triggers'];
 
+// =========================================================================
+// Dependency-graph helpers (for smart auto-selection on export)
+// =========================================================================
+
+/** Recursively extract rule IDs from a trigger expression tree. */
+function collectRuleIds(expr) {
+  const ids = new Set();
+  const walk = (node) => {
+    if (typeof node === 'string') { ids.add(node); return; }
+    if (node && typeof node === 'object') {
+      const key = Object.keys(node)[0];
+      if (key === 'not') walk(node.not);
+      else if (key === 'and' || key === 'or') (node[key] || []).forEach(walk);
+    }
+  };
+  walk(expr);
+  return ids;
+}
+
+/**
+ * Build bidirectional dependency maps from loaded entities.
+ * Forward:  trigger → rules, trigger → route, route → actions
+ * Reverse:  rule → triggers, route → triggers, action → routes
+ */
+function buildDependencyMap(entityData) {
+  const triggerToRules   = {};  // triggerId → Set<ruleId>
+  const triggerToRoute   = {};  // triggerId → routeId
+  const routeToActions   = {};  // routeId   → Set<actionId>
+  const ruleToTriggers   = {};  // ruleId    → Set<triggerId>
+  const routeToTriggers  = {};  // routeId   → Set<triggerId>
+  const actionToRoutes   = {};  // actionId  → Set<routeId>
+
+  for (const t of entityData.triggers || []) {
+    const ruleIds = collectRuleIds(t.expression);
+    triggerToRules[t.id] = ruleIds;
+    for (const rid of ruleIds) {
+      if (!ruleToTriggers[rid]) ruleToTriggers[rid] = new Set();
+      ruleToTriggers[rid].add(t.id);
+    }
+    if (t.onTrue) {
+      triggerToRoute[t.id] = t.onTrue;
+      if (!routeToTriggers[t.onTrue]) routeToTriggers[t.onTrue] = new Set();
+      routeToTriggers[t.onTrue].add(t.id);
+    }
+  }
+
+  for (const r of entityData.routes || []) {
+    const acts = new Set(r.actions || []);
+    routeToActions[r.id] = acts;
+    for (const aid of acts) {
+      if (!actionToRoutes[aid]) actionToRoutes[aid] = new Set();
+      actionToRoutes[aid].add(r.id);
+    }
+  }
+
+  return { triggerToRules, triggerToRoute, routeToActions, ruleToTriggers, routeToTriggers, actionToRoutes };
+}
+
+/**
+ * Given an entity (type + id), return all transitively-connected entity IDs
+ * across both directions of the reference graph.
+ */
+function getConnectedIds(type, id, depMap) {
+  const connected = { rules: new Set(), actions: new Set(), routes: new Set(), triggers: new Set() };
+  const visited = new Set();
+
+  const visit = (t, eid) => {
+    const key = `${t}:${eid}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+    connected[t].add(eid);
+
+    if (t === 'triggers') {
+      for (const rid of depMap.triggerToRules[eid] || []) visit('rules', rid);
+      if (depMap.triggerToRoute[eid]) visit('routes', depMap.triggerToRoute[eid]);
+    } else if (t === 'routes') {
+      for (const aid of depMap.routeToActions[eid] || []) visit('actions', aid);
+      for (const tid of depMap.routeToTriggers[eid] || []) visit('triggers', tid);
+    } else if (t === 'rules') {
+      for (const tid of depMap.ruleToTriggers[eid] || []) visit('triggers', tid);
+    } else if (t === 'actions') {
+      for (const rid of depMap.actionToRoutes[eid] || []) visit('routes', rid);
+    }
+  };
+
+  visit(type, id);
+  return connected;
+}
+
+// =========================================================================
+
 export default function DataManagementPage({ addToast }) {
   // ====== shared ======
   const [activeTab, setActiveTab] = useState('export');
@@ -23,6 +115,7 @@ export default function DataManagementPage({ addToast }) {
   const [loadingEntities, setLoadingEntities] = useState(false);
   const [exporting, setExporting]           = useState(false);
   const [exportResult, setExportResult]     = useState(null);
+  const [exportFilename, setExportFilename] = useState(null);
 
   // ====== import state ======
   const [importFile, setImportFile]         = useState(null);
@@ -32,6 +125,11 @@ export default function DataManagementPage({ addToast }) {
   const [importing, setImporting]           = useState(false);
   const [importResult, setImportResult]     = useState(null);
   const [previewing, setPreviewing]         = useState(false);
+
+  // ====== backup / restore state ======
+  const [backups, setBackups]               = useState([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [restoringId, setRestoringId]       = useState(null);     // audit id being restored
 
   // ===================================================================
   // EXPORT — load entities for selection
@@ -64,17 +162,37 @@ export default function DataManagementPage({ addToast }) {
     if (activeTab === 'export') loadEntities();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Dependency map — rebuilt whenever entityData changes */
+  const depMap = useMemo(() => buildDependencyMap(entityData), [entityData]);
+
   const toggleExportType = (key) => {
     setExportTypes((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  /**
+   * Smart toggle: selecting an entity auto-selects all connected entities
+   * via the bidirectional dependency graph.
+   * Deselecting only removes the single entity.
+   */
   const toggleEntityId = (type, id) => {
     setSelectedIds((prev) => {
+      const isSelected = prev[type]?.has(id);
+      if (isSelected) {
+        // Deselect only this one item
+        const next = { ...prev };
+        const set = new Set(next[type] || []);
+        set.delete(id);
+        next[type] = set;
+        return next;
+      }
+      // Select this item + all connected items
+      const connected = getConnectedIds(type, id, depMap);
       const next = { ...prev };
-      const set = new Set(next[type] || []);
-      if (set.has(id)) set.delete(id);
-      else set.add(id);
-      next[type] = set;
+      for (const [t, ids] of Object.entries(connected)) {
+        const set = new Set(next[t] || []);
+        for (const cid of ids) set.add(cid);
+        next[t] = set;
+      }
       return next;
     });
   };
@@ -97,6 +215,7 @@ export default function DataManagementPage({ addToast }) {
   const handleExport = async () => {
     setExporting(true);
     setExportResult(null);
+    setExportFilename(null);
     try {
       const selections = {};
       for (const t of ENTITY_TYPES) {
@@ -126,7 +245,9 @@ export default function DataManagementPage({ addToast }) {
       const a = document.createElement('a');
       a.href = url;
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      a.download = `triage-export-${ts}.json`;
+      const filename = `triage-export-${ts}.json`;
+      a.download = filename;
+      setExportFilename(filename);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -241,6 +362,62 @@ export default function DataManagementPage({ addToast }) {
   };
 
   // ===================================================================
+  // BACKUPS — load & restore
+  // ===================================================================
+
+  const loadBackups = useCallback(async () => {
+    setLoadingBackups(true);
+    try {
+      const resp = await api.listBackups(20);
+      setBackups(resp.backups || []);
+    } catch (err) {
+      addToast(`Failed to load backups: ${err.message}`, 'error');
+    } finally {
+      setLoadingBackups(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    if (activeTab === 'backups') loadBackups();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRestore = async (auditId) => {
+    setRestoringId(auditId);
+    try {
+      const bundle = await api.getBackup(auditId);
+      if (!bundle) {
+        addToast('Backup data not found', 'error');
+        return;
+      }
+
+      // Switch to import tab with the backup loaded
+      setImportBundle(bundle);
+      setImportFile({ name: `backup-restore-${auditId}.json` });
+
+      // Auto-preview
+      setPreviewing(true);
+      setActiveTab('import');
+      const preview = await api.previewImport(bundle);
+      setImportPreview(preview);
+
+      // Pre-select all for import
+      const sel = {};
+      if (preview.preview) {
+        for (const [type, info] of Object.entries(preview.preview)) {
+          sel[type] = new Set((info.items || []).map((i) => i.name));
+        }
+      }
+      setSelectedImports(sel);
+      addToast('Backup loaded — review and click Import to restore', 'info');
+    } catch (err) {
+      addToast(`Failed to load backup: ${err.message}`, 'error');
+    } finally {
+      setPreviewing(false);
+      setRestoringId(null);
+    }
+  };
+
+  // ===================================================================
   // RENDER
   // ===================================================================
 
@@ -268,11 +445,24 @@ export default function DataManagementPage({ addToast }) {
         >
           📥 Import
         </button>
+        <button
+          className={`dm-tab ${activeTab === 'backups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('backups')}
+        >
+          🔄 Backups
+        </button>
       </div>
 
       {/* ======================== EXPORT TAB ======================== */}
       {activeTab === 'export' && (
         <div className="dm-section">
+          {/* Loading overlay */}
+          {exporting && (
+            <div className="dm-overlay">
+              <div className="dm-spinner" />
+              <span>Exporting entities…</span>
+            </div>
+          )}
           {/* Entity type toggles */}
           <div className="dm-card">
             <h3>Select Entity Types</h3>
@@ -342,6 +532,9 @@ export default function DataManagementPage({ addToast }) {
             <div className="dm-result-card dm-result-success">
               <h4>✓ Export Complete</h4>
               <p>{exportResult.metadata?.totalEntities} entities exported</p>
+              {exportFilename && (
+                <p className="dm-export-filename">📄 Downloaded: <strong>{exportFilename}</strong></p>
+              )}
               {exportResult.dependencies?.length > 0 && (
                 <div className="dm-dep-section">
                   <h5>Auto-included dependencies:</h5>
@@ -370,6 +563,13 @@ export default function DataManagementPage({ addToast }) {
       {/* ======================== IMPORT TAB ======================== */}
       {activeTab === 'import' && (
         <div className="dm-section">
+          {/* Loading overlay */}
+          {(importing || previewing) && (
+            <div className="dm-overlay">
+              <div className="dm-spinner" />
+              <span>{importing ? 'Importing entities…' : 'Analyzing file…'}</span>
+            </div>
+          )}
           {/* File upload */}
           <div className="dm-card">
             <h3>Upload Export File</h3>
@@ -502,12 +702,68 @@ export default function DataManagementPage({ addToast }) {
                 <div className="dm-backup-info">
                   <p>📦 Pre-import backup created at {importResult.backup.exportDate}</p>
                   {importResult.backup.isBackup && (
-                    <span className="dm-backup-tag">Available in Audit Log</span>
+                    <Link to="/audit" className="dm-backup-link">View in Audit Log →</Link>
                   )}
                 </div>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ======================== BACKUPS TAB ======================== */}
+      {activeTab === 'backups' && (
+        <div className="dm-section">
+          <div className="dm-card">
+            <div className="dm-record-header">
+              <h3>Pre-Import Backups</h3>
+              <button className="dm-btn-sm" onClick={loadBackups} disabled={loadingBackups}>
+                {loadingBackups ? 'Loading…' : '↻ Refresh'}
+              </button>
+            </div>
+            <p className="dm-backup-desc">
+              Each import automatically creates a snapshot of affected entities before changes are applied.
+              You can restore any backup by loading it into the Import tab.
+            </p>
+          </div>
+
+          {loadingBackups && (
+            <div className="dm-overlay">
+              <div className="dm-spinner" />
+              <span>Loading backups…</span>
+            </div>
+          )}
+
+          {!loadingBackups && backups.length === 0 && (
+            <div className="dm-card">
+              <p className="dm-empty">No backups found. Backups are created automatically when you import data.</p>
+            </div>
+          )}
+
+          {backups.map((b) => (
+            <div key={b.id} className="dm-card dm-backup-card">
+              <div className="dm-backup-header">
+                <div>
+                  <strong>{new Date(b.timestamp).toLocaleString()}</strong>
+                  <span className="dm-backup-actor">{b.actor}</span>
+                </div>
+                <button
+                  className="dm-btn-primary dm-btn-restore"
+                  onClick={() => handleRestore(b.id)}
+                  disabled={restoringId === b.id}
+                >
+                  {restoringId === b.id ? 'Loading…' : '🔄 Restore'}
+                </button>
+              </div>
+              <div className="dm-backup-counts">
+                {Object.entries(b.entityCounts || {}).map(([type, count]) => (
+                  <span key={type} className="dm-count-badge">{type}: {count}</span>
+                ))}
+                <span className="dm-count-badge dm-count-total">Total: {b.totalEntities}</span>
+              </div>
+              {b.reason && <p className="dm-backup-reason">{b.reason}</p>}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -767,3 +767,21 @@ export function previewImport(bundle) {
 export function executeImport(bundle, selected = null) {
   return post('/data-management/import/execute', { bundle, selected });
 }
+
+/**
+ * List persisted pre-import backups (summary info only).
+ * @param {number} [limit=20]
+ * @returns {Promise<Object>} { backups: [...] }
+ */
+export function listBackups(limit = 20) {
+  return get(`/data-management/backups?limit=${limit}`);
+}
+
+/**
+ * Retrieve the full backup bundle for a given audit entry.
+ * @param {string} auditId - The audit entry ID
+ * @returns {Promise<Object>} The backup bundle (same shape as export)
+ */
+export function getBackup(auditId) {
+  return get(`/data-management/backups/${encodeURIComponent(auditId)}`);
+}

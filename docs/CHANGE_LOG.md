@@ -23,10 +23,41 @@
 | 11 | ENG-007 | 2026-03-05 | `e0a015e` | **Environment profile config refactor + dependency refresh + docs alignment** — Added centralized `APP_ENV`-driven non-secret configuration (`config/`), environment PowerShell profiles (`config/environments/*.ps1`), and `infrastructure/scripts/show-config.ps1` for effective-value inspection. Refactored services/scripts to remove hardcoded environment values. Updated dependency lockfiles/requirements and aligned setup docs with the new environment workflow. |
 | 12 | FR-1998 | 2026-03-05 | `6f3d645` | **Microsoft Graph user lookup by email** — New `graph_user_lookup.py` module with `get_user_info(email)` function that resolves a requestor email to displayName, jobTitle, and department via Microsoft Graph API. Uses shared Azure credential from `shared_auth.py`. Implements 4-strategy cascade (direct UPN, mailNickname filter, mail/UPN filter, `$search`) to handle both native and guest (#EXT#) accounts. |
 | 13 | FR-2005 | 2026-03-05 | `099b45f` | **Entity export/import (Data Management)** — New Data Management page and API for exporting and importing Rules, Triggers, Routes, and Actions between environments. Auto-includes dependencies (Trigger→Rules+Route, Route→Actions). Auto-backup before import. Name-based upsert matching. Per-record selection with checkboxes. Import order: Rules→Actions→Routes→Triggers. |
+| 14 | FR-2005 | 2026-03-05 | *pending* | **Data Management UX improvements** — 6 fixes from user testing: (1) loading spinners/overlay during export, import, and preview; (2) smart dependency auto-selection on export — clicking a trigger auto-selects its rules/route, clicking a route auto-selects its actions; (3) new Backups tab to list/restore pre-import snapshots; (4) "Available in Audit Log" changed from inactive text to a real navigation link; (5) export result now shows the downloaded filename; (6) new backend endpoints for listing and retrieving backups. |
 
 ---
 
 ## Change Detail
+
+### FR-2005 (UX) — Data Management UX Improvements
+
+**Date:** 2026-03-05  
+**Build ID:** *pending*  
+**Requested By:** User testing feedback  
+**Status:** Built, awaiting deployment
+
+#### Issues Addressed
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | No loading indicator during export/import — user thinks system is broken | Added spinner overlay with animation during all async operations |
+| 2 | Clicking a trigger in export doesn't auto-select its dependencies | Smart bidirectional dependency graph: selecting a trigger auto-selects referenced rules + route + route's actions |
+| 3 | Import button gives no visual feedback while processing | Same spinner overlay as export |
+| 4 | No way to view or restore backups without doing a full import/export | New "Backups" tab listing all pre-import snapshots with one-click restore |
+| 5 | "Available in Audit Log" text looks like a link but does nothing | Changed to a real `<Link to="/audit">` navigation element |
+| 6 | Export Complete shows no filename or download location | Export result card now displays the downloaded filename |
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/services/data_management_service.py` | Backend | Backups persisted as audit entries; new `list_backups()` method; fixed `get_backup_for_audit()` JSON parsing |
+| `triage/api/data_management_routes.py` | Backend | New `GET /backups` and `GET /backups/{audit_id}` endpoints |
+| `triage-ui/src/pages/DataManagementPage.jsx` | Frontend | Spinner overlay, dependency graph auto-selection, Backups tab, filename display, audit link |
+| `triage-ui/src/pages/DataManagementPage.css` | Frontend | Spinner animation, overlay styles, backup card styles, link styles |
+| `triage-ui/src/api/triageApi.js` | Frontend | New `listBackups()` and `getBackup()` API functions |
+
+---
 
 ### FR-2005 — Entity Export/Import (Data Management)
 

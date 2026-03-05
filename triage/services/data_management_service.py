@@ -282,18 +282,82 @@ class DataManagementService:
     def _create_backup(
         self, entity_types: List[str], actor: str
     ) -> Dict[str, Any]:
-        """Create a full backup of specified entity types (same format as export)."""
+        """Create a full backup of specified entity types (same format as export).
+
+        Also persists the backup as a dedicated audit-log entry so it can be
+        listed and restored later via the Backups UI.
+        """
         selections: Dict[str, Optional[List[str]]] = {t: None for t in entity_types}
         backup = self.export_entities(selections, actor=f"{actor}/auto-backup")
         backup["metadata"]["isBackup"] = True
         backup["metadata"]["backupReason"] = "pre-import auto-backup"
-        logger.info("Auto-backup created for types: %s", entity_types)
+
+        # Persist backup as a separate audit entry
+        try:
+            backup_entry = AuditEntry.create(
+                action="data_management.backup",
+                entity_type="data_management",
+                entity_id=f"backup-{str(uuid.uuid4())[:8]}",
+                actor=f"{actor}/auto-backup",
+                changes={},
+            )
+            backup_entry.details = json.dumps({"backup": backup}, default=str)
+            container = self._cosmos.get_container("audit-log")
+            container.create_item(body=backup_entry.to_dict())
+            backup["metadata"]["auditEntryId"] = backup_entry.id
+            logger.info(
+                "Auto-backup persisted as audit entry %s for types: %s",
+                backup_entry.id, entity_types,
+            )
+        except Exception as e:
+            logger.warning("Failed to persist backup audit entry: %s", e)
+
         return backup
+
+    # =========================================================================
+    # BACKUPS — list & retrieve
+    # =========================================================================
+
+    def list_backups(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Return a summary list of persisted pre-import backups."""
+        try:
+            container = self._cosmos.get_container("audit-log")
+            query = (
+                "SELECT * FROM c "
+                "WHERE c.action = 'data_management.data_management.backup' "
+                "ORDER BY c.timestamp DESC "
+                "OFFSET 0 LIMIT @limit"
+            )
+            params = [{"name": "@limit", "value": limit}]
+            entries = list(container.query_items(
+                query=query, parameters=params,
+                enable_cross_partition_query=True,
+            ))
+
+            results: List[Dict[str, Any]] = []
+            for entry in entries:
+                try:
+                    raw = entry.get("details", "{}")
+                    details = json.loads(raw) if isinstance(raw, str) else raw
+                    meta = details.get("backup", {}).get("metadata", {})
+                    results.append({
+                        "id": entry["id"],
+                        "timestamp": entry.get("timestamp", ""),
+                        "actor": entry.get("actor", ""),
+                        "entityCounts": meta.get("entityCounts", {}),
+                        "totalEntities": meta.get("totalEntities", 0),
+                        "reason": meta.get("backupReason", ""),
+                    })
+                except Exception:
+                    pass  # skip malformed entries
+            return results
+        except Exception as e:
+            logger.warning("Failed to list backups: %s", e)
+            return []
 
     def get_backup_for_audit(self, audit_entry_id: str) -> Optional[Dict]:
         """
         Retrieve the backup bundle stored in an audit entry's details.
-        (Future: could store backups in blob storage for large datasets.)
         """
         try:
             container = self._cosmos.get_container("audit-log")
@@ -304,7 +368,9 @@ class DataManagementService:
                 enable_cross_partition_query=True,
             ))
             if items:
-                return items[0].get("details", {}).get("backup")
+                raw = items[0].get("details", "{}")
+                details = json.loads(raw) if isinstance(raw, str) else raw
+                return details.get("backup")
         except Exception as e:
             logger.warning("Could not retrieve backup: %s", e)
         return None
