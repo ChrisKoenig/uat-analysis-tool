@@ -11,8 +11,26 @@ from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from typing import Optional
 
-# Key Vault URI — resolved from KEY_VAULT_NAME env var or fallback
-_kv_name = os.environ.get("KEY_VAULT_NAME") or os.environ.get("AZURE_KEY_VAULT_NAME", "kv-gcs-dev-gg4a6y")
+# Key Vault URI — resolved from env vars, then from the active environment config.
+def _resolve_kv_name() -> str:
+    name = os.environ.get("KEY_VAULT_NAME") or os.environ.get("AZURE_KEY_VAULT_NAME")
+    if name:
+        return name
+    try:
+        from config import get_app_config
+        return get_app_config().key_vault_name
+    except Exception:
+        # Last-resort fallback so imports never blow up — logged as a warning.
+        import warnings
+        warnings.warn(
+            "KEY_VAULT_NAME not set and config package unavailable; "
+            "falling back to dev Key Vault. Set APP_ENV and KEY_VAULT_NAME.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return "kv-gcs-dev-gg4a6y"
+
+_kv_name = _resolve_kv_name()
 KEY_VAULT_URI = f"https://{_kv_name}.vault.azure.net/"
 
 

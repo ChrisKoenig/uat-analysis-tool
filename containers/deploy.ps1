@@ -27,28 +27,36 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ============================================================================
-# Configuration
+# Configuration — loaded from shared environment config file
 # ============================================================================
-$RG             = "rg-gcs-dev"
-$LOCATION       = "northcentralus"
-$ACR            = "acrgcsdevgg4a6y"
-$ENV_NAME       = "cae-gcs-dev"
-$IDENTITY_NAME  = "id-gcs-containerapp"
-$SUBSCRIPTION   = "13267e8e-b8f0-41c3-ba3e-569b3b7c8482"
+# To target a different environment, set APP_ENV before running:
+#   $env:APP_ENV = "preprod"; .\containers\deploy.ps1
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
+$_configFile = Join-Path $PSScriptRoot "..\config\environments\$_env.ps1"
+if (-not (Test-Path $_configFile)) {
+    Write-Error "Environment config not found: $_configFile  (valid: dev, preprod, prod)"
+    exit 1
+}
+. $_configFile
 
-# Cosmos DB (for RBAC assignment)
-$COSMOS_ACCOUNT = "cosmos-gcs-dev"
-$COSMOS_ROLE_ID = "00000000-0000-0000-0000-000000000002"  # Built-in Data Contributor
+# Map shared config vars to the names used in this script
+$SUBSCRIPTION = $SUBSCRIPTION  # loaded by environment file
+$LOCATION = $LOCATION
+$ACR = $ACR
+$ENV_NAME = $ENV_NAME
+$KV_NAME = $KV_NAME
+$COSMOS_ACCOUNT = $COSMOS_ACCOUNT
 
-# Key Vault (for access policy)
-$KV_NAME        = "kv-gcs-dev-gg4a6y"
+# Container-Apps-specific vars (not in shared config)
+$IDENTITY_NAME = if ($IDENTITY_NAME) { $IDENTITY_NAME }  else { "id-gcs-containerapp" }
+$COSMOS_ROLE_ID = "00000000-0000-0000-0000-000000000002"  # Built-in Cosmos Data Contributor
 
 # Image tags
 $TAG = "latest"
 $TRIAGE_API_IMG = "$ACR.azurecr.io/gcs/triage-api:$TAG"
-$FIELD_API_IMG  = "$ACR.azurecr.io/gcs/field-api:$TAG"
-$TRIAGE_UI_IMG  = "$ACR.azurecr.io/gcs/triage-ui:$TAG"
-$FIELD_UI_IMG   = "$ACR.azurecr.io/gcs/field-ui:$TAG"
+$FIELD_API_IMG = "$ACR.azurecr.io/gcs/field-api:$TAG"
+$TRIAGE_UI_IMG = "$ACR.azurecr.io/gcs/triage-ui:$TAG"
+$FIELD_UI_IMG = "$ACR.azurecr.io/gcs/field-ui:$TAG"
 
 # ============================================================================
 # Helper
@@ -140,7 +148,8 @@ if (-not $DeployOnly -and -not $SkipIdentity) {
             --scope $OPENAI_ID `
             --output table 2>$null
         Write-Host "  Assigned on: $OPENAI_ID"
-    } else {
+    }
+    else {
         Write-Host "  OpenAI resource not found in $RG — skipping (you may need to assign manually)" -ForegroundColor Yellow
     }
 }
@@ -204,8 +213,8 @@ az containerapp create `
     --cpu 1.0 --memory 2.0Gi `
     --min-replicas 0 --max-replicas 2 `
     --env-vars `
-        "AZURE_CLIENT_ID=$IDENTITY_CLIENT_ID" `
-        "AZURE_OPENAI_USE_AAD=true" `
+    "AZURE_CLIENT_ID=$IDENTITY_CLIENT_ID" `
+    "AZURE_OPENAI_USE_AAD=true" `
     --output table
 
 Write-Step "Deploying ca-gcs-field-api (internal)"
@@ -223,9 +232,9 @@ az containerapp create `
     --cpu 1.0 --memory 2.0Gi `
     --min-replicas 0 --max-replicas 2 `
     --env-vars `
-        "AZURE_CLIENT_ID=$IDENTITY_CLIENT_ID" `
-        "AZURE_OPENAI_USE_AAD=true" `
-        "API_GATEWAY_URL=http://ca-gcs-triage-api" `
+    "AZURE_CLIENT_ID=$IDENTITY_CLIENT_ID" `
+    "AZURE_OPENAI_USE_AAD=true" `
+    "API_GATEWAY_URL=http://ca-gcs-triage-api" `
     --output table
 
 # ============================================================================
@@ -240,7 +249,7 @@ $FIELD_API_FQDN = az containerapp show --name ca-gcs-field-api --resource-group 
 
 # For internal ingress, the URL is https://<fqdn>
 $TRIAGE_API_URL = "https://$TRIAGE_API_FQDN"
-$FIELD_API_URL  = "https://$FIELD_API_FQDN"
+$FIELD_API_URL = "https://$FIELD_API_FQDN"
 
 Write-Host "  Triage API internal URL: $TRIAGE_API_URL"
 Write-Host "  Field API internal URL : $FIELD_API_URL"

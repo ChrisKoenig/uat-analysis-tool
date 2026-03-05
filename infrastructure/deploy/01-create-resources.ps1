@@ -22,34 +22,41 @@ param(
 $ErrorActionPreference = "Stop"
 
 # =============================================================================
-# Configuration
+# Configuration — loaded from shared environment config file
 # =============================================================================
-$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
-$RG             = "rg-nonprod-aitriage"
-$LOCATION       = "northcentralus"
+# To target a different environment, set APP_ENV before running:
+#   $env:APP_ENV = "preprod"; .\infrastructure\deploy\01-create-resources.ps1
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
+$_configFile = Join-Path $PSScriptRoot "..\..\config\environments\$_env.ps1"
+if (-not (Test-Path $_configFile)) {
+    Write-Error "Environment config not found: $_configFile  (valid: dev, preprod, prod)"
+    exit 1
+}
+. $_configFile
 
-# Cosmos DB
-$COSMOS_ACCOUNT = "cosmos-aitriage-nonprod"
-$COSMOS_DB      = "triage-management"
+# Map shared config vars; script-local names kept for readability
+$SUBSCRIPTION = $SUBSCRIPTION
+$RG = $RG
+$LOCATION = $LOCATION
+$COSMOS_ACCOUNT = $COSMOS_ACCOUNT
+$COSMOS_DB = $COSMOS_DATABASE
+$OPENAI_ACCOUNT = $OPENAI_ACCOUNT
 
-# Azure OpenAI
-$OPENAI_ACCOUNT = "openai-aitriage-nonprod"
-
-# App Service
-$APP_PLAN       = "plan-aitriage-nonprod"
-$APP_PLAN_SKU   = "B2"
-$TRIAGE_API     = "app-triage-api-nonprod"
-$FIELD_API      = "app-field-api-nonprod"
-$TRIAGE_UI      = "app-triage-ui-nonprod"
-$FIELD_UI       = "app-field-ui-nonprod"
+# App Service names (preprod-specific; not in shared config)
+$APP_PLAN = "plan-aitriage-nonprod"
+$APP_PLAN_SKU = "B2"
+$TRIAGE_API = "app-triage-api-nonprod"
+$FIELD_API = "app-field-api-nonprod"
+$TRIAGE_UI = "app-triage-ui-nonprod"
+$FIELD_UI = "app-field-ui-nonprod"
 
 # =============================================================================
 # Helper
 # =============================================================================
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
-function Write-Ok($msg)   { Write-Host "   [OK] $msg" -ForegroundColor Green }
+function Write-Ok($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green }
 function Write-Skip($msg) { Write-Host "   [SKIP] $msg" -ForegroundColor Yellow }
-function Write-Err($msg)  { Write-Host "   [ERROR] $msg" -ForegroundColor Red }
+function Write-Err($msg) { Write-Host "   [ERROR] $msg" -ForegroundColor Red }
 
 function Assert-AzSuccess($stepName) {
     if ($LASTEXITCODE -ne 0) {
@@ -102,7 +109,8 @@ Write-Step "Creating Cosmos DB account '$COSMOS_ACCOUNT'..."
 $cosmosExists = az cosmosdb show --name $COSMOS_ACCOUNT --resource-group $RG --query "name" -o tsv 2>$null
 if ($cosmosExists) {
     Write-Skip "Cosmos DB account already exists"
-} else {
+}
+else {
     az cosmosdb create `
         --name $COSMOS_ACCOUNT `
         --resource-group $RG `
@@ -120,7 +128,8 @@ Write-Step "Creating database '$COSMOS_DB'..."
 $dbExists = az cosmosdb sql database show --account-name $COSMOS_ACCOUNT --resource-group $RG --name $COSMOS_DB --query "name" -o tsv 2>$null
 if ($dbExists) {
     Write-Skip "Database already exists"
-} else {
+}
+else {
     az cosmosdb sql database create `
         --account-name $COSMOS_ACCOUNT `
         --resource-group $RG `
@@ -132,16 +141,16 @@ if ($dbExists) {
 
 # Container definitions: name -> partition key
 $containers = @(
-    @{ name = "rules";            partitionKey = "/status" }
-    @{ name = "actions";          partitionKey = "/status" }
-    @{ name = "triggers";         partitionKey = "/status" }
-    @{ name = "routes";           partitionKey = "/status" }
-    @{ name = "evaluations";      partitionKey = "/workItemId" }
+    @{ name = "rules"; partitionKey = "/status" }
+    @{ name = "actions"; partitionKey = "/status" }
+    @{ name = "triggers"; partitionKey = "/status" }
+    @{ name = "routes"; partitionKey = "/status" }
+    @{ name = "evaluations"; partitionKey = "/workItemId" }
     @{ name = "analysis-results"; partitionKey = "/workItemId" }
-    @{ name = "field-schema";     partitionKey = "/source" }
-    @{ name = "audit-log";        partitionKey = "/entityType" }
-    @{ name = "corrections";      partitionKey = "/workItemId" }
-    @{ name = "triage-teams";     partitionKey = "/status" }
+    @{ name = "field-schema"; partitionKey = "/source" }
+    @{ name = "audit-log"; partitionKey = "/entityType" }
+    @{ name = "corrections"; partitionKey = "/workItemId" }
+    @{ name = "triage-teams"; partitionKey = "/status" }
 )
 
 foreach ($c in $containers) {
@@ -154,7 +163,8 @@ foreach ($c in $containers) {
         --query "name" -o tsv 2>$null
     if ($cExists) {
         Write-Skip "Container '$($c.name)' already exists"
-    } else {
+    }
+    else {
         az cosmosdb sql container create `
             --account-name $COSMOS_ACCOUNT `
             --resource-group $RG `
@@ -174,7 +184,8 @@ Write-Step "Creating Azure OpenAI account '$OPENAI_ACCOUNT'..."
 $oaiExists = az cognitiveservices account show --name $OPENAI_ACCOUNT --resource-group $RG --query "name" -o tsv 2>$null
 if ($oaiExists) {
     Write-Skip "OpenAI account already exists"
-} else {
+}
+else {
     az cognitiveservices account create `
         --name $OPENAI_ACCOUNT `
         --resource-group $RG `
@@ -196,7 +207,8 @@ $gpt4Exists = az cognitiveservices account deployment show `
     --query "name" -o tsv 2>$null
 if ($gpt4Exists) {
     Write-Skip "gpt-4o-standard deployment already exists"
-} else {
+}
+else {
     az cognitiveservices account deployment create `
         --name $OPENAI_ACCOUNT `
         --resource-group $RG `
@@ -220,7 +232,8 @@ $embExists = az cognitiveservices account deployment show `
     --query "name" -o tsv 2>$null
 if ($embExists) {
     Write-Skip "text-embedding-3-large deployment already exists"
-} else {
+}
+else {
     az cognitiveservices account deployment create `
         --name $OPENAI_ACCOUNT `
         --resource-group $RG `
@@ -242,7 +255,8 @@ Write-Step "Creating App Service Plan '$APP_PLAN' ($APP_PLAN_SKU Linux)..."
 $planExists = az appservice plan show --name $APP_PLAN --resource-group $RG --query "name" -o tsv 2>$null
 if ($planExists) {
     Write-Skip "App Service Plan already exists"
-} else {
+}
+else {
     az appservice plan create `
         --name $APP_PLAN `
         --resource-group $RG `
@@ -259,9 +273,9 @@ if ($planExists) {
 # =============================================================================
 $apps = @(
     @{ name = $TRIAGE_API; runtime = "PYTHON:3.13" }
-    @{ name = $FIELD_API;  runtime = "PYTHON:3.13" }
-    @{ name = $TRIAGE_UI;  runtime = "NODE:20-lts" }
-    @{ name = $FIELD_UI;   runtime = "NODE:20-lts" }
+    @{ name = $FIELD_API; runtime = "PYTHON:3.13" }
+    @{ name = $TRIAGE_UI; runtime = "NODE:20-lts" }
+    @{ name = $FIELD_UI; runtime = "NODE:20-lts" }
 )
 
 foreach ($app in $apps) {
@@ -269,7 +283,8 @@ foreach ($app in $apps) {
     $appExists = az webapp show --name $app.name --resource-group $RG --query "name" -o tsv 2>$null
     if ($appExists) {
         Write-Skip "App '$($app.name)' already exists"
-    } else {
+    }
+    else {
         az webapp create `
             --name $app.name `
             --resource-group $RG `

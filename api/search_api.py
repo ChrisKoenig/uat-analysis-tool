@@ -28,12 +28,15 @@ def _generate_smart_search_query(title, description, services, technologies, key
     """
     try:
         from openai import AzureOpenAI
-        
+        from ai_config import get_config as get_ai_config
+
         client = AzureOpenAI(
             azure_endpoint=os.environ.get('AZURE_OPENAI_ENDPOINT'),
             api_key=os.environ.get('AZURE_OPENAI_API_KEY'),
             api_version="2024-08-01-preview"
         )
+
+        _deployment = get_ai_config().azure_openai.classification_deployment
         
         # Build context for LLM
         context_parts = []
@@ -68,7 +71,7 @@ EXAMPLES:
 Generate ONLY the search query (3-5 words), nothing else:"""
 
         response = client.chat.completions.create(
-            model='gpt-4o-02',  # Use the correct deployment name
+            model=_deployment,
             messages=[
                 {"role": "system", "content": "You are a Microsoft Learn documentation search expert. Generate concise, effective search queries."},
                 {"role": "user", "content": prompt}

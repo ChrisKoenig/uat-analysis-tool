@@ -15,9 +15,13 @@ import uuid
 import httpx
 from dotenv import load_dotenv
 from keyvault_config import get_keyvault_config
+from config import get_app_config
 
 # Load environment variables (non-secrets)
 load_dotenv('.env.azure')
+
+# Environment-aware app config
+_app_cfg = get_app_config()
 
 # Get secrets from Key Vault
 kv_config = get_keyvault_config()
@@ -55,10 +59,12 @@ app = FastAPI(
     redoc_url="/api/redoc"
 )
 
-# CORS middleware
+# CORS middleware — origins loaded from environment config (not a wildcard).
+# Dev: localhost origins; preprod/prod: App Service hostnames.
+_cors_origins = _app_cfg.cors_origins or ["*"]  # "*" only reached if config returns empty
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -156,9 +162,10 @@ async def analyze_context(request: Request):
         body = await request.json()
         
         # Forward to Context Analyzer service
+        _context_url = _app_cfg.service_url(_app_cfg.context_analyzer_port)
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                "http://localhost:8001/analyze",
+                f"{_context_url}/analyze",
                 json=body
             )
             response.raise_for_status()

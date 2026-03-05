@@ -2,10 +2,22 @@
 # Implements Microsoft security best practices for Key Vault
 
 param(
-    [string]$KeyVaultName = "kv-gcs-dev-gg4a6y",
-    [string]$ResourceGroup = "rg-gcs-dev",
+    [string]$KeyVaultName,
+    [string]$ResourceGroup,
     [string]$LogAnalyticsWorkspaceId = "5168e2dd-6734-46c3-b447-a7a643ece290"
 )
+
+# Apply environment-config defaults for any params not explicitly supplied.
+# param() must come first in PowerShell, so defaults are resolved here.
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
+$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+if (Test-Path $_configFile) {
+    . $_configFile
+} else {
+    $KV_NAME = "kv-gcs-dev-gg4a6y"; $RG = "rg-gcs-dev"
+}
+if (-not $KeyVaultName)  { $KeyVaultName  = $KV_NAME }
+if (-not $ResourceGroup) { $ResourceGroup = $RG }
 
 Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host "Azure Key Vault Security Configuration" -ForegroundColor Cyan

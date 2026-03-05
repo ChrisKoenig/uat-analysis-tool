@@ -25,12 +25,35 @@ import signal
 # ---------------------------------------------------------------------------
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Load environment-aware config (APP_ENV selects dev / preprod / prod).
+try:
+    from config import get_app_config
+    _cfg = get_app_config()
+    _COSMOS_ENDPOINT = _cfg.cosmos_endpoint
+    _COSMOS_TENANT_ID = _cfg.tenant_id
+    _TRIAGE_API_PORT = _cfg.triage_api_port
+    _TRIAGE_UI_PORT = _cfg.triage_ui_port
+    _FIELD_API_PORT = _cfg.field_api_port
+    _FIELD_UI_PORT = _cfg.field_ui_port
+    _MAIN_APP_PORT = _cfg.main_app_port
+    _ADMIN_PORT = _cfg.admin_service_port
+except Exception as _e:
+    print(f"[launcher] Warning: could not load app config ({_e}); using built-in defaults")
+    _COSMOS_ENDPOINT = "https://cosmos-gcs-dev.documents.azure.com:443/"
+    _COSMOS_TENANT_ID = "16b3c013-d300-468d-ac64-7eda0820b6d3"
+    _TRIAGE_API_PORT = 8009
+    _TRIAGE_UI_PORT = 3000
+    _FIELD_API_PORT = 8010
+    _FIELD_UI_PORT = 3001
+    _MAIN_APP_PORT = 5003
+    _ADMIN_PORT = 8008
+
 SERVICES = {
     "input": {
         "label": "Input Process",
         "description": "Flask app — Issue Tracker Web UI",
-        "url": "http://localhost:5003",
-        "port": 5003,
+        "url": f"http://localhost:{_MAIN_APP_PORT}",
+        "port": _MAIN_APP_PORT,
         "main_py": "app.py",
         "cwd": PROJECT_DIR,
         "needs_kv_env": True,
@@ -38,29 +61,29 @@ SERVICES = {
     "admin": {
         "label": "Admin Process",
         "description": "Admin Service — Evaluations, Stats, Config",
-        "url": "http://localhost:8008",
-        "port": 8008,
+        "url": f"http://localhost:{_ADMIN_PORT}",
+        "port": _ADMIN_PORT,
         "main_py": "admin_service.py",
         "cwd": PROJECT_DIR,
     },
     "triage": {
         "label": "Triage Process",
         "description": "Triage API + React UI (Rules, Triggers, Queue)",
-        "url": "http://localhost:3000",
-        "ports": [8009, 3000],
+        "url": f"http://localhost:{_TRIAGE_UI_PORT}",
+        "ports": [_TRIAGE_API_PORT, _TRIAGE_UI_PORT],
         "commands": [
             {
                 "label": "Triage API",
                 "cmd": [
                     sys.executable, "-m", "uvicorn",
                     "triage.api.routes:app",
-                    "--host", "0.0.0.0", "--port", "8009", "--reload"
+                    "--host", "0.0.0.0", "--port", str(_TRIAGE_API_PORT), "--reload"
                 ],
                 "cwd": PROJECT_DIR,
                 "env_extra": {
-                    "COSMOS_ENDPOINT": "https://cosmos-gcs-dev.documents.azure.com:443/",
+                    "COSMOS_ENDPOINT": _COSMOS_ENDPOINT,
                     "COSMOS_USE_AAD": "true",
-                    "COSMOS_TENANT_ID": "16b3c013-d300-468d-ac64-7eda0820b6d3",
+                    "COSMOS_TENANT_ID": _COSMOS_TENANT_ID,
                 },
             },
             {
@@ -74,15 +97,15 @@ SERVICES = {
     "field": {
         "label": "Field Portal",
         "description": "Field Issue Submission — React SPA + FastAPI Orchestrator",
-        "url": "http://localhost:3001",
-        "ports": [8010, 3001],
+        "url": f"http://localhost:{_FIELD_UI_PORT}",
+        "ports": [_FIELD_API_PORT, _FIELD_UI_PORT],
         "commands": [
             {
                 "label": "Field API",
                 "cmd": [
                     sys.executable, "-m", "uvicorn",
                     "field-portal.api.main:app",
-                    "--host", "0.0.0.0", "--port", "8010", "--reload"
+                    "--host", "0.0.0.0", "--port", str(_FIELD_API_PORT), "--reload"
                 ],
                 "cwd": PROJECT_DIR,
                 "env_extra": {},

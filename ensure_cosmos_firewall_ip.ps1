@@ -8,10 +8,24 @@
 #>
 
 param(
-    [string]$SubscriptionId = "a1e66643-8021-4548-8e36-f08076057b6a",
-    [string]$ResourceGroup  = "rg-nonprod-aitriage",
-    [string]$AccountName    = "cosmos-gcs-dev"
+    [string]$SubscriptionId,
+    [string]$ResourceGroup,
+    [string]$AccountName
 )
+
+# Apply environment-config defaults for any params not explicitly supplied.
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
+$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+if (Test-Path $_configFile) {
+    . $_configFile
+} else {
+    $SUBSCRIPTION = "a1e66643-8021-4548-8e36-f08076057b6a"
+    $RG = "rg-nonprod-aitriage"
+    $COSMOS_ACCOUNT = "cosmos-aitriage-nonprod"
+}
+if (-not $SubscriptionId) { $SubscriptionId = $SUBSCRIPTION }
+if (-not $ResourceGroup)  { $ResourceGroup  = $RG }
+if (-not $AccountName)    { $AccountName    = $COSMOS_ACCOUNT }
 
 $ErrorActionPreference = "Stop"
 
