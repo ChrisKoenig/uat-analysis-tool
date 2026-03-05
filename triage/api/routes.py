@@ -933,6 +933,7 @@ async def get_diagnostics():
     import time as _time
 
     CHECK_TIMEOUT = 5          # seconds per subsystem
+    AI_INIT_TIMEOUT = 15       # first-time analyzer init can be slow
 
     diag = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -965,35 +966,36 @@ async def get_diagnostics():
         diag["cosmos"] = {"status": "error", "error": str(e)}
 
     # --- AI / Azure OpenAI ---
+    def _check_ai():
+        t0 = _time.perf_counter()
+        analyzer = get_analyzer()          # lazy-init singleton on first call
+        ai_info = analyzer.get_ai_status()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        enabled = ai_info.get("enabled", False)
+
+        cfg = getattr(analyzer, "config", None)
+        aoai = getattr(cfg, "azure_openai", None) if cfg else None
+        endpoint = ai_info.get("endpoint") or (getattr(aoai, "endpoint", "") if aoai else "")
+        use_aad = ai_info.get("use_aad")
+        if use_aad is None and aoai:
+            use_aad = getattr(aoai, "use_aad", None)
+
+        return {
+            "status": "healthy" if enabled else "offline",
+            "enabled": enabled,
+            "latencyMs": ms,
+            "reason": ai_info.get("reason"),
+            "endpoint": _mask_url(endpoint),
+            "useAad": use_aad,
+            "initError": getattr(analyzer, "_init_error", None),
+        }
+
     try:
-        # Use the existing singleton if already initialized; do NOT trigger
-        # full init from a lightweight diagnostics call.
-        if _analyzer is not None:
-            analyzer = _analyzer
-            ai_info = analyzer.get_ai_status()
-            enabled = ai_info.get("enabled", False)
-
-            cfg = getattr(analyzer, "config", None)
-            aoai = getattr(cfg, "azure_openai", None) if cfg else None
-            endpoint = ai_info.get("endpoint") or (getattr(aoai, "endpoint", "") if aoai else "")
-            use_aad = ai_info.get("use_aad")
-            if use_aad is None and aoai:
-                use_aad = getattr(aoai, "use_aad", None)
-
-            diag["ai"] = {
-                "status": "healthy" if enabled else "offline",
-                "enabled": enabled,
-                "reason": ai_info.get("reason"),
-                "endpoint": _mask_url(endpoint),
-                "useAad": use_aad,
-                "initError": getattr(analyzer, "_init_error", None),
-            }
-        else:
-            diag["ai"] = {
-                "status": "initializing",
-                "enabled": False,
-                "reason": "Analyzer not yet initialized (first analysis triggers init)",
-            }
+        diag["ai"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_ai), timeout=AI_INIT_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["ai"] = {"status": "timeout", "error": f"AI check exceeded {CHECK_TIMEOUT}s"}
     except Exception as e:
         diag["ai"] = {"status": "error", "error": str(e)}
 
