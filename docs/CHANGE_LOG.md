@@ -21,6 +21,7 @@
 | 9 | ENG-005 | 2026-03-06 | *pending* | **Diagnostics endpoint + inline diagnostics UI** — New `GET /api/v1/diagnostics` endpoint returning AI config, Cosmos, ADO, and cache status. Floating diagnostics icon in `AppLayout`. Inline diagnostics button in the yellow "AI Unavailable" banner on `EvaluatePage`, showing a collapsible diagnostic panel with AI status, OpenAI config, and error details. |
 | 10 | ENG-006 | 2026-03-06 | *pending* | **Batch fetch resilience — errorPolicy=Omit + null-safe iteration** — ADO batch API returned HTTP 404 for entire batch when any single work item ID was invalid, causing "Batch fetch failed" for all items. Fixed by adding `errorPolicy=Omit` to the batch URL (ADO returns 200 with null placeholders for invalid IDs). Added null-safe iteration and per-ID omission tracking in `get_work_items_batch()` so valid items are returned while invalid IDs are reported individually. |
 | 11 | ENG-007 | 2026-03-05 | `e0a015e` | **Environment profile config refactor + dependency refresh + docs alignment** — Added centralized `APP_ENV`-driven non-secret configuration (`config/`), environment PowerShell profiles (`config/environments/*.ps1`), and `infrastructure/scripts/show-config.ps1` for effective-value inspection. Refactored services/scripts to remove hardcoded environment values. Updated dependency lockfiles/requirements and aligned setup docs with the new environment workflow. |
+| 12 | FR-1998 | 2026-03-05 | `6f3d645` | **Microsoft Graph user lookup by email** — New `graph_user_lookup.py` module with `get_user_info(email)` function that resolves a requestor email to displayName, jobTitle, and department via Microsoft Graph API. Uses shared Azure credential from `shared_auth.py`. Implements 4-strategy cascade (direct UPN, mailNickname filter, mail/UPN filter, `$search`) to handle both native and guest (#EXT#) accounts. |
 
 ---
 
@@ -53,6 +54,31 @@
 3. Manual hardcoded local values (ports/endpoints/resource names) are significantly reduced.
 4. `show-config.ps1` gives a quick audit of effective values and shell-level overrides.
 5. Documentation now reflects the updated configuration model and setup flow.
+
+### FR-1998 — Microsoft Graph User Lookup by Email
+
+**Date:** 2026-03-05  
+**Build ID:** `6f3d645`  
+**Requested By:** Feature Request 1998  
+**Status:** Built, awaiting integration
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `graph_user_lookup.py` | Backend (new) | Microsoft Graph user lookup — `get_user_info(email)` returns displayName, jobTitle, department |
+
+#### Behavior Summary
+
+1. Call `get_user_info("user@domain.com")` with a requestor email address.
+2. The function acquires a Graph API token via the shared credential from `shared_auth.py` (no extra auth prompt).
+3. Four lookup strategies execute in sequence until a match is found:
+   - **Strategy 1:** Direct UPN lookup (`/users/{email}`)
+   - **Strategy 2:** Filter by `mailNickname eq '{alias}'`
+   - **Strategy 3:** Filter by `mail eq '{email}' or userPrincipalName eq '{email}'`
+   - **Strategy 4:** `$search` on `mailNickname:{alias}` (catches guest/external `#EXT#` accounts)
+4. Returns a `GraphUserInfo` dataclass with `display_name`, `job_title`, `department` — or `None` if not found.
+5. Can be run standalone for testing: `python graph_user_lookup.py bprice@microsoft.com`
 
 ### FR-1997 — Multi-Field Search Operators (containsAny + regexMatchAny)
 
