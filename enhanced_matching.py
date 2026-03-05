@@ -132,17 +132,37 @@ class EnhancedMatchingConfig:
        - MAX_RESULTS: Maximum number of search results to process
        - CACHE_DURATION: How long to cache API responses
     """
+
+    @staticmethod
+    def _load_ado_config() -> tuple[str, str, str, str]:
+        """Return (uat_org, uat_project, tft_org, tft_project) from active config."""
+        try:
+            from config import get_app_config
+            c = get_app_config()
+            return c.ado_organization, c.ado_project, c.ado_tft_organization, c.ado_tft_project
+        except Exception:
+            return "unifiedactiontracker", "Unified Action Tracker", "acrblockers", "Technical Feedback"
+
+    _uat_org, _uat_proj, _tft_org, _tft_proj = _load_ado_config.__func__()
+
     # UAT Azure DevOps Configuration (for searching existing UATs)
-    UAT_ORGANIZATION = "unifiedactiontracker"
-    UAT_PROJECT = "Unified Action Tracker"
+    UAT_ORGANIZATION = _uat_org
+    UAT_PROJECT = _uat_proj
     UAT_BASE_URL = f"https://dev.azure.com/{UAT_ORGANIZATION}"
-    
+
     # Technical Feedback Azure DevOps Configuration (for searching existing Features)
-    TFT_ORGANIZATION = "acrblockers"
-    TFT_PROJECT = "Technical Feedback"
+    TFT_ORGANIZATION = _tft_org
+    TFT_PROJECT = _tft_proj
     TFT_BASE_URL = f"https://dev.azure.com/{TFT_ORGANIZATION}"
-    
+
     API_VERSION = "7.0"
+
+    # Stable Microsoft corporate tenant — used for TFT auth fallback
+    try:
+        from config import get_app_config as _gcfg2
+        MICROSOFT_TENANT_ID = _gcfg2().microsoft_tenant_id
+    except Exception:
+        MICROSOFT_TENANT_ID = "72f988bf-86f1-41af-91ab-2d7cd011db47"
     
     # Azure DevOps scope for authentication
     ADO_SCOPE = "499b84ac-1321-427f-aa17-267ca6975798/.default"
@@ -280,7 +300,7 @@ class EnhancedMatchingConfig:
         
         # Fallback: Interactive Browser with Microsoft tenant ID
         print("🔐 [TFT Auth] Using Interactive Browser credential (one-time)...")
-        tenant_id = "72f988bf-86f1-41af-91ab-2d7cd011db47"  # Microsoft tenant
+        tenant_id = EnhancedMatchingConfig.MICROSOFT_TENANT_ID
         credential = InteractiveBrowserCredential(tenant_id=tenant_id)
         token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
         print("✅ [TFT Auth] Authentication successful (cached for session)")

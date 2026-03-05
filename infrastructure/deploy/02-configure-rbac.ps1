@@ -25,28 +25,28 @@ param(
 $ErrorActionPreference = "Stop"
 
 # =============================================================================
-# Configuration
+# Configuration — loaded from shared environment config file
 # =============================================================================
-$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
-$RG             = "rg-nonprod-aitriage"
+# To target a different environment, set APP_ENV before running:
+#   $env:APP_ENV = "preprod"; .\infrastructure\deploy\02-configure-rbac.ps1
+$_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
+$_configFile = Join-Path $PSScriptRoot "..\..\config\environments\$_env.ps1"
+if (-not (Test-Path $_configFile)) {
+    Write-Error "Environment config not found: $_configFile  (valid: dev, preprod, prod)"
+    exit 1
+}
+. $_configFile
 
-# Managed Identity
-$MI_NAME        = "TechRoB-Automation-DEV"
-$MI_CLIENT_ID   = "0fe9d340-a359-4849-8c0f-d3c9640017ee"
-$MI_OBJECT_ID   = "309baa86-f939-4fc3-ab3e-e2d3d0d4e475"
-
-# Resources
-$COSMOS_ACCOUNT = "cosmos-aitriage-nonprod"
-$OPENAI_ACCOUNT = "openai-aitriage-nonprod"
-$KV_NAME        = "kv-aitriage"
-
-# App Services
-$APP_SERVICES   = @(
-    "app-triage-api-nonprod",
-    "app-field-api-nonprod",
-    "app-triage-ui-nonprod",
-    "app-field-ui-nonprod"
-)
+# Map shared config vars
+$SUBSCRIPTION   = $SUBSCRIPTION
+$RG             = $RG
+$COSMOS_ACCOUNT = $COSMOS_ACCOUNT
+$OPENAI_ACCOUNT = $OPENAI_ACCOUNT
+$KV_NAME        = $KV_NAME
+$MI_NAME        = $MI_NAME
+$MI_CLIENT_ID   = $MI_CLIENT_ID
+$MI_OBJECT_ID   = $MI_OBJECT_ID
+$APP_SERVICES   = $APP_SERVICES
 
 # =============================================================================
 # Helper

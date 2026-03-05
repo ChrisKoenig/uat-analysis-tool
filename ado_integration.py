@@ -38,6 +38,28 @@ from urllib.parse import quote
 from azure.identity import AzureCliCredential, InteractiveBrowserCredential, ManagedIdentityCredential
 
 
+def _cfg_ado_org() -> str:
+    val = os.environ.get("ADO_ORGANIZATION")
+    if val:
+        return val
+    try:
+        from config import get_app_config
+        return get_app_config().ado_organization
+    except Exception:
+        return "unifiedactiontrackertest"
+
+
+def _cfg_ado_project() -> str:
+    val = os.environ.get("ADO_PROJECT")
+    if val:
+        return val
+    try:
+        from config import get_app_config
+        return get_app_config().ado_project
+    except Exception:
+        return "Unified Action Tracker Test"
+
+
 class AzureDevOpsConfig:
     """
     Configuration container for Azure DevOps integration settings.
@@ -53,8 +75,8 @@ class AzureDevOpsConfig:
         WORK_ITEM_TYPE (str): Default work item type for new items
         PAT (str): Personal Access Token for authentication
     """
-    ORGANIZATION = "unifiedactiontrackertest"
-    PROJECT = "Unified Action Tracker Test"
+    ORGANIZATION = _cfg_ado_org()
+    PROJECT = _cfg_ado_project()
     BASE_URL = f"https://dev.azure.com/{ORGANIZATION}"
     API_VERSION = "7.0"
     WORK_ITEM_TYPE = "Action"  # Custom work item type
@@ -945,8 +967,15 @@ class AzureDevOpsClient:
             from datetime import datetime, timedelta
             
             # Search Technical Feedback organization
-            tft_org = "unifiedactiontracker"
-            tft_project = "Technical Feedback"
+            # Search Technical Feedback organization — read from config
+            try:
+                from config import get_app_config as _gcfg
+                _cfg = _gcfg()
+                tft_org = _cfg.ado_tft_organization
+                tft_project = _cfg.ado_tft_project
+            except Exception:
+                tft_org = "unifiedactiontracker"
+                tft_project = "Technical Feedback"
             tft_base_url = f"https://dev.azure.com/{tft_org}"
             
             # Get token for TFT org using InteractiveBrowserCredential

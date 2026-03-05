@@ -66,20 +66,40 @@ TFT_SIMILARITY_THRESHOLD = 0.6
 # Azure DevOps Organizations
 # ============================================================================
 
-# Test org (UAT work items are created here).
-ADO_TEST_ORG = "unifiedactiontrackertest"
-# Production org (TFT features live here — read-only search).
-ADO_PROD_ORG = "unifiedactiontracker"
+# Resolve from active environment config; fall back to known dev values.
+def _load_ado_orgs() -> tuple[str, str]:
+    org = os.environ.get("ADO_ORGANIZATION")
+    tft = os.environ.get("ADO_TFT_ORGANIZATION")
+    if org and tft:
+        return org, tft
+    try:
+        from config import get_app_config
+        c = get_app_config()
+        return c.ado_organization, c.ado_tft_organization
+    except Exception:
+        return "unifiedactiontrackertest", "unifiedactiontracker"
+
+ADO_TEST_ORG, ADO_PROD_ORG = _load_ado_orgs()
 
 
 # ============================================================================
 # CORS (React UI)
 # ============================================================================
 
-# Allowed origins — includes local dev and pre-prod App Service domains.
-CORS_ORIGINS = [
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "https://app-field-ui-nonprod.azurewebsites.net",
-    "https://app-field-api-nonprod.azurewebsites.net",
-]
+# Resolve allowed origins from environment config.
+def _load_cors_origins() -> list:
+    # Allow explicit override via env var (comma-separated)
+    env_origins = os.environ.get("CORS_ORIGINS")
+    if env_origins:
+        return [o.strip() for o in env_origins.split(",") if o.strip()]
+    try:
+        from config import get_app_config
+        origins = get_app_config().cors_origins
+        if origins:
+            return origins
+    except Exception:
+        pass
+    # Fallback: localhost dev origins
+    return ["http://localhost:3001", "http://127.0.0.1:3001"]
+
+CORS_ORIGINS = _load_cors_origins()

@@ -20,10 +20,39 @@
 | 8 | ENG-004 | 2026-03-06 | *pending* | **LLM classifier retry logic with exponential backoff** — Added automatic retry for transient Azure OpenAI failures (429 rate limit, 500/502/503/504 server errors, network timeouts). Up to 3 retries with exponential backoff (1s base, 5s for rate limits). Jitter prevents thundering herd. |
 | 9 | ENG-005 | 2026-03-06 | *pending* | **Diagnostics endpoint + inline diagnostics UI** — New `GET /api/v1/diagnostics` endpoint returning AI config, Cosmos, ADO, and cache status. Floating diagnostics icon in `AppLayout`. Inline diagnostics button in the yellow "AI Unavailable" banner on `EvaluatePage`, showing a collapsible diagnostic panel with AI status, OpenAI config, and error details. |
 | 10 | ENG-006 | 2026-03-06 | *pending* | **Batch fetch resilience — errorPolicy=Omit + null-safe iteration** — ADO batch API returned HTTP 404 for entire batch when any single work item ID was invalid, causing "Batch fetch failed" for all items. Fixed by adding `errorPolicy=Omit` to the batch URL (ADO returns 200 with null placeholders for invalid IDs). Added null-safe iteration and per-ID omission tracking in `get_work_items_batch()` so valid items are returned while invalid IDs are reported individually. |
+| 11 | ENG-007 | 2026-03-05 | `e0a015e` | **Environment profile config refactor + dependency refresh + docs alignment** — Added centralized `APP_ENV`-driven non-secret configuration (`config/`), environment PowerShell profiles (`config/environments/*.ps1`), and `infrastructure/scripts/show-config.ps1` for effective-value inspection. Refactored services/scripts to remove hardcoded environment values. Updated dependency lockfiles/requirements and aligned setup docs with the new environment workflow. |
 
 ---
 
 ## Change Detail
+
+### ENG-007 — Environment Profiles, Config Centralization, and Documentation Alignment
+
+**Date:** 2026-03-05  
+**Build ID:** `e0a015e`  
+**Requested By:** Engineering (platform maintainability)  
+**Status:** Built, awaiting deployment
+
+#### Files Modified (Representative)
+
+| File | Type | Description |
+|------|------|-------------|
+| `config/__init__.py` | Backend config | Added `AppConfig` with `APP_ENV` profile loading and env-var override support |
+| `config/dev.py`, `config/preprod.py`, `config/prod.py` | Backend config | Added environment-specific non-secret defaults and required prod env guards |
+| `config/environments/dev.ps1`, `config/environments/preprod.ps1`, `config/environments/prod.ps1` | Deployment ops | Added shared PowerShell profile files for script parameterization |
+| `infrastructure/scripts/show-config.ps1` | Deployment ops (new) | Added script to print effective settings by environment profile |
+| `keyvault_config.py`, `shared_auth.py`, `ado_integration.py`, `enhanced_matching.py`, `launcher.py` | Backend | Replaced hardcoded environment values with centralized config lookups |
+| `api_gateway.py`, `api/search_api.py`, `field-portal/api/config.py`, `admin_service.py` | Backend/API | Switched runtime behavior to environment-driven values and safer defaults |
+| `containers/deploy.ps1`, `infrastructure/deploy/*.ps1`, `configure_keyvault_security.ps1`, `ensure_cosmos_firewall_ip.ps1`, `add_ip_to_keyvault.ps1` | Deployment ops | Updated scripts to load shared environment profile values instead of inline literals |
+| `README.md`, `docs/DEVELOPER_SETUP.md` | Documentation | Added `APP_ENV` workflow and profile inspection guidance |
+
+#### Behavior Summary
+
+1. Developers can switch environments by setting `APP_ENV` (`dev`, `preprod`, `prod`).
+2. Runtime services and deployment scripts now resolve non-secret values from centralized profile files.
+3. Manual hardcoded local values (ports/endpoints/resource names) are significantly reduced.
+4. `show-config.ps1` gives a quick audit of effective values and shell-level overrides.
+5. Documentation now reflects the updated configuration model and setup flow.
 
 ### FR-1997 — Multi-Field Search Operators (containsAny + regexMatchAny)
 

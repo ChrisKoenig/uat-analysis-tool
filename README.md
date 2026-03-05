@@ -14,12 +14,27 @@ corporate triage team management (rules, routing, AI classification).
 python launcher.py
 ```
 
+### Environment Profiles (New)
+
+The repo now supports environment-specific non-secret settings via `APP_ENV`:
+
+- `dev` (default)
+- `preprod`
+- `prod`
+
+```powershell
+# Optional: choose profile explicitly for local runs
+$env:APP_ENV = "dev"
+
+# View effective settings for a profile
+.\infrastructure\scripts\show-config.ps1 -Env dev
+```
+
 ### Manual: Triage System
 ```powershell
-# Terminal 1 — API (set env vars for Cosmos DB)
-$env:COSMOS_ENDPOINT="https://cosmos-gcs-dev.documents.azure.com:443/"
-$env:COSMOS_USE_AAD="true"
-$env:COSMOS_TENANT_ID="16b3c013-d300-468d-ac64-7eda0820b6d3"
+# Terminal 1 — API
+# Use APP_ENV to select dev/preprod/prod settings (dev is default)
+$env:APP_ENV="dev"
 python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload
 
 # Terminal 2 — Frontend
@@ -135,6 +150,11 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 ```
 
 See [`DEPLOYMENT_OPERATIONS.md`](docs/DEPLOYMENT_OPERATIONS.md) and [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for full details.
+
+For environment-specific deployment values used by scripts, see:
+- `config/environments/dev.ps1`
+- `config/environments/preprod.ps1`
+- `config/environments/prod.ps1`
 
 ## Azure Container Apps Deployment (Dev)
 

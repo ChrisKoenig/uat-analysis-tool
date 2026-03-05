@@ -22,7 +22,7 @@ Optional:
 
 ```bash
 git clone <repo-url>
-cd Hack
+cd uat-analysis-tool
 ```
 
 ### Backend Dependencies
@@ -71,8 +71,28 @@ No PAT tokens are needed. The credential chain is:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `APP_ENV` | `dev` | Active non-secret config profile: `dev`, `preprod`, or `prod` |
 | `TRIAGE_LOG_LEVEL` | `INFO` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `COSMOS_ENDPOINT` | _(none)_ | Cosmos DB endpoint URL. If not set, uses in-memory storage |
+
+### Environment Profile Files
+
+Configuration profiles are stored in:
+- `config/environments/dev.ps1`
+- `config/environments/preprod.ps1`
+- `config/environments/prod.ps1`
+
+Inspect effective values for a profile:
+
+```powershell
+.\infrastructure\scripts\show-config.ps1 -Env dev
+```
+
+Select a profile for local run:
+
+```powershell
+$env:APP_ENV="dev"
+```
 
 **In-memory mode** (no configuration needed): If `COSMOS_ENDPOINT` is not set, the system automatically uses an in-memory storage backend. All data lives in memory and is lost when the service stops — ideal for development and demos.
 

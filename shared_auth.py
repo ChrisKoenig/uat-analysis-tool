@@ -11,6 +11,7 @@ causing 3 separate browser auth prompts and ~10s wasted per AzureCLI timeout.
 Now we authenticate ONCE and share the credential everywhere.
 """
 
+import os
 import threading
 import logging
 
@@ -25,7 +26,19 @@ COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default"
 ADO_SCOPE = "499b84ac-1321-427f-aa17-267ca6975798/.default"
 KEYVAULT_SCOPE = "https://vault.azure.net/.default"
 
-TENANT_ID = "16b3c013-d300-468d-ac64-7eda0820b6d3"
+def _get_tenant_id() -> str:
+    """Read tenant ID from the active environment config."""
+    env_val = os.environ.get("AZURE_TENANT_ID")
+    if env_val:
+        return env_val
+    try:
+        from config import get_app_config
+        return get_app_config().tenant_id
+    except Exception:
+        # Hard fallback — should only hit this if config package is missing
+        return "16b3c013-d300-468d-ac64-7eda0820b6d3"
+
+TENANT_ID: str = _get_tenant_id()
 
 
 def get_credential():

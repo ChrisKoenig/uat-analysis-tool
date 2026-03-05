@@ -24,12 +24,16 @@ from blob_storage_helper import (
     save_corrections
 )
 from keyvault_config import get_keyvault_config
+from config import get_app_config
 
 app = Flask(__name__, template_folder='templates/admin')
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.jinja_env.auto_reload = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+# Environment-aware config
+_app_cfg = get_app_config()
 
 # Initialize services
 kv_config = get_keyvault_config()
@@ -567,17 +571,7 @@ def restart_service(service_name):
             return jsonify({'success': False, 'error': f'Script not found: {script_path}'}), 404
         
         # Kill existing process on the service port
-        ports = {
-            'main-app': 5003,
-            'api-gateway': 8000,
-            'context-analyzer': 8001,
-            'search-service': 8002,
-            'enhanced-matching': 8003,
-            'uat-management': 8004,
-            'llm-classifier': 8005,
-            'embedding-service': 8006,
-            'vector-search': 8007
-        }
+        ports = _app_cfg.service_port_map
         
         port = ports.get(service_name)
         if port:
@@ -796,4 +790,4 @@ if __name__ == '__main__':
     
     print("=" * 80)
     
-    app.run(host='0.0.0.0', port=8008, debug=True)
+    app.run(host='0.0.0.0', port=_app_cfg.admin_service_port, debug=_app_cfg.debug)
