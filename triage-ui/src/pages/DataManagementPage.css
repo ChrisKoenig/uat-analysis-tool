@@ -237,6 +237,16 @@
   background: var(--bg-hover);
 }
 
+.dm-btn-clear-all {
+  color: var(--danger, #d9534f);
+  border-color: var(--danger, #d9534f);
+}
+
+.dm-btn-clear-all:hover:not(:disabled) {
+  background: var(--danger, #d9534f);
+  color: #fff;
+}
+
 .dm-btn-link {
   background: none;
   border: none;

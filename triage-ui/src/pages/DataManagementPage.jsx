@@ -457,10 +457,10 @@ export default function DataManagementPage({ addToast }) {
       {activeTab === 'export' && (
         <div className="dm-section">
           {/* Loading overlay */}
-          {exporting && (
+          {(exporting || loadingEntities) && (
             <div className="dm-overlay">
               <div className="dm-spinner" />
-              <span>Exporting entities…</span>
+              <span>{exporting ? 'Exporting entities…' : 'Loading entities…'}</span>
             </div>
           )}
           {/* Entity type toggles */}
@@ -485,6 +485,16 @@ export default function DataManagementPage({ addToast }) {
               ))}
               <button className="dm-btn-sm" onClick={loadEntities} disabled={loadingEntities}>
                 {loadingEntities ? 'Loading…' : '↻ Refresh'}
+              </button>
+              <button
+                className="dm-btn-sm dm-btn-clear-all"
+                onClick={() => {
+                  const cleared = {};
+                  for (const t of ENTITY_TYPES) cleared[t.key] = new Set();
+                  setSelectedIds(cleared);
+                }}
+              >
+                ✕ Clear All
               </button>
             </div>
           </div>
