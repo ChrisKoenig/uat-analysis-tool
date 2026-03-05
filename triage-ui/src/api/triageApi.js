@@ -513,6 +513,19 @@ export function setAnalysisState(workItemIds, state) {
   return post('/ado/analysis-state', { workItemIds, state });
 }
 
+/**
+ * Update ServiceTree routing fields on a single analysis record.
+ * Only non-null fields are applied (PATCH semantics).
+ * @param {number} workItemId
+ * @param {Object} fields - { solutionArea?, csuDri?, areaPathAdo?, serviceTreeMatch?, ... }
+ */
+export function patchAnalysisRouting(workItemId, fields) {
+  return request(`/analysis/${workItemId}/routing`, {
+    method: 'PATCH',
+    body: JSON.stringify(fields),
+  });
+}
+
 
 /** Get ADO field definitions */
 export function getAdoFields() {

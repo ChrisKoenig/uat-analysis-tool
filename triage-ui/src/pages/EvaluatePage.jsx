@@ -24,6 +24,7 @@ import React, { useState, useCallback } from 'react';
 import * as api from '../api/triageApi';
 import StatusBadge from '../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../utils/helpers';
+import ServiceTreeRouting from '../components/ServiceTreeRouting';
 import './EvaluatePage.css';
 
 /* ── Category / Intent Options (match Flask UI reference) ───── */
@@ -624,6 +625,9 @@ export default function EvaluatePage({ addToast }) {
                     <ImpactBadge level={detail.urgencyLevel} />
                   </div>
                 </div>
+
+                {/* ServiceTree Routing (compact, read-only) */}
+                <ServiceTreeRouting detail={detail} workItemId={workItemId} compact />
               </div>
             </div>
           </div>
@@ -858,6 +862,20 @@ export default function EvaluatePage({ addToast }) {
                     </div>
                   </div>
                 )}
+
+                {/* ServiceTree Routing */}
+                <ServiceTreeRouting
+                  detail={detail}
+                  workItemId={workItemId}
+                  onSaved={(updatedFields) => {
+                    // Update the nested detail object within analysisResults
+                    setAnalysisResults(prev => prev.map(r =>
+                      r.workItemId === workItemId
+                        ? { ...r, detail: { ...r.detail, ...updatedFields } }
+                        : r
+                    ));
+                  }}
+                />
 
                 {/* Domain Entities */}
                 {entityCount > 0 && (

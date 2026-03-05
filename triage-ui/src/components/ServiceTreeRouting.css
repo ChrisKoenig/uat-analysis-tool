@@ -1,0 +1,147 @@
+/* ============================================================================
+   ServiceTreeRouting — Inline routing display & edit styles
+   ============================================================================ */
+
+/* Section header: title + edit button on same line */
+.st-routing-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-routing-header h4 {
+  flex: 1;
+}
+
+.st-edit-btn {
+  font-size: 11px !important;
+  padding: 2px 8px !important;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.st-edit-btn:hover {
+  opacity: 1;
+}
+
+/* Override indicator badge */
+.st-override-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: #fff3e0;
+  color: #e65100;
+  border-radius: 10px;
+  border: 1px solid #ffe0b2;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Display grid — extend the standard 2-col analysis grid to 3 cols for routing */
+.st-routing-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Solution area value gets a subtle accent */
+.st-solution-area {
+  font-weight: 600;
+  color: #1565c0;
+}
+
+/* ── Edit mode ── */
+.st-routing-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.st-routing-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.st-routing-edit-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-light, #666);
+}
+
+.st-routing-edit-field input {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.st-routing-edit-field input:focus {
+  outline: none;
+  border-color: #1565c0;
+  box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.15);
+}
+
+.st-routing-edit-field input:disabled {
+  opacity: 0.6;
+  background: #f5f5f5;
+}
+
+.st-routing-edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+/* Error banner */
+.st-routing-error {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #fce4ec;
+  color: #c62828;
+  border-radius: 4px;
+  border: 1px solid #ef9a9a;
+}
+
+/* ── Compact variant (for EvaluatePage) ── */
+.st-routing-compact {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--muted-bg, #f8f9fa);
+  border-radius: 6px;
+  border-left: 3px solid #1565c0;
+}
+
+.st-routing-compact strong {
+  font-size: 12px;
+  color: var(--text-light, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.st-routing-compact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+
+.st-routing-compact-item {
+  font-size: 12px;
+  display: flex;
+  gap: 4px;
+}
+
+.st-routing-compact-item .st-label {
+  color: var(--text-light, #666);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.st-routing-compact-item .st-value {
+  color: var(--text, #333);
+}

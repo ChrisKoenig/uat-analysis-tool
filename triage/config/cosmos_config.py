@@ -96,6 +96,10 @@ CONTAINER_DEFINITIONS = {
     "triage-teams": {
         "partition_key": "/status",
         "description": "Triage team configurations (team name, ADO query, display order)"
+    },
+    "servicetree-catalog": {
+        "partition_key": "/solutionArea",
+        "description": "ServiceTree service catalog with admin overrides for triage routing"
     }
 }
 

@@ -330,6 +330,23 @@ def _build_diagnostics(name: str, status: str, detail: Optional[Dict],
                 "and is writable."
             )
 
+    elif name == "servicetree_catalog":
+        if detail and detail.get("services", 0) == 0:
+            suggestions.append(
+                "ServiceTree catalog is empty. Try POST /admin/servicetree/refresh?force=true "
+                "to reload from the ServiceTree API."
+            )
+            suggestions.append(
+                "Ensure you are logged in to the corp tenant: "
+                "az login --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47"
+            )
+        if error:
+            suggestions.append(f"ServiceTree error: {error}")
+            suggestions.append(
+                "Verify the ServiceTree BFF at tf-servicetree-api.azurewebsites.net is accessible "
+                "and your token for api://73b8d7d8-5640-4047-879f-7f0a0298905b is valid."
+            )
+
     elif name == "corrections":
         if error:
             suggestions.append(
@@ -836,6 +853,348 @@ async def get_agreement_rate():
 
 
 # ==========================================================================
+# ServiceTree catalog management endpoints
+# ==========================================================================
+
+class ServiceTreeOverrideRequest(BaseModel):
+    """Request body for overriding ServiceTree routing fields."""
+    csuDri: Optional[str] = Field(None, description="Override CSU DRI alias")
+    areaPathAdo: Optional[str] = Field(None, description="Override ADO area path")
+    solutionAreaGcs: Optional[str] = Field(None, description="Override solution area")
+    releaseManager: Optional[str] = Field(None, description="Override release manager")
+    devContact: Optional[str] = Field(None, description="Override dev contact")
+    notes: Optional[str] = Field(None, description="Admin notes on why override was applied")
+
+
+class ServiceTreeOverrideItem(BaseModel):
+    """A stored ServiceTree override."""
+    serviceName: str
+    overrides: Dict[str, Any]
+    appliedBy: str = "admin"
+    appliedAt: str = ""
+
+
+class ServiceTreeCatalogResponse(BaseModel):
+    """Summary of the ServiceTree catalog."""
+    totalServices: int
+    totalOfferings: int
+    solutionAreas: List[str]
+    areaPaths: List[str]
+    cacheAge: Optional[str] = None
+    lastRefresh: Optional[str] = None
+    overrideCount: int = 0
+
+
+class ServiceTreeSearchResponse(BaseModel):
+    """Search results from ServiceTree catalog."""
+    query: str
+    results: List[Dict[str, Any]]
+    total: int
+
+
+def _get_servicetree_service():
+    """Get the ServiceTree service singleton (lazy import from project root)."""
+    import sys
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    from servicetree_service import get_servicetree_service
+    return get_servicetree_service()
+
+
+def _get_servicetree_container():
+    """Get the Cosmos DB servicetree-catalog container."""
+    try:
+        from ..config.cosmos_config import get_cosmos_config
+        cfg = get_cosmos_config()
+        if cfg._in_memory:
+            return None
+        return cfg.get_container("servicetree-catalog")
+    except Exception as e:
+        logger.warning(f"Cannot get servicetree-catalog container: {e}")
+        return None
+
+
+@router.get("/servicetree/catalog", response_model=ServiceTreeCatalogResponse,
+            summary="ServiceTree catalog summary")
+async def servicetree_catalog_summary():
+    """Return summary stats about the cached ServiceTree catalog."""
+    try:
+        svc = _get_servicetree_service()
+        stats = svc.get_catalog_stats()
+
+        # Count overrides from Cosmos
+        override_count = 0
+        container = _get_servicetree_container()
+        if container:
+            try:
+                result = list(container.query_items(
+                    "SELECT VALUE COUNT(1) FROM c WHERE c.docType = 'override'",
+                    enable_cross_partition_query=True,
+                ))
+                override_count = result[0] if result else 0
+            except Exception:
+                pass
+
+        return ServiceTreeCatalogResponse(
+            totalServices=stats.get("total_services", 0),
+            totalOfferings=stats.get("total_offerings", 0),
+            solutionAreas=stats.get("solution_areas", []),
+            areaPaths=stats.get("area_paths", []),
+            cacheAge=stats.get("cache_age", None),
+            lastRefresh=stats.get("last_refresh", None),
+            overrideCount=override_count,
+        )
+    except Exception as e:
+        logger.error(f"ServiceTree catalog summary failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/servicetree/search", response_model=ServiceTreeSearchResponse,
+            summary="Search ServiceTree catalog")
+async def servicetree_search(
+    q: str = Query(..., min_length=1, description="Service or product name to search"),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Search the ServiceTree catalog by service name (fuzzy match)."""
+    try:
+        svc = _get_servicetree_service()
+        catalog = svc.get_catalog()
+
+        q_lower = q.strip().lower()
+        matches = []
+        for entry in catalog:
+            name = entry.get("name", "").lower()
+            offering = entry.get("offeringName", "").lower()
+            if q_lower in name or q_lower in offering or name in q_lower:
+                matches.append(entry)
+
+        # If no substring matches, try fuzzy
+        if not matches:
+            from difflib import SequenceMatcher
+            scored = []
+            for entry in catalog:
+                ratio = SequenceMatcher(None, q_lower, entry.get("name", "").lower()).ratio()
+                if ratio >= 0.5:
+                    scored.append((ratio, entry))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            matches = [e for _, e in scored[:limit]]
+
+        return ServiceTreeSearchResponse(
+            query=q,
+            results=matches[:limit],
+            total=len(matches),
+        )
+    except Exception as e:
+        logger.error(f"ServiceTree search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/servicetree/services", summary="List all ServiceTree services")
+async def servicetree_list_services(
+    solutionArea: Optional[str] = Query(None, description="Filter by solution area"),
+    offering: Optional[str] = Query(None, description="Filter by offering name"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=500),
+):
+    """List ServiceTree services with optional filters and pagination."""
+    try:
+        svc = _get_servicetree_service()
+        catalog = svc.get_catalog()
+
+        filtered = catalog
+        if solutionArea:
+            filtered = [e for e in filtered
+                        if e.get("solutionAreaGcs", "").lower() == solutionArea.lower()]
+        if offering:
+            filtered = [e for e in filtered
+                        if e.get("offeringName", "").lower() == offering.lower()]
+
+        total = len(filtered)
+        page = filtered[skip:skip + limit]
+
+        return {
+            "services": page,
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/servicetree/refresh", summary="Refresh ServiceTree catalog")
+async def servicetree_refresh(force: bool = Query(False)):
+    """Trigger a manual refresh of the ServiceTree catalog from the API."""
+    try:
+        svc = _get_servicetree_service()
+        svc.refresh(force=force)
+        stats = svc.get_catalog_stats()
+        logger.info("ServiceTree catalog refreshed (force=%s): %d services", force, stats.get("total_services", 0))
+        return {
+            "status": "refreshed",
+            "force": force,
+            "totalServices": stats.get("total_services", 0),
+            "totalOfferings": stats.get("total_offerings", 0),
+        }
+    except Exception as e:
+        logger.error(f"ServiceTree refresh failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/servicetree/override/{service_name}",
+            summary="Apply admin override for a ServiceTree service")
+async def servicetree_apply_override(service_name: str, body: ServiceTreeOverrideRequest):
+    """
+    Override routing fields (csuDri, areaPathAdo, etc.) for a specific service.
+    Overrides persist across catalog refreshes.
+    """
+    try:
+        # Build override dict (only non-None fields)
+        overrides = {k: v for k, v in body.dict().items() if v is not None and k != "notes"}
+
+        if not overrides:
+            raise HTTPException(status_code=400, detail="No override fields provided")
+
+        # Store override in Cosmos
+        container = _get_servicetree_container()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        doc = {
+            "id": f"override-{service_name.lower().replace(' ', '-')}",
+            "docType": "override",
+            "serviceName": service_name,
+            "overrides": overrides,
+            "notes": body.notes or "",
+            "appliedBy": "admin",
+            "appliedAt": now_iso,
+            "solutionArea": "override",  # partition key
+        }
+
+        if container:
+            container.upsert_item(doc)
+            logger.info("ServiceTree override saved to Cosmos: %s → %s", service_name, overrides)
+        else:
+            # File-based fallback
+            override_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)
+            )))) / ".cache" / "servicetree_overrides.json"
+            override_file.parent.mkdir(parents=True, exist_ok=True)
+            existing = {}
+            if override_file.exists():
+                with open(override_file, "r") as f:
+                    existing = json.load(f)
+            existing[service_name] = {
+                "overrides": overrides,
+                "notes": body.notes or "",
+                "appliedBy": "admin",
+                "appliedAt": now_iso,
+            }
+            with open(override_file, "w") as f:
+                json.dump(existing, f, indent=2)
+            logger.info("ServiceTree override saved to file: %s → %s", service_name, overrides)
+
+        # Apply override to in-memory catalog
+        svc = _get_servicetree_service()
+        svc.apply_overrides({service_name: overrides})
+
+        return {
+            "status": "override_applied",
+            "serviceName": service_name,
+            "overrides": overrides,
+            "appliedAt": now_iso,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"ServiceTree override failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/servicetree/overrides", summary="List all ServiceTree overrides")
+async def servicetree_list_overrides():
+    """List all admin overrides currently applied to ServiceTree services."""
+    try:
+        container = _get_servicetree_container()
+        overrides = []
+
+        if container:
+            try:
+                items = list(container.query_items(
+                    "SELECT * FROM c WHERE c.docType = 'override' ORDER BY c.appliedAt DESC",
+                    enable_cross_partition_query=True,
+                ))
+                overrides = [ServiceTreeOverrideItem(
+                    serviceName=item.get("serviceName", ""),
+                    overrides=item.get("overrides", {}),
+                    appliedBy=item.get("appliedBy", "admin"),
+                    appliedAt=item.get("appliedAt", ""),
+                ) for item in items]
+            except Exception as e:
+                logger.warning(f"Cosmos override query failed: {e}")
+
+        if not overrides:
+            # File-based fallback
+            override_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)
+            )))) / ".cache" / "servicetree_overrides.json"
+            if override_file.exists():
+                with open(override_file, "r") as f:
+                    data = json.load(f)
+                overrides = [ServiceTreeOverrideItem(
+                    serviceName=svc_name,
+                    overrides=info.get("overrides", {}),
+                    appliedBy=info.get("appliedBy", "admin"),
+                    appliedAt=info.get("appliedAt", ""),
+                ) for svc_name, info in data.items()]
+
+        return {"overrides": overrides, "total": len(overrides)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/servicetree/override/{service_name}",
+               summary="Remove admin override for a ServiceTree service")
+async def servicetree_remove_override(service_name: str):
+    """Remove an admin override, reverting to original ServiceTree data."""
+    try:
+        container = _get_servicetree_container()
+        doc_id = f"override-{service_name.lower().replace(' ', '-')}"
+
+        deleted = False
+        if container:
+            try:
+                container.delete_item(doc_id, partition_key="override")
+                deleted = True
+                logger.info("ServiceTree override removed from Cosmos: %s", service_name)
+            except Exception as e:
+                if "NotFound" not in str(e):
+                    logger.warning(f"Cosmos override delete failed: {e}")
+
+        if not deleted:
+            # File-based fallback
+            override_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)
+            )))) / ".cache" / "servicetree_overrides.json"
+            if override_file.exists():
+                with open(override_file, "r") as f:
+                    data = json.load(f)
+                if service_name in data:
+                    del data[service_name]
+                    with open(override_file, "w") as f:
+                        json.dump(data, f, indent=2)
+                    deleted = True
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"No override found for '{service_name}'")
+
+        return {"status": "override_removed", "serviceName": service_name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================================================
 # Health dashboard endpoints
 # ==========================================================================
 
@@ -942,6 +1301,33 @@ async def health_dashboard():
     except Exception as e:
         components.append(HealthDetail(
             name="ado_connection", status="degraded", error=str(e),
+        ))
+
+    # --- ServiceTree catalog ---
+    try:
+        t0 = time.perf_counter()
+        st_svc = _get_servicetree_service()
+        st_stats = st_svc.get_catalog_stats()
+        latency = int((time.perf_counter() - t0) * 1000)
+        total_svc = st_stats.get("total_services", 0)
+        if total_svc > 0:
+            components.append(HealthDetail(
+                name="servicetree_catalog", status="healthy", latency_ms=latency,
+                detail={
+                    "services": total_svc,
+                    "offerings": st_stats.get("total_offerings", 0),
+                    "cache_age": st_stats.get("cache_age"),
+                },
+            ))
+        else:
+            overall = "degraded" if overall == "healthy" else overall
+            components.append(HealthDetail(
+                name="servicetree_catalog", status="degraded", latency_ms=latency,
+                detail={"services": 0, "reason": "catalog empty or not loaded"},
+            ))
+    except Exception as e:
+        components.append(HealthDetail(
+            name="servicetree_catalog", status="degraded", error=str(e),
         ))
 
     # --- Local cache ---

@@ -32,6 +32,7 @@ import os
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 logger = logging.getLogger("triage.api")
 
@@ -828,6 +829,73 @@ async def get_analysis_detail(work_item_id: int):
     return items[0]
 
 
+# -- PATCH: Update ServiceTree routing fields on a single analysis record ------
+
+class _RoutingPatch(BaseModel):
+    """Allowed fields for inline routing override."""
+    serviceTreeMatch: Optional[str] = None
+    serviceTreeOffering: Optional[str] = None
+    solutionArea: Optional[str] = None
+    csuDri: Optional[str] = None
+    areaPathAdo: Optional[str] = None
+    releaseManager: Optional[str] = None
+    devContact: Optional[str] = None
+
+
+@app.patch("/api/v1/analysis/{work_item_id}/routing", tags=["Analysis"])
+async def patch_analysis_routing(work_item_id: int, patch: _RoutingPatch):
+    """
+    Update ServiceTree routing fields on the latest analysis record.
+    Only non-null fields in the request body are applied.
+    """
+    cosmos = get_cosmos_config()
+    container = cosmos.get_container("analysis-results")
+
+    # Fetch latest analysis
+    try:
+        query = (
+            "SELECT * FROM c WHERE c.workItemId = @wid "
+            "ORDER BY c.timestamp DESC OFFSET 0 LIMIT 1"
+        )
+        items = list(container.query_items(
+            query=query,
+            parameters=[{"name": "@wid", "value": work_item_id}],
+            partition_key=work_item_id,
+        ))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not items:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No analysis found for work item {work_item_id}",
+        )
+
+    doc = items[0]
+    updates = {k: v for k, v in patch.dict().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    for field, value in updates.items():
+        doc[field] = value
+
+    # Stamp override metadata
+    doc["routingOverrideBy"] = "admin"
+    doc["routingOverrideAt"] = datetime.now(timezone.utc).isoformat()
+
+    try:
+        container.upsert_item(doc)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    logger.info("Routing override applied for WI %s: %s", work_item_id, updates)
+    return {
+        "status": "updated",
+        "workItemId": work_item_id,
+        "updatedFields": updates,
+    }
+
+
 # -- Analyzer singleton (lazy init — may require Azure OpenAI config) ---------
 _analyzer = None
 
@@ -865,6 +933,41 @@ def _map_hybrid_to_analysis_result(
     # Extract domain_entities dict from hybrid result (azure_services, regions, etc.)
     _de = getattr(hybrid_result, "domain_entities", None) or {}
 
+    detected_products = [
+        p.get("name", str(p)) if isinstance(p, dict) else str(p)
+        for p in (getattr(hybrid_result, "pattern_features", {}) or {}).get("detected_products", [])
+    ]
+    azure_services = _de.get("azure_services", [])
+
+    # ── ServiceTree enrichment ───────────────────────────────────────────
+    st_match = st_offering = sol_area = csu_dri = ""
+    area_path_ado = release_mgr = dev_contact = ""
+    try:
+        import sys
+        _proj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if _proj_root not in sys.path:
+            sys.path.insert(0, _proj_root)
+        from servicetree_service import get_servicetree_service
+
+        svc = get_servicetree_service()
+        # Combine detected products + azure services for best-effort lookup
+        lookup_names = detected_products + azure_services
+        best = svc.get_best_match(lookup_names)
+        if best:
+            st_match = best.get("name", "")
+            st_offering = best.get("offeringName", "")
+            sol_area = best.get("solutionAreaGcs", "")
+            csu_dri = best.get("csuDri", "")
+            area_path_ado = best.get("areaPathAdo", "")
+            release_mgr = best.get("releaseManager", "")
+            dev_contact = best.get("devContact", "")
+            logger.info(
+                "ServiceTree match for WI %s: %s → %s (%s)",
+                work_item_id, lookup_names[:3], st_match, sol_area,
+            )
+    except Exception as st_err:
+        logger.warning("ServiceTree enrichment skipped for WI %s: %s", work_item_id, st_err)
+
     return AnalysisResult(
         id=f"analysis-{work_item_id}-{date_str}",
         workItemId=work_item_id,
@@ -879,17 +982,22 @@ def _map_hybrid_to_analysis_result(
         businessImpact=getattr(hybrid_result, "business_impact", ""),
         technicalComplexity=getattr(hybrid_result, "technical_complexity", "") or "",
         urgencyLevel=getattr(hybrid_result, "urgency_level", "") or "",
-        detectedProducts=[
-            p.get("name", str(p)) if isinstance(p, dict) else str(p)
-            for p in (getattr(hybrid_result, "pattern_features", {}) or {}).get("detected_products", [])
-        ],
-        azureServices=_de.get("azure_services", []),
+        detectedProducts=detected_products,
+        azureServices=azure_services,
         complianceFrameworks=_de.get("compliance_frameworks", []),
         technologies=_de.get("technologies", []),
         regions=_de.get("regions", []),
         businessDomains=_de.get("business_domains", []),
         technicalAreas=_de.get("technical_areas", []),
         discoveredServices=_de.get("discovered_services", []),
+        # ServiceTree routing
+        serviceTreeMatch=st_match,
+        serviceTreeOffering=st_offering,
+        solutionArea=sol_area,
+        csuDri=csu_dri,
+        areaPathAdo=area_path_ado,
+        releaseManager=release_mgr,
+        devContact=dev_contact,
         keyConcepts=getattr(hybrid_result, "key_concepts", None) or [],
         semanticKeywords=getattr(hybrid_result, "semantic_keywords", None) or [],
         contextSummary=getattr(hybrid_result, "context_summary", "") or "",

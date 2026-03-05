@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom';
 import * as api from '../api/triageApi';
 import { getCachedQueue, setCachedQueue, clearQueueCache, updateCachedAnalysis } from '../api/queueCache';
 import { formatDate, truncate } from '../utils/helpers';
+import ServiceTreeRouting from '../components/ServiceTreeRouting';
 import './QueuePage.css';
 
 
@@ -1643,6 +1644,15 @@ export default function QueuePage({ addToast }) {
                     </div>
                   </div>
                 </section>
+
+                {/* ServiceTree Routing (inline-editable) */}
+                <ServiceTreeRouting
+                  detail={analysisDetail}
+                  workItemId={analysisDetailId}
+                  onSaved={(updatedFields) => {
+                    setAnalysisDetail(prev => ({ ...prev, ...updatedFields }));
+                  }}
+                />
 
                 {/* AI Reasoning */}
                 <section className="analysis-section">

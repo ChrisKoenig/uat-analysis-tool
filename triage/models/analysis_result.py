@@ -121,6 +121,17 @@ class AnalysisResult:
     reasoning: str = ""
     
     # -------------------------------------------------------------------------
+    # ServiceTree Routing (populated from ServiceTree catalog lookup)
+    # -------------------------------------------------------------------------
+    serviceTreeMatch: str = ""                # Matched ServiceTree service name
+    serviceTreeOffering: str = ""             # Parent offering name
+    solutionArea: str = ""                    # Solution area (e.g., "Cloud and AI platform")
+    csuDri: str = ""                          # CSU DRI alias for routing
+    areaPathAdo: str = ""                     # ADO area path for routing
+    releaseManager: str = ""                  # Release manager alias(es)
+    devContact: str = ""                      # Dev team contact alias
+
+    # -------------------------------------------------------------------------
     # Pattern Matching
     # -------------------------------------------------------------------------
     patternCategory: str = ""                 # Category from pattern engine
@@ -210,6 +221,13 @@ class AnalysisResult:
             "Reasoning": self.reasoning,
             "PatternCategory": self.patternCategory,
             "PatternConfidence": self.patternConfidence,
+            "ServiceTreeMatch": self.serviceTreeMatch,
+            "ServiceTreeOffering": self.serviceTreeOffering,
+            "SolutionArea": self.solutionArea,
+            "CsuDri": self.csuDri,
+            "AreaPathAdo": self.areaPathAdo,
+            "ReleaseManager": self.releaseManager,
+            "DevContact": self.devContact,
         }
         return field_map.get(field_name)
     
