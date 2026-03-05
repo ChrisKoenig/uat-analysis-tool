@@ -26,6 +26,7 @@ All endpoints follow REST conventions:
 """
 
 from typing import Optional
+from datetime import datetime, timezone
 import logging
 import os
 
@@ -915,6 +916,119 @@ async def get_analysis_engine_status():
             "mode": "Unavailable",
             "error": str(e),
         }
+
+
+@app.get("/api/v1/diagnostics", tags=["Health"])
+async def get_diagnostics():
+    """
+    Lightweight diagnostics endpoint for the debug panel.
+
+    Returns service connectivity status for each subsystem so a user
+    can copy/paste the output for troubleshooting without exposing secrets.
+    Each sub-check has a 5 s timeout so the endpoint always returns quickly.
+    """
+    import asyncio
+    import time as _time
+
+    CHECK_TIMEOUT = 5          # seconds per subsystem
+
+    diag = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "api": {"status": "healthy"},
+        "cosmos": {},
+        "ai": {},
+        "ado": {},
+    }
+
+    # --- Cosmos DB ---
+    def _check_cosmos():
+        t0 = _time.perf_counter()
+        cosmos = get_cosmos_config()
+        info = cosmos.health_check()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        st = info.get("status", "healthy")
+        # Normalise "healthy (in-memory)" → "healthy" with a note
+        in_mem = "in-memory" in st
+        if in_mem:
+            st = "healthy"
+        return {"status": st, "latencyMs": ms, "inMemory": in_mem}
+
+    try:
+        diag["cosmos"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_cosmos), timeout=CHECK_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["cosmos"] = {"status": "timeout", "error": f"Health check exceeded {CHECK_TIMEOUT}s"}
+    except Exception as e:
+        diag["cosmos"] = {"status": "error", "error": str(e)}
+
+    # --- AI / Azure OpenAI ---
+    try:
+        # Use the existing singleton if already initialized; do NOT trigger
+        # full init from a lightweight diagnostics call.
+        if _analyzer is not None:
+            analyzer = _analyzer
+            ai_info = analyzer.get_ai_status()
+            enabled = ai_info.get("enabled", False)
+
+            cfg = getattr(analyzer, "config", None)
+            aoai = getattr(cfg, "azure_openai", None) if cfg else None
+            endpoint = ai_info.get("endpoint") or (getattr(aoai, "endpoint", "") if aoai else "")
+            use_aad = ai_info.get("use_aad")
+            if use_aad is None and aoai:
+                use_aad = getattr(aoai, "use_aad", None)
+
+            diag["ai"] = {
+                "status": "healthy" if enabled else "offline",
+                "enabled": enabled,
+                "reason": ai_info.get("reason"),
+                "endpoint": _mask_url(endpoint),
+                "useAad": use_aad,
+                "initError": getattr(analyzer, "_init_error", None),
+            }
+        else:
+            diag["ai"] = {
+                "status": "initializing",
+                "enabled": False,
+                "reason": "Analyzer not yet initialized (first analysis triggers init)",
+            }
+    except Exception as e:
+        diag["ai"] = {"status": "error", "error": str(e)}
+
+    # --- ADO ---
+    def _check_ado():
+        t0 = _time.perf_counter()
+        from ..services.ado_client import get_ado_client
+        _ado = get_ado_client()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        return {"status": "healthy", "latencyMs": ms}
+
+    try:
+        diag["ado"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_ado), timeout=CHECK_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["ado"] = {"status": "timeout", "error": f"Health check exceeded {CHECK_TIMEOUT}s"}
+    except Exception as e:
+        diag["ado"] = {"status": "error", "error": str(e)}
+
+    return diag
+
+
+def _mask_url(url: str) -> str:
+    """Mask the middle of a URL for safe display (no full endpoint exposure)."""
+    if not url:
+        return "(not configured)"
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname or ""
+        parts = host.split(".")
+        if len(parts) > 2:
+            parts[0] = parts[0][:4] + "***"
+        return f"{parsed.scheme}://{'.'.join(parts)}"
+    except Exception:
+        return url[:12] + "***"
 
 
 @app.post("/api/v1/analyze", tags=["Analysis"])

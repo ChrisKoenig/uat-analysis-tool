@@ -15,6 +15,11 @@
 | 3 | FR-1993 | 2026-03-03 | *pending* | **Extend pagination, search & expandable values to Triggers, Actions, Routes** — Applied the same FR-1993 UX improvements (pagination, search input, expandable value cells) to all remaining entity list pages. Extracted shared EntitySearch CSS. |
 | 4 | FR-1994, FR-1999 | 2026-03-04 | `4b06cff` | **Tabbed analysis detail views + blade "No data" placeholders** — Added pill-style tabbed interface (Overview / Analysis / Decision / Evaluate) to Field Portal `AnalysisDetailPage` and Triage UI `EvaluatePage` to reduce scrolling. QueuePage blade kept as linear layout with all section headers always visible and "No data" placeholders for empty fields. |
 | 5 | ENG-003 | 2026-03-05 | *pending* | **Active Learning — Full feedback loop (Steps 1-5)** — Training signals Cosmos container, corrections Cosmos migration, disagreement UI, pattern weight tuning, few-shot signal injection into LLM prompt, and dashboard agreement rate metric. All five design steps implemented. |
+| 6 | B0002 | 2026-03-06 | *pending* | **Bug fix — hybrid source not recognized as LLM** — `isLLM` check in `EvaluatePage.jsx` only matched `"llm"` source. Items analyzed as `"hybrid"` (LLM primary with pattern features) appeared as pattern-only in the UI. Fixed to include `"hybrid"` in the `isLLM` check. |
+| 7 | B0003 | 2026-03-06 | *pending* | **Bug fix — comparison crash on pattern-only fallback** — When LLM is unavailable and `agreement` field is `null`, the Pattern Engine Comparison section crashed because it assumed `agreement` was always `true`/`false`. Fixed: `hybrid_context_analyzer.py` now sets `agreement=None` on pattern-only fallback; `EvaluatePage.jsx` gates the comparison section on `agreement !== null && agreement !== undefined`. |
+| 8 | ENG-004 | 2026-03-06 | *pending* | **LLM classifier retry logic with exponential backoff** — Added automatic retry for transient Azure OpenAI failures (429 rate limit, 500/502/503/504 server errors, network timeouts). Up to 3 retries with exponential backoff (1s base, 5s for rate limits). Jitter prevents thundering herd. |
+| 9 | ENG-005 | 2026-03-06 | *pending* | **Diagnostics endpoint + inline diagnostics UI** — New `GET /api/v1/diagnostics` endpoint returning AI config, Cosmos, ADO, and cache status. Floating diagnostics icon in `AppLayout`. Inline diagnostics button in the yellow "AI Unavailable" banner on `EvaluatePage`, showing a collapsible diagnostic panel with AI status, OpenAI config, and error details. |
+| 10 | ENG-006 | 2026-03-06 | *pending* | **Batch fetch resilience — errorPolicy=Omit + null-safe iteration** — ADO batch API returned HTTP 404 for entire batch when any single work item ID was invalid, causing "Batch fetch failed" for all items. Fixed by adding `errorPolicy=Omit` to the batch URL (ADO returns 200 with null placeholders for invalid IDs). Added null-safe iteration and per-ID omission tracking in `get_work_items_batch()` so valid items are returned while invalid IDs are reported individually. |
 
 ---
 
@@ -350,3 +355,197 @@ The project already has a **Corrections** system (Phase 1 — Corrective Learnin
 | 4 | Few-shot injection from training signals (extend existing corrections injection) | Low |
 | 5 | Dashboard agreement rate metric | Low |
 
+
+---
+
+## Bugs Found During Testing
+
+| # | Bug ID | Date | Related CR | Build ID (Git) | Summary |
+|---|--------|------|------------|-----------------|---------|
+| 1 | B0001 | 2026-03-04 | ENG-003 | *pending* | **False disagreement — enum vs string comparison** — Agreement check always returned `False` because pattern engine returns an `IssueCategory` enum (e.g., `IssueCategory.SUPPORT_ESCALATION`) while the LLM classifier returns a plain string (`"support_escalation"`). Python `==` between enum and string is always `False`. Also, original check required both category AND intent to match, but only category matters for triage routing. |
+| 2 | B0002 | 2026-03-06 | ENG-003 | *pending* | **Hybrid source not recognized as LLM** — `isLLM` check in `EvaluatePage.jsx` only matched `"llm"`, so `"hybrid"` source items appeared as pattern-only. Fixed to include `"hybrid"`. |
+| 3 | B0003 | 2026-03-06 | ENG-003 | *pending* | **Comparison crash on pattern-only fallback** — When LLM unavailable, `agreement` is `null`. UI assumed boolean, crashing on Pattern Engine Comparison. Fixed in both backend (`agreement=None`) and frontend (null guard). |
+
+### B0001 — False Disagreement: Enum vs String Category Comparison
+
+**Date:** 2026-03-04  
+**Related CR:** ENG-003 (Active Learning)  
+**Found During:** Manual testing of Step 1 (Disagreement UI)  
+**Severity:** High — every analysis showed a false disagreement, defeating the active learning feedback loop  
+**Status:** Fixed
+
+#### Symptom
+
+The Analysis tab showed "Disagreement" and offered the "Help Resolve This Disagreement" prompt even when LLM and Pattern Engine both classified the item as **Support Escalation**. The UI text literally read: *"The LLM classified this as Support Escalation but the pattern engine says Support Escalation."*
+
+#### Root Cause
+
+Two issues in `hybrid_context_analyzer.py`:
+
+1. **Type mismatch** — `pattern_category` was assigned directly from `pattern_result.category`, which is an `IssueCategory` enum. The LLM classifier returns a plain string. Comparing `"support_escalation" == IssueCategory.SUPPORT_ESCALATION` evaluates to `False` in Python.
+2. **Over-strict check** — The agreement logic originally required both `category` AND `intent` to match. Intent differences within the same category are not meaningful disagreements for triage routing.
+
+#### Fix
+
+- Normalize `pattern_category` and `pattern_intent` to their `.value` strings before comparison.
+- Changed agreement check to compare **category only**.
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `hybrid_context_analyzer.py` | Added `hasattr(x, 'value')` → `x.value` normalization for `pattern_category` and `pattern_intent`. Simplified agreement check to category-only comparison. |
+
+---
+
+### B0002 — Hybrid Source Not Recognized as LLM
+
+**Date:** 2026-03-06  
+**Related CR:** ENG-003 (Active Learning)  
+**Found During:** Manual testing of batch analysis  
+**Severity:** Medium — LLM-analyzed items appeared as pattern-only in UI, hiding LLM features  
+**Status:** Fixed
+
+#### Root Cause
+
+`EvaluatePage.jsx` used `source === "llm"` to determine LLM-specific rendering. The hybrid analyzer returns `source: "hybrid"` when the LLM is primary but pattern features are included. These items lost all LLM-specific UI (reasoning, confidence, comparison).
+
+#### Fix
+
+Changed `isLLM` check to `source === "llm" || source === "hybrid"`.
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `triage-ui/src/pages/EvaluatePage.jsx` | `isLLM` now matches both `"llm"` and `"hybrid"` source values |
+
+---
+
+### B0003 — Comparison Crash on Pattern-Only Fallback
+
+**Date:** 2026-03-06  
+**Related CR:** ENG-003 (Active Learning)  
+**Found During:** Testing with Azure OpenAI unavailable  
+**Severity:** Medium — Pattern Engine Comparison section crashed when LLM was down  
+**Status:** Fixed
+
+#### Root Cause
+
+When the LLM is unavailable, `hybrid_context_analyzer.py` produced results without an `agreement` field (it was never set). The frontend `EvaluatePage.jsx` rendered the Pattern Engine Comparison section unconditionally, referencing `agreement` as if it were always a boolean, causing undefined property access.
+
+#### Fix
+
+Two-part fix:
+1. **Backend** (`hybrid_context_analyzer.py`): Set `agreement=None` explicitly in pattern-only fallback path.
+2. **Frontend** (`EvaluatePage.jsx`): Guard the comparison section with `agreement !== null && agreement !== undefined`.
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `hybrid_context_analyzer.py` | Added `agreement=None` in pattern-only fallback result |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Gated Pattern Engine Comparison on non-null `agreement` |
+
+---
+
+### ENG-004 — LLM Classifier Retry Logic with Exponential Backoff
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Engineering (reliability improvement)  
+**Status:** Built, awaiting deployment
+
+#### Problem
+
+Transient Azure OpenAI failures (429 rate limit, 500/502/503/504 server errors, network timeouts) caused immediate classification failure with no retry. Single transient errors resulted in full fallback to pattern-only analysis.
+
+#### Solution
+
+Added automatic retry with exponential backoff to `LLMClassifier.classify()`:
+- **Max retries**: 3 attempts
+- **Base backoff**: 1.0 seconds (doubles each retry)
+- **Rate limit backoff**: 5.0 seconds (for 429 responses)
+- **Jitter**: Random 0-50% added to backoff to prevent thundering herd
+- **Retryable errors**: 429, 500, 502, 503, 504 status codes + `APIConnectionError` + `APITimeoutError`
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `llm_classifier.py` | Added `MAX_RETRIES`, `BASE_BACKOFF_SECONDS`, `RATE_LIMIT_BACKOFF` constants. `classify()` method wrapped in retry loop with `_is_retryable()` helper. Logs retry attempts with backoff duration. |
+
+---
+
+### ENG-005 — Diagnostics Endpoint + Inline Diagnostics UI
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Engineering (observability)  
+**Status:** Built, awaiting deployment
+
+#### Problem
+
+When AI classification was unavailable, the yellow "AI Unavailable" banner gave no actionable diagnostic information. Users had to check server logs or ask engineering for help troubleshooting.
+
+#### Solution
+
+1. **Backend**: New `GET /api/v1/diagnostics` endpoint returning comprehensive system status (AI config, Cosmos DB, ADO, cache).
+2. **Floating icon**: `DiagnosticsPanel` component accessible from `AppLayout` for global system health view.
+3. **Inline diagnostics**: When the "AI Unavailable" banner shows on `EvaluatePage`, an "Show Diagnostics" button appears, expanding a collapsible panel with AI status, OpenAI configuration, and error details.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/api/routes.py` | Backend | Added `GET /api/v1/diagnostics` endpoint with AI, Cosmos, ADO, and cache status |
+| `triage-ui/src/api/triageApi.js` | Frontend | Added `getDiagnostics()` API function |
+| `triage-ui/src/components/common/DiagnosticsPanel.jsx` | Frontend (new) | Floating diagnostics panel component |
+| `triage-ui/src/components/common/DiagnosticsPanel.css` | Frontend (new) | Diagnostics panel styling |
+| `triage-ui/src/components/layout/AppLayout.jsx` | Frontend | Imported and rendered `DiagnosticsPanel` |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Added inline diagnostics button + collapsible panel in AI Unavailable banner |
+| `triage-ui/src/pages/EvaluatePage.css` | Frontend | Added ~120 lines of inline diagnostics CSS |
+
+---
+
+### ENG-006 — Batch Fetch Resilience: errorPolicy=Omit + Null-Safe Iteration
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Engineering (batch analysis bug fix)  
+**Status:** Fixed and verified
+
+#### Problem
+
+When analyzing multiple work items, if even one ID in the batch was invalid (e.g., didn't exist in ADO), the ADO REST API returned HTTP 404 for the **entire batch**. This caused "Batch fetch failed" errors for all items, even the valid ones.
+
+**Example**: Batch of `[713010, 731001, 712931, 712918]` where 731001 doesn't exist → 404 → all 4 items fail.
+
+#### Root Cause
+
+The ADO REST API `GET /_apis/wit/workitems?ids=...` endpoint defaults to `errorPolicy=Fail`, which returns a 404 for the entire response when any single item is not found.
+
+#### Solution — Two-Part Fix
+
+**Part 1: errorPolicy=Omit** (`_read_batch_url()`)
+- Added `&errorPolicy=Omit` to the batch URL query parameters
+- ADO now returns HTTP 200 with a `value` array that contains null placeholders for invalid/not-found items instead of failing the entire request
+
+**Part 2: Null-safe iteration** (`get_work_items_batch()`)
+- `errorPolicy=Omit` returns `[{valid}, null, {valid}, {valid}]` — null entries for omitted items
+- Added `if item is None: continue` to skip null entries
+- Added `fetched_ids` set to track which IDs were successfully returned
+- After processing, compares requested chunk IDs against `fetched_ids` to identify and report individually which IDs were omitted
+
+#### Verified Result
+
+Batch `[713010, 731001, 712931, 712918]`:
+- 3 valid items analyzed successfully (713010, 712931, 712918)
+- 1 invalid item (731001) reported as `"Failed to fetch #731001"` — non-fatal error
+- No disruption to valid items
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `triage/services/ado_client.py` | `_read_batch_url()`: Added `&errorPolicy=Omit` to batch URL. `get_work_items_batch()`: Added null filtering, `fetched_ids` tracking set, per-ID omission detection. |

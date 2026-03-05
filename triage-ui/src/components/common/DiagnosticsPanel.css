@@ -1,0 +1,165 @@
+/**
+ * DiagnosticsPanel styles
+ * ========================
+ * Tiny icon + flyout panel in the bottom-right corner.
+ */
+
+/* ── Root anchor (bottom-right) ── */
+.diag-root {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 9999;
+  font-family: var(--font-family, 'Segoe UI', system-ui, sans-serif);
+  font-size: 13px;
+}
+
+/* ── Trigger button ── */
+.diag-trigger {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #d2d0ce;
+  background: #fff;
+  color: #605e5c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  transition: background .15s, box-shadow .15s;
+}
+.diag-trigger:hover {
+  background: #f3f2f1;
+  box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+.diag-trigger--error,
+.diag-trigger--offline {
+  border-color: #d13438;
+  color: #d13438;
+  animation: diag-pulse 2s infinite;
+}
+.diag-trigger--healthy {
+  border-color: #107c10;
+  color: #107c10;
+}
+
+@keyframes diag-pulse {
+  0%, 100% { box-shadow: 0 2px 6px rgba(209,52,56,.2); }
+  50%      { box-shadow: 0 2px 12px rgba(209,52,56,.45); }
+}
+
+/* ── Flyout panel ── */
+.diag-panel {
+  position: absolute;
+  bottom: 42px;
+  right: 0;
+  width: 320px;
+  background: #fff;
+  border: 1px solid #e1dfdd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  overflow: hidden;
+}
+
+.diag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #faf9f8;
+  border-bottom: 1px solid #edebe9;
+  font-size: 13px;
+}
+.diag-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #605e5c;
+  line-height: 1;
+  padding: 0 4px;
+}
+.diag-close:hover { color: #d13438; }
+
+/* ── Content rows ── */
+.diag-section {
+  padding: 8px 14px 4px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #8a8886;
+}
+
+.diag-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 14px;
+}
+.diag-row--error {
+  background: #fde7e9;
+  padding: 10px 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.diag-detail {
+  padding: 0 14px 4px 30px;
+  font-size: 11px;
+  color: #8a8886;
+  word-break: break-all;
+}
+.diag-detail--error { color: #d13438; }
+
+.diag-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.diag-tag--healthy { background: #dff6dd; color: #107c10; }
+.diag-tag--degraded { background: #fff4ce; color: #8a6914; }
+.diag-tag--timeout,
+.diag-tag--initializing { background: #fff4ce; color: #c47a00; }
+.diag-tag--offline,
+.diag-tag--error { background: #fde7e9; color: #d13438; }
+
+.diag-ts {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #a19f9d;
+  border-top: 1px solid #f3f2f1;
+}
+
+.diag-loading {
+  padding: 16px 14px;
+  color: #8a8886;
+  text-align: center;
+}
+
+/* ── Actions ── */
+.diag-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid #edebe9;
+  background: #faf9f8;
+}
+.diag-copy,
+.diag-refresh {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #d2d0ce;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background .12s;
+}
+.diag-copy:hover,
+.diag-refresh:hover { background: #f3f2f1; }
+.diag-copy:disabled,
+.diag-refresh:disabled { opacity: .5; cursor: default; }

@@ -20,7 +20,7 @@
  *   tab state per work item via activeDetailTabs map.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import * as api from '../api/triageApi';
 import StatusBadge from '../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../utils/helpers';
@@ -173,7 +173,17 @@ export default function EvaluatePage({ addToast }) {
   const setActiveDetailTab = (workItemId, tab) =>
     setActiveDetailTabs(prev => ({ ...prev, [workItemId]: tab }));
 
-  // ── Disagreement resolution state (ENG-003 Active Learning) ─
+  // ── Inline diagnostics (per work item, shown in AI-unavailable banner) ──
+  const [inlineDiag, setInlineDiag] = useState({});   // { [workItemId]: { loading, data, error } }
+  const fetchInlineDiag = useCallback(async (workItemId) => {
+    setInlineDiag(prev => ({ ...prev, [workItemId]: { loading: true, data: null, error: null } }));
+    try {
+      const data = await api.getDiagnostics();
+      setInlineDiag(prev => ({ ...prev, [workItemId]: { loading: false, data, error: null } }));
+    } catch (err) {
+      setInlineDiag(prev => ({ ...prev, [workItemId]: { loading: false, data: null, error: err.message || 'Failed to reach API' } }));
+    }
+  }, []);  // ── Disagreement resolution state (ENG-003 Active Learning) ─
   const [disagreementStates, setDisagreementStates] = useState({});
   // disagreementStates[workItemId] = { choice: null | 'llm' | 'pattern' | 'neither', neitherCategory: '', neitherIntent: '', notes: '', submitting: false, submitted: false }
   const defaultDisagreementState = { choice: null, neitherCategory: '', neitherIntent: '', notes: '', submitting: false, submitted: false };
@@ -411,6 +421,7 @@ export default function EvaluatePage({ addToast }) {
     if (!detail) return null;
 
     const isLLM = (detail.source || '').toLowerCase().includes('llm')
+      || (detail.source || '').toLowerCase().includes('hybrid')
       || (detail.source || '').toLowerCase().includes('ai')
       || (detail.source || '').toLowerCase().includes('openai');
     const aiOffline = detail.aiAvailable === false || !isLLM;
@@ -445,6 +456,79 @@ export default function EvaluatePage({ addToast }) {
               <li><strong>Confidence Level:</strong> {Math.round((detail.confidence || 0) * 100)}%</li>
               <li><strong>Source:</strong> {detail.source || 'unknown'}</li>
             </ul>
+
+            {/* ── Inline Diagnostics ── */}
+            {(() => {
+              const diagState = inlineDiag[workItemId];
+              return (
+                <div className="fp-inline-diag">
+                  {!diagState ? (
+                    <button className="fp-diag-btn" onClick={() => fetchInlineDiag(workItemId)}>
+                      🔍 Run Diagnostics — Why did AI fail?
+                    </button>
+                  ) : diagState.loading ? (
+                    <div className="fp-diag-loading">⏳ Checking system connectivity…</div>
+                  ) : diagState.error ? (
+                    <div className="fp-diag-result fp-diag-result--error">
+                      <strong>🔴 Diagnostics Error:</strong> {diagState.error}
+                      <button className="fp-diag-retry" onClick={() => fetchInlineDiag(workItemId)}>Retry</button>
+                    </div>
+                  ) : (
+                    <div className="fp-diag-result">
+                      <div className="fp-diag-result-header">
+                        <strong>🔍 System Diagnostics</strong>
+                        <button className="fp-diag-retry" onClick={() => fetchInlineDiag(workItemId)}>🔄 Refresh</button>
+                      </div>
+                      <table className="fp-diag-table">
+                        <tbody>
+                          <tr>
+                            <td>Azure OpenAI</td>
+                            <td className={`fp-diag-status fp-diag-status--${diagState.data?.ai?.status || 'unknown'}`}>
+                              {diagState.data?.ai?.status || 'unknown'}
+                            </td>
+                            <td className="fp-diag-detail-cell">
+                              {diagState.data?.ai?.reason || diagState.data?.ai?.initError || '—'}
+                            </td>
+                          </tr>
+                          {diagState.data?.ai?.endpoint && (
+                            <tr>
+                              <td></td>
+                              <td colSpan="2" className="fp-diag-detail-cell">
+                                Endpoint: {diagState.data.ai.endpoint}
+                              </td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td>Cosmos DB</td>
+                            <td className={`fp-diag-status fp-diag-status--${diagState.data?.cosmos?.status || 'unknown'}`}>
+                              {diagState.data?.cosmos?.status || 'unknown'}
+                              {diagState.data?.cosmos?.inMemory && ' (in-memory)'}
+                            </td>
+                            <td className="fp-diag-detail-cell">
+                              {diagState.data?.cosmos?.error || (diagState.data?.cosmos?.latencyMs != null ? `${diagState.data.cosmos.latencyMs}ms` : '—')}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>Azure DevOps</td>
+                            <td className={`fp-diag-status fp-diag-status--${diagState.data?.ado?.status || 'unknown'}`}>
+                              {diagState.data?.ado?.status || 'unknown'}
+                            </td>
+                            <td className="fp-diag-detail-cell">
+                              {diagState.data?.ado?.error || (diagState.data?.ado?.latencyMs != null ? `${diagState.data.ado.latencyMs}ms` : '—')}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      {detail.aiError && (
+                        <div className="fp-diag-item-reason">
+                          <strong>This item's error:</strong> {detail.aiError}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="fp-banner fp-banner-success">
@@ -474,7 +558,7 @@ export default function EvaluatePage({ addToast }) {
             {entityCount > 0 && <span className="tab-badge">{entityCount}</span>}
           </button>
           <button className={`analysis-tab ${currentDetailTab === 'evaluate' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'evaluate')}>
-            <span className="tab-icon">✅</span> Evaluate
+            <span className="tab-icon">🔄</span> Correct & Reanalyze
           </button>
         </div>
 
@@ -565,8 +649,8 @@ export default function EvaluatePage({ addToast }) {
                   </div>
                 )}
 
-                {/* Pattern vs LLM Comparison */}
-                {detail.patternCategory && (
+                {/* Pattern vs LLM Comparison — only when AI was involved */}
+                {isLLM && detail.patternCategory && (
                   <div className="fp-reasoning-block" style={{ marginTop: 16 }}>
                     <strong>📊 Pattern Engine Comparison</strong>
                     <div className="fp-badge-grid" style={{ marginTop: 8 }}>
@@ -593,8 +677,8 @@ export default function EvaluatePage({ addToast }) {
                   </div>
                 )}
 
-                {/* ── ENG-003: Disagreement Resolution Prompt ── */}
-                {detail.patternCategory && !detail.agreement && (() => {
+                {/* ── ENG-003: Disagreement Resolution Prompt (only when AI was involved) ── */}
+                {isLLM && detail.patternCategory && !detail.agreement && (() => {
                   const ds = getDisagreementState(workItemId);
                   if (ds.submitted) {
                     return (
@@ -663,22 +747,24 @@ export default function EvaluatePage({ addToast }) {
                         </div>
                       )}
                       {ds.choice && (
-                        <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <input
-                            type="text"
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <textarea
                             placeholder="Optional notes..."
                             value={ds.notes}
                             onChange={(e) => updateDisagreementState(workItemId, { notes: e.target.value })}
-                            style={{ flex: 1, padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                            rows={3}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
                             disabled={ds.submitting}
                           />
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={() => handleSubmitDisagreement(workItemId, detail)}
-                            disabled={ds.submitting || (ds.choice === 'neither' && !ds.neitherCategory)}
-                          >
-                            {ds.submitting ? 'Saving...' : 'Submit Signal'}
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={() => handleSubmitDisagreement(workItemId, detail)}
+                              disabled={ds.submitting || (ds.choice === 'neither' && !ds.neitherCategory)}
+                            >
+                              {ds.submitting ? 'Saving...' : 'Submit Signal'}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -820,7 +906,7 @@ export default function EvaluatePage({ addToast }) {
         {currentDetailTab === 'evaluate' && (
           <div className="analysis-tab-panel">
             <div className="fp-card">
-              <div className="fp-card-header fp-card-header-eval">✅ Your Evaluation</div>
+              <div className="fp-card-header fp-card-header-eval">🔄 Correct & Reanalyze</div>
               <div className="fp-card-body">
                 <div className="fp-eval-question">
                   <strong>Is this analysis correct?</strong>

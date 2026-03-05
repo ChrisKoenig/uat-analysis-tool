@@ -109,6 +109,13 @@ result = ado_client.get_work_items_batch([12345, 12346, 12347, ...])
 
 Automatically chunks requests into groups of 200 (ADO API limit).
 
+**Error handling (`errorPolicy=Omit`)**: The batch URL includes `&errorPolicy=Omit` so that invalid or not-found work item IDs do not cause the entire batch to fail. Instead, ADO returns HTTP 200 with null placeholders in the `value` array for omitted items. The client:
+1. Skips null entries (`if item is None: continue`)
+2. Tracks successfully fetched IDs in a `fetched_ids` set
+3. Compares requested IDs against `fetched_ids` to detect and report omitted IDs individually in `failed_ids`
+
+This means a batch of `[713010, 731001, 712931]` where 731001 doesn't exist returns 2 successful items + `failed_ids: [731001]` instead of failing entirely.
+
 ### Field Definitions
 
 ```python

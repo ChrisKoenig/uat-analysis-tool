@@ -208,12 +208,18 @@ class AdoClient:
         )
 
     def _read_batch_url(self, ids: List[int]) -> str:
-        """Batch work item URL against PRODUCTION org."""
+        """Batch work item URL against PRODUCTION org.
+
+        Uses errorPolicy=Omit so that invalid/not-found IDs return null
+        placeholders in the response instead of failing the entire batch
+        with HTTP 404.  See ENG-006 in CHANGE_LOG.md.
+        """
         ids_str = ",".join(str(i) for i in ids)
         return (
             f"{self._config.READ_BASE_URL}/{quote(self._config.READ_PROJECT)}"
             f"/_apis/wit/workitems?ids={ids_str}"
-            f"&$expand=All&api-version={self._config.API_VERSION}"
+            f"&$expand=All&errorPolicy=Omit"
+            f"&api-version={self._config.API_VERSION}"
         )
 
     def _read_wiql_url(self) -> str:
@@ -335,13 +341,26 @@ class AdoClient:
 
                 if response.status_code == 200:
                     data = response.json()
+                    # ENG-006: With errorPolicy=Omit, the ADO value array
+                    # contains null entries for invalid/not-found IDs.
+                    # Example: [valid_item, null, valid_item, valid_item]
+                    # We skip nulls and track which IDs were actually returned
+                    # so we can report omissions individually.
+                    fetched_ids = set()
                     for item in data.get("value", []):
+                        if item is None:
+                            continue  # errorPolicy=Omit returns null placeholders
                         all_items.append({
                             "id": item["id"],
                             "rev": item["rev"],
                             "fields": item.get("fields", {}),
                             "url": item.get("url", ""),
                         })
+                        fetched_ids.add(item["id"])
+                    # Detect which requested IDs were omitted (not found in ADO)
+                    for cid in chunk:
+                        if int(cid) not in fetched_ids:
+                            failed_ids.append(cid)
                 else:
                     failed_ids.extend(chunk)
                     logger.warning(

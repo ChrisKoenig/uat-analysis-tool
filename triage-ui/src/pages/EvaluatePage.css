@@ -444,6 +444,115 @@
   margin-bottom: 10px;
 }
 
+/* ── Inline Diagnostics (inside AI-unavailable banner) ── */
+
+.fp-inline-diag {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(138, 109, 59, 0.3);
+}
+
+.fp-diag-btn {
+  background: #fff;
+  border: 1px solid #d4a017;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: #7a5c00;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.fp-diag-btn:hover {
+  background: #fff8e1;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.fp-diag-loading {
+  font-size: 13px;
+  color: #7a5c00;
+  padding: 4px 0;
+}
+
+.fp-diag-result {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+}
+.fp-diag-result--error {
+  background: #fde7e9;
+  border-color: #a4262c;
+  color: #a4262c;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fp-diag-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fp-diag-retry {
+  background: none;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: inherit;
+}
+.fp-diag-retry:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.fp-diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fp-diag-table td {
+  padding: 4px 8px 4px 0;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.fp-diag-table td:first-child {
+  font-weight: 600;
+  width: 110px;
+}
+
+.fp-diag-detail-cell {
+  color: #666;
+  font-size: 11px;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.fp-diag-status { font-weight: 600; text-transform: capitalize; }
+.fp-diag-status--healthy { color: #107c10; }
+.fp-diag-status--degraded,
+.fp-diag-status--initializing { color: #ca5010; }
+.fp-diag-status--timeout { color: #d83b01; }
+.fp-diag-status--offline,
+.fp-diag-status--error { color: #a4262c; }
+.fp-diag-status--unknown { color: #8a8886; }
+
+.fp-diag-item-reason {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #fde7e9;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #a4262c;
+}
+
 /* ── Cards ── */
 
 .fp-card {

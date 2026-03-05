@@ -12,6 +12,7 @@
 
 import React from 'react';
 import Sidebar from './Sidebar';
+import DiagnosticsPanel from '../common/DiagnosticsPanel';
 import './AppLayout.css';
 
 
@@ -22,6 +23,7 @@ export default function AppLayout({ children }) {
       <main className="app-content">
         {children}
       </main>
+      <DiagnosticsPanel />
     </div>
   );
 }

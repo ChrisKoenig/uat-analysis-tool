@@ -6,6 +6,7 @@ Designed as independent service for future agent architecture
 
 import json
 import hashlib
+import time
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from openai import AzureOpenAI
@@ -299,6 +300,15 @@ You MUST respond with valid JSON only (no markdown):
         
         return "\n".join(prompt_parts)
     
+    # ─── ENG-004: Retry configuration ──────────────────────────────────
+    # Transient Azure OpenAI errors (429 rate-limit, 5xx server errors,
+    # network timeouts) are retried with exponential backoff + jitter.
+    # Without retry, a single transient failure causes full fallback to
+    # pattern-only analysis.  See ENG-004 in CHANGE_LOG.md.
+    MAX_RETRIES = 3
+    BASE_BACKOFF_SECONDS = 1.0   # 1s, 2s, 4s exponential
+    RATE_LIMIT_BACKOFF = 5.0     # Extra wait on 429s
+
     def _call_llm_api(
         self,
         title: str,
@@ -306,7 +316,12 @@ You MUST respond with valid JSON only (no markdown):
         impact: str,
         pattern_features: Optional[Dict]
     ) -> Dict:
-        """Call GPT-4 API for classification"""
+        """Call GPT-4 API for classification with exponential-backoff retry.
+        
+        Retries up to MAX_RETRIES times on transient errors (429 rate-limit,
+        network errors, 5xx server errors).  Validation errors (bad JSON,
+        invalid category/intent) are NOT retried.
+        """
         print(f"\n[LLMClassifier] 🔍 Starting LLM API call")
         print(f"[LLMClassifier]   Endpoint: {self.azure_config.endpoint}")
         print(f"[LLMClassifier]   Deployment: {self.deployment}")
@@ -319,58 +334,77 @@ You MUST respond with valid JSON only (no markdown):
         
         print(f"[LLMClassifier]   System prompt length: {len(system_prompt)} chars")
         print(f"[LLMClassifier]   User prompt length: {len(user_prompt)} chars")
-        
-        try:
-            print(f"[LLMClassifier] 📡 Calling Azure OpenAI API...")
-            response = self.client.chat.completions.create(
-                model=self.deployment,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                response_format={"type": "json_object"}  # Ensure JSON response
-            )
-            
-            print(f"[LLMClassifier] ✅ API call successful!")
-            print(f"[LLMClassifier]   Tokens used: {response.usage.total_tokens} (prompt: {response.usage.prompt_tokens}, completion: {response.usage.completion_tokens})")
-            
-            result_text = response.choices[0].message.content
-            print(f"[LLMClassifier]   Response length: {len(result_text)} chars")
-            print(f"[LLMClassifier]   Response preview: {result_text[:200]}...")
-            
-            result = json.loads(result_text)
-            
-            # Validate result
-            if not all(k in result for k in ["category", "intent", "business_impact", "confidence", "reasoning"]):
-                raise ValueError(f"Missing required fields in LLM response: {result}")
-            
-            # Validate values
-            if result["category"] not in self.VALID_CATEGORIES:
-                print(f"[LLMClassifier] ⚠️ Warning: Invalid category '{result['category']}', using pattern fallback")
-                raise ValueError(f"Invalid category: {result['category']}")
-            
-            if result["intent"] not in self.VALID_INTENTS:
-                print(f"[LLMClassifier] ⚠️ Warning: Invalid intent '{result['intent']}', using pattern fallback")
-                raise ValueError(f"Invalid intent: {result['intent']}")
-            
-            if result["business_impact"] not in self.VALID_BUSINESS_IMPACTS:
-                print(f"[LLMClassifier] ⚠️ Warning: Invalid business_impact '{result['business_impact']}'")
-                result["business_impact"] = "medium"  # Default fallback
-            
-            print(f"[LLMClassifier] ✅ Classification complete: category={result['category']}, intent={result['intent']}, confidence={result['confidence']}")
-            return result
-            
-        except json.JSONDecodeError as e:
-            print(f"[LLMClassifier] ❌ JSON decode error: {e}")
-            print(f"[LLMClassifier]   Response text: {result_text}")
-            raise ValueError(f"LLM returned invalid JSON: {result_text}")
-        except Exception as e:
-            print(f"[LLMClassifier] ❌ API call failed: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+
+        last_error = None
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                print(f"[LLMClassifier] 📡 Calling Azure OpenAI API (attempt {attempt}/{self.MAX_RETRIES})...")
+                response = self.client.chat.completions.create(
+                    model=self.deployment,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    response_format={"type": "json_object"}
+                )
+                
+                print(f"[LLMClassifier] ✅ API call successful!")
+                print(f"[LLMClassifier]   Tokens used: {response.usage.total_tokens} (prompt: {response.usage.prompt_tokens}, completion: {response.usage.completion_tokens})")
+                
+                result_text = response.choices[0].message.content
+                print(f"[LLMClassifier]   Response length: {len(result_text)} chars")
+                print(f"[LLMClassifier]   Response preview: {result_text[:200]}...")
+                
+                result = json.loads(result_text)
+                
+                # Validate result — don't retry validation errors
+                if not all(k in result for k in ["category", "intent", "business_impact", "confidence", "reasoning"]):
+                    raise ValueError(f"Missing required fields in LLM response: {result}")
+                
+                if result["category"] not in self.VALID_CATEGORIES:
+                    print(f"[LLMClassifier] ⚠️ Warning: Invalid category '{result['category']}', using pattern fallback")
+                    raise ValueError(f"Invalid category: {result['category']}")
+                
+                if result["intent"] not in self.VALID_INTENTS:
+                    print(f"[LLMClassifier] ⚠️ Warning: Invalid intent '{result['intent']}', using pattern fallback")
+                    raise ValueError(f"Invalid intent: {result['intent']}")
+                
+                if result["business_impact"] not in self.VALID_BUSINESS_IMPACTS:
+                    print(f"[LLMClassifier] ⚠️ Warning: Invalid business_impact '{result['business_impact']}'")
+                    result["business_impact"] = "medium"
+                
+                print(f"[LLMClassifier] ✅ Classification complete: category={result['category']}, intent={result['intent']}, confidence={result['confidence']}")
+                return result
+                
+            except json.JSONDecodeError as e:
+                # Bad JSON from the model — unlikely to improve on retry
+                print(f"[LLMClassifier] ❌ JSON decode error: {e}")
+                print(f"[LLMClassifier]   Response text: {result_text}")
+                raise ValueError(f"LLM returned invalid JSON: {result_text}")
+            except ValueError:
+                # Validation errors (missing fields, invalid category) — don't retry
+                raise
+            except Exception as e:
+                last_error = e
+                error_name = type(e).__name__
+                error_str = str(e)
+                print(f"[LLMClassifier] ❌ API call failed (attempt {attempt}/{self.MAX_RETRIES}): {error_name}: {error_str}")
+
+                # Determine backoff: longer for 429 rate limits
+                is_rate_limit = "429" in error_str or "RateLimitError" in error_name
+                if attempt < self.MAX_RETRIES:
+                    backoff = self.RATE_LIMIT_BACKOFF if is_rate_limit else self.BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                    print(f"[LLMClassifier] ⏳ Retrying in {backoff:.1f}s {'(rate-limited)' if is_rate_limit else ''}...")
+                    time.sleep(backoff)
+                else:
+                    print(f"[LLMClassifier] ❌ All {self.MAX_RETRIES} attempts exhausted")
+                    import traceback
+                    traceback.print_exc()
+
+        # All retries exhausted — raise last error so caller can fallback
+        raise last_error
     
     def classify(
         self,

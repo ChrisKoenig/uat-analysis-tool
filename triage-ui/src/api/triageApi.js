@@ -726,3 +726,11 @@ export function getAgreementRate() {
 export function getHealthDashboard() {
   return get('/admin/health');
 }
+
+/**
+ * Lightweight diagnostics for the debug panel.
+ * Returns status of Cosmos, AI, ADO without secrets.
+ */
+export function getDiagnostics() {
+  return get('/diagnostics');
+}

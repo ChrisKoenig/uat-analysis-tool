@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 4, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification + ADO dual-org integration (MI auth)
+**Last Updated**: March 6, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification (with retry logic) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint
 
 ---
 
@@ -354,6 +354,67 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 6, 2026) — Bug Fixes, Retry Logic, Diagnostics, Batch Resilience
+
+### Bug Fixes (B0002, B0003)
+
+**B0002 — Hybrid source not recognized as LLM:**
+- `EvaluatePage.jsx` only matched `source === "llm"` for LLM-specific UI. Items with `source: "hybrid"` (LLM primary + pattern features) appeared as pattern-only.
+- Fix: Changed `isLLM` check to `source === "llm" || source === "hybrid"`.
+
+**B0003 — Comparison crash on pattern-only fallback:**
+- When LLM unavailable, `agreement` was unset (`undefined`). Pattern Engine Comparison section assumed it was always boolean, causing render crash.
+- Fix (backend): `hybrid_context_analyzer.py` sets `agreement=None` on pattern-only fallback.
+- Fix (frontend): `EvaluatePage.jsx` gates comparison section on `agreement !== null && agreement !== undefined`.
+
+### ENG-004 — LLM Classifier Retry Logic
+
+Added exponential backoff retry to `LLMClassifier.classify()` for transient Azure OpenAI failures:
+- 3 retries, 1s base backoff (doubles each retry), 5s for 429 rate limits
+- Jitter prevents thundering herd
+- Retryable: 429, 500, 502, 503, 504, `APIConnectionError`, `APITimeoutError`
+
+**File:** `llm_classifier.py` — `MAX_RETRIES=3`, `BASE_BACKOFF_SECONDS=1.0`, `RATE_LIMIT_BACKOFF=5.0`
+
+### ENG-005 — Diagnostics Endpoint + Inline Diagnostics UI
+
+**Backend:** New `GET /api/v1/diagnostics` endpoint returning AI config, Cosmos, ADO, and cache status.
+
+**Frontend:**
+- `DiagnosticsPanel.jsx` / `.css` (new) — Floating diagnostics icon accessible from `AppLayout`
+- `EvaluatePage.jsx` — Inline "Show Diagnostics" button in yellow "AI Unavailable" banner. Expands collapsible panel with AI status, OpenAI config, error details.
+- `EvaluatePage.css` — ~120 lines of inline diagnostics CSS
+- `triageApi.js` — `getDiagnostics()` API function
+
+### ENG-006 — Batch Fetch Resilience (errorPolicy=Omit)
+
+**Problem:** ADO batch API returned HTTP 404 for entire batch when any single work item ID was invalid. "Batch fetch failed" for all items.
+
+**Fix (2 parts in `triage/services/ado_client.py`):**
+1. `_read_batch_url()`: Added `&errorPolicy=Omit` — ADO returns 200 with null placeholders instead of 404
+2. `get_work_items_batch()`: Added null-safe iteration (`if item is None: continue`), `fetched_ids` tracking set, per-ID omission detection
+
+**Verified:** Batch `[713010, 731001, 712931, 712918]` → 3 valid items analyzed, 1 invalid gracefully reported as `"Failed to fetch #731001"`.
+
+### Files Modified This Session (12 files, 537 insertions)
+
+| File | Changes |
+|------|---------|
+| `hybrid_context_analyzer.py` | B0001 enum `.value` normalization + B0003 `agreement=None` for pattern-only fallback |
+| `llm_classifier.py` | ENG-004: Retry logic with exponential backoff (3 retries, jitter) |
+| `triage/services/ado_client.py` | ENG-006: `errorPolicy=Omit` in batch URL + null-safe iteration + `fetched_ids` tracking |
+| `triage/api/routes.py` | ENG-005: `GET /api/v1/diagnostics` endpoint |
+| `triage-ui/src/pages/EvaluatePage.jsx` | B0002 isLLM includes "hybrid", B0003 comparison guard, ENG-005 inline diagnostics |
+| `triage-ui/src/pages/EvaluatePage.css` | ENG-005: ~120 lines inline diagnostics CSS |
+| `triage-ui/src/api/triageApi.js` | ENG-005: `getDiagnostics()` |
+| `triage-ui/src/components/common/DiagnosticsPanel.jsx` | ENG-005: Floating diagnostics panel (new) |
+| `triage-ui/src/components/common/DiagnosticsPanel.css` | ENG-005: Diagnostics panel styles (new) |
+| `triage-ui/src/components/layout/AppLayout.jsx` | ENG-005: Import DiagnosticsPanel |
+| `docs/CHANGE_LOG.md` | Added entries 6-10, bugs B0002-B0003, detail sections ENG-004/005/006 |
+| `docs/ADO_INTEGRATION.md` | Documented errorPolicy=Omit behavior in batch fetch section |
 
 ---
 
@@ -727,7 +788,10 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ✅ Audit log with filters, search, change details
 ✅ Health indicator in sidebar
 ✅ Azure OpenAI AI classification (0.95 confidence, LLM source)
+✅ LLM classifier retry logic (3 retries, exponential backoff, jitter)
 ✅ Pattern matching fallback when LLM unavailable
+✅ Batch ADO fetch with errorPolicy=Omit (resilient to invalid IDs)
+✅ Diagnostics endpoint (`GET /api/v1/diagnostics`) + inline UI in AI Unavailable banner
 ✅ Web UI with Quick ICA analysis (port 5003)
 ✅ TFT Feature search for feature_request category
 ✅ Dual organization authentication (main + TFT)
@@ -893,11 +957,11 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 ## Git Status
 
 **Branch**: `main`
-**Latest commit**: `b7cb0fd` — fix: field portal pre-prod deployment (12 issues)
+**Latest commit**: *pending* — fix: B0002/B0003 bugs, ENG-004 retry logic, ENG-005 diagnostics, ENG-006 batch resilience
+**Previous**: `b7cb0fd` — fix: field portal pre-prod deployment (12 issues)
 **Previous**: `8114c35` — docs + code: comprehensive documentation and code comment updates
-**Previous**: `d1534cc` — chore: add *.zip to .gitignore
 
-**All changes committed** — clean working tree (pending this documentation update commit).
+**All changes staged for commit** — 12 files modified (10 tracked, 2 new).
 
 ---
 
@@ -1029,7 +1093,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Mar 2, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB (`cosmos-aitriage-nonprod`) with 10 containers, OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 11 pages. Field Portal had 12 deployment issues fixed in commit `b7cb0fd` (Mar 2). Next: end-to-end pre-prod testing.
+**STATUS** (Mar 6, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB (`cosmos-aitriage-nonprod`) with 10 containers, OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 11 pages. Field Portal had 12 deployment issues fixed in commit `b7cb0fd` (Mar 2). **Mar 6 session**: Fixed B0002 (hybrid source), B0003 (pattern-only crash), added LLM retry logic (ENG-004), diagnostics endpoint + inline UI (ENG-005), batch fetch resilience with errorPolicy=Omit (ENG-006). Next: end-to-end pre-prod testing, deploy latest changes.
 
 ---
 

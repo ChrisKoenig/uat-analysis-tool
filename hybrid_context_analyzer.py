@@ -576,7 +576,16 @@ class HybridContextAnalyzer:
             print(f"   ℹ️ Found {len(relevant_corrections)} relevant corrections from past feedback")
 
         pattern_category = pattern_result.category if hasattr(pattern_result, 'category') else "technical_support"
+        # ─── B0001 fix: Normalize enum to string for comparison with LLM string output ───
+        # Pattern matcher returns TriageCategory enum, but the LLM classifier returns
+        # plain strings.  Without .value extraction the agreement check at Step 3
+        # always evaluates False because "Enum.x" != "x".
+        # See docs/CHANGE_LOG.md → B0001 for full root-cause analysis.
+        if hasattr(pattern_category, 'value'):
+            pattern_category = pattern_category.value
         pattern_intent = pattern_result.intent if hasattr(pattern_result, 'intent') else "service_inquiry"
+        if hasattr(pattern_intent, 'value'):
+            pattern_intent = pattern_intent.value
         pattern_confidence = pattern_result.confidence if hasattr(pattern_result, 'confidence') else 0.5
 
         # Find relevant training signals for few-shot injection (ENG-003 Step 4)
@@ -623,10 +632,11 @@ class HybridContextAnalyzer:
                     use_cache=True
                 )
                 
-                # Check if LLM and patterns agree
+                # Check if LLM and patterns agree (category match is what matters for triage).
+                # Works correctly now that pattern_category is normalized to a plain
+                # string above (B0001).
                 agreement = (
-                    llm_result.category == pattern_category and
-                    llm_result.intent == pattern_intent
+                    llm_result.category == pattern_category
                 )
                 
                 print(f"   ✓ LLM Category: {llm_result.category}")
@@ -727,7 +737,7 @@ class HybridContextAnalyzer:
             context_summary=ctx_summary,
             domain_entities=domain_ents,
             source="pattern",
-            agreement=True,  # Only using patterns, so agreement is N/A
+            agreement=None,  # B0003: No LLM to compare — agreement is not applicable
             ai_error=ai_error_message,  # Include any AI error that occurred
             ai_available=self.use_ai and ai_error_message is None
         )
