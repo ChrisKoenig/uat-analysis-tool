@@ -133,6 +133,7 @@ export default function Dashboard({ addToast }) {
 
   // Agreement rate metric (ENG-003 Step 5)
   const [agreementRate, setAgreementRate] = useState(undefined);
+  const [showAgreementDetail, setShowAgreementDetail] = useState(false);
 
   // ── Load Health Dashboard ────────────────────────────────────
   const loadHealth = useCallback(async (isRefresh = false) => {
@@ -223,13 +224,17 @@ export default function Dashboard({ addToast }) {
           </div>
         </div>
 
-        {/* Agreement Rate Card (ENG-003 Step 5) */}
+        {/* Agreement Rate Card (ENG-003 Step 5) — click to expand detail */}
         {(() => {
           const loading = agreementRate === undefined;
           const pct = agreementRate?.rate != null ? Math.round(agreementRate.rate * 100) : null;
           const color = pct == null ? '' : pct >= 80 ? 'status-ok' : pct >= 60 ? 'status-degraded' : 'status-error';
           return (
-            <div className={`dashboard-status-card ${loading ? 'status-loading' : color}`}>
+            <div
+              className={`dashboard-status-card clickable ${loading ? 'status-loading' : color} ${showAgreementDetail ? 'expanded' : ''}`}
+              onClick={() => !loading && agreementRate && setShowAgreementDetail(prev => !prev)}
+              title={loading ? '' : 'Click for period breakdown'}
+            >
               <div className="dashboard-status-icon">
                 {loading ? <Skeleton width="1.5rem" /> : pct >= 80 ? '🤝' : pct >= 60 ? '⚠️' : '⚡'}
               </div>
@@ -243,11 +248,96 @@ export default function Dashboard({ addToast }) {
                       : 'N/A'}
                 </span>
               </div>
+              {!loading && agreementRate && (
+                <span className="dashboard-expand-chevron">{showAgreementDetail ? '▲' : '▼'}</span>
+              )}
             </div>
           );
         })()}
 
       </div>
+
+      {/* Agreement Rate Detail Panel (expandable) */}
+      {showAgreementDetail && agreementRate && (() => {
+        const periods = agreementRate.periods || {};
+        const rows = [
+          { label: 'Last 7 Days',  data: periods.last7days },
+          { label: 'Last 30 Days', data: periods.last30days },
+          { label: 'Last 90 Days', data: periods.last90days },
+        ];
+        const pctBar = (rate) => {
+          const pct = rate != null ? Math.round(rate * 100) : 0;
+          const cls = pct >= 80 ? 'bar-ok' : pct >= 60 ? 'bar-warn' : 'bar-error';
+          return (
+            <div className="agreement-bar-track">
+              <div className={`agreement-bar-fill ${cls}`} style={{ width: `${pct}%` }} />
+              <span className="agreement-bar-label">{pct}%</span>
+            </div>
+          );
+        };
+        return (
+          <div className="agreement-detail-panel">
+            <div className="agreement-detail-grid">
+              {/* Period breakdown table */}
+              <div className="agreement-detail-section">
+                <h3>📈 Agreement by Period</h3>
+                <table className="agreement-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Period</th>
+                      <th>Rate</th>
+                      <th>Agree</th>
+                      <th>Disagree</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(({ label, data }) => (
+                      <tr key={label}>
+                        <td className="agreement-period-label">{label}</td>
+                        <td>{data ? pctBar(data.rate) : <span className="text-muted">—</span>}</td>
+                        <td className="text-center">{data?.agreements ?? '—'}</td>
+                        <td className="text-center">{data?.disagreements ?? '—'}</td>
+                        <td className="text-center">{data?.total ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary stats */}
+              <div className="agreement-detail-section">
+                <h3>🧠 Active Learning</h3>
+                <div className="agreement-stats-grid">
+                  <div className="agreement-stat">
+                    <span className="agreement-stat-value">{agreementRate.total}</span>
+                    <span className="agreement-stat-label">Total Analyses</span>
+                  </div>
+                  <div className="agreement-stat">
+                    <span className="agreement-stat-value">{agreementRate.agreements}</span>
+                    <span className="agreement-stat-label">Agreements</span>
+                  </div>
+                  <div className="agreement-stat">
+                    <span className="agreement-stat-value">{agreementRate.disagreements}</span>
+                    <span className="agreement-stat-label">Disagreements</span>
+                  </div>
+                  <div className="agreement-stat">
+                    <span className="agreement-stat-value">{agreementRate.trainingSignals}</span>
+                    <span className="agreement-stat-label">Training Signals</span>
+                  </div>
+                </div>
+                <p className="agreement-detail-note">
+                  Training signals are generated when human corrections disagree with
+                  AI predictions. The weight tuner uses these to improve pattern matching over time.
+                </p>
+                <Link to="/corrections" className="btn btn-ghost btn-sm" style={{ marginTop: 'var(--space-sm)' }}>
+                  View Corrections →
+                </Link>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Entity Count Cards */}
       <div className="dashboard-counts-row">

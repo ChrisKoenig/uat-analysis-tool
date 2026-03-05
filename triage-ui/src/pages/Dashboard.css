@@ -607,3 +607,155 @@
   font-weight: 500;
   text-align: center;
 }
+
+/* ── Agreement Rate Detail Panel ─────────────────────────────── */
+
+.dashboard-status-card.clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  position: relative;
+}
+
+.dashboard-status-card.clickable:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+.dashboard-status-card.clickable.expanded {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.dashboard-expand-chevron {
+  margin-left: auto;
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-light, #888);
+  transition: transform 0.2s ease;
+}
+
+.agreement-detail-panel {
+  animation: dashboard-fadeIn 0.25s ease-out;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,0.08));
+  margin-bottom: var(--space-lg, 24px);
+  padding: var(--space-lg, 24px);
+}
+
+.agreement-detail-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--space-lg, 24px);
+}
+
+@media (max-width: 768px) {
+  .agreement-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agreement-detail-section h3 {
+  font-size: var(--font-size-md, 1rem);
+  font-weight: 600;
+  margin: 0 0 var(--space-md, 16px) 0;
+  color: var(--text, #222);
+}
+
+/* Period breakdown table */
+.agreement-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.agreement-detail-table th {
+  text-align: left;
+  padding: var(--space-xs, 4px) var(--space-sm, 8px);
+  border-bottom: 2px solid var(--border, #e0e0e0);
+  color: var(--text-light, #888);
+  font-size: var(--font-size-xs, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+.agreement-detail-table td {
+  padding: var(--space-sm, 8px);
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
+}
+
+.agreement-period-label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Agreement rate bar */
+.agreement-bar-track {
+  position: relative;
+  height: 20px;
+  background: var(--border-light, #f0f0f0);
+  border-radius: 10px;
+  min-width: 100px;
+  overflow: hidden;
+}
+
+.agreement-bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.4s ease;
+}
+
+.agreement-bar-fill.bar-ok    { background: var(--success, #00b400); }
+.agreement-bar-fill.bar-warn  { background: var(--warning, #f0a800); }
+.agreement-bar-fill.bar-error { background: var(--danger, #dc3545); }
+
+.agreement-bar-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #333;
+  text-shadow: 0 0 3px rgba(255,255,255,0.8);
+}
+
+/* Stats grid */
+.agreement-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm, 8px);
+  margin-bottom: var(--space-md, 16px);
+}
+
+.agreement-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-sm, 8px);
+  background: var(--bg-subtle, #f8f9fa);
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border-light, #f0f0f0);
+}
+
+.agreement-stat-value {
+  font-size: var(--font-size-lg, 1.25rem);
+  font-weight: 700;
+  color: var(--text, #222);
+}
+
+.agreement-stat-label {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-light, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.agreement-detail-note {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--text-light, #888);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.text-center { text-align: center; }
