@@ -147,4 +147,6 @@ export const NAV_ITEMS = [
   { path: '/history',    label: 'Eval History', icon: '📑' },
   { divider: true },
   { path: '/corrections', label: 'Corrections',  icon: '✏️' },
+  { divider: true },
+  { path: '/data-management', label: 'Data Mgmt', icon: '📦' },
 ];

@@ -734,3 +734,36 @@ export function getHealthDashboard() {
 export function getDiagnostics() {
   return get('/diagnostics');
 }
+
+
+// =============================================================================
+// Data Management API (FR-2005 — Export / Import)
+// =============================================================================
+
+/**
+ * Export selected entities with auto-included dependencies.
+ * @param {Object} selections - e.g. { rules: null, triggers: ['dt-abc'] }
+ * @returns {Promise<Object>} Export bundle JSON
+ */
+export function exportEntities(selections) {
+  return post('/data-management/export', { selections });
+}
+
+/**
+ * Preview an import bundle without executing.
+ * @param {Object} bundle - The full export JSON object
+ * @returns {Promise<Object>} Preview with per-type create/update counts
+ */
+export function previewImport(bundle) {
+  return post('/data-management/import/preview', { bundle });
+}
+
+/**
+ * Execute an import with auto-backup.
+ * @param {Object} bundle - The full export JSON object
+ * @param {Object|null} selected - Optional per-type entity names to import
+ * @returns {Promise<Object>} Results with created/updated/failed counts
+ */
+export function executeImport(bundle, selected = null) {
+  return post('/data-management/import/execute', { bundle, selected });
+}

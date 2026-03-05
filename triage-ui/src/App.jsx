@@ -37,8 +37,7 @@ const ValidationPage  = lazy(() => import('./pages/ValidationPage'));
 const AuditPage       = lazy(() => import('./pages/AuditPage'));
 const EvalHistoryPage = lazy(() => import('./pages/EvalHistoryPage'));
 const CorrectionsPage  = lazy(() => import('./pages/CorrectionsPage'));
-const TriageTeamsPage  = lazy(() => import('./pages/TriageTeamsPage'));
-
+const TriageTeamsPage  = lazy(() => import('./pages/TriageTeamsPage'));const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
 
 // ---------------------------------------------------------------------------
 // Loading fallback shown while page chunks load
@@ -121,6 +120,7 @@ export default function App({ msalInstance }) {
             <Route path="/history"    element={<EvalHistoryPage addToast={addToast} />} />
             <Route path="/corrections" element={<CorrectionsPage addToast={addToast} />} />
             <Route path="/teams"      element={<TriageTeamsPage addToast={addToast} />} />
+            <Route path="/data-management" element={<DataManagementPage addToast={addToast} />} />
           </Routes>
         </Suspense>
         </ErrorBoundary>

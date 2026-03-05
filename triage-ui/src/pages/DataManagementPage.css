@@ -1,0 +1,447 @@
+/* =========================================================================
+   DataManagementPage.css — FR-2005 Export / Import UI
+   ========================================================================= */
+
+.dm-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-md);
+}
+
+.dm-page .page-header h1 {
+  margin: 0 0 var(--space-xs) 0;
+}
+
+.dm-page .page-subtitle {
+  color: var(--text-light);
+  margin: 0 0 var(--space-lg) 0;
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Tabs ---------- */
+
+.dm-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+  border-bottom: 2px solid var(--border);
+}
+
+.dm-tab {
+  padding: var(--space-sm) var(--space-lg);
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--text-light);
+  transition: all 0.15s ease;
+}
+
+.dm-tab:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.dm-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+/* ---------- Section / Cards ---------- */
+
+.dm-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.dm-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.dm-card h3 {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: var(--font-size-md);
+}
+
+.dm-card h4 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* ---------- Entity Type Toggles ---------- */
+
+.dm-type-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dm-type-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.dm-type-toggle input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+.dm-type-icon {
+  font-size: 1.1em;
+}
+
+.dm-type-count {
+  color: var(--text-light);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Record Selection ---------- */
+
+.dm-record-card {
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.dm-record-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.dm-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dm-record-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: background 0.1s;
+}
+
+.dm-record-item:hover {
+  background: var(--bg-hover);
+}
+
+.dm-record-item input[type="checkbox"] {
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.dm-record-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Status & Action Badges ---------- */
+
+.dm-status-badge {
+  font-size: var(--font-size-xs);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.dm-status-active   { background: var(--success-bg, #e6f7ee); color: var(--success, #28a745); }
+.dm-status-disabled  { background: var(--muted-bg, #f0f0f0);  color: var(--muted, #6c757d); }
+.dm-status-staged    { background: var(--warning-bg, #fff8e6); color: var(--warning, #f0ad4e); }
+
+.dm-action-badge {
+  font-size: var(--font-size-xs);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.dm-action-create { background: #e6f7ee; color: #28a745; }
+.dm-action-update { background: #e6f0ff; color: #0366d6; }
+
+.dm-existing-id {
+  color: var(--text-light);
+  font-size: var(--font-size-xs);
+  font-family: monospace;
+}
+
+/* ---------- Buttons ---------- */
+
+.dm-btn-primary {
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.dm-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover, #0056b3);
+}
+
+.dm-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dm-btn-import {
+  background: var(--success, #28a745);
+}
+
+.dm-btn-import:hover:not(:disabled) {
+  background: #218838;
+}
+
+.dm-btn-sm {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--text);
+}
+
+.dm-btn-sm:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.dm-btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  padding: 0;
+}
+
+.dm-btn-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Action Bar ---------- */
+
+.dm-action-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dm-backup-note {
+  color: var(--text-light);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Upload ---------- */
+
+.dm-upload-area {
+  display: flex;
+  align-items: center;
+}
+
+.dm-file-input {
+  display: none;
+}
+
+.dm-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
+  transition: all 0.15s;
+  width: 100%;
+  justify-content: center;
+}
+
+.dm-upload-label:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--bg-hover);
+}
+
+/* ---------- Metadata Grid ---------- */
+
+.dm-meta-card .dm-meta-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+}
+
+.dm-meta-grid span:nth-child(odd) {
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+/* ---------- Preview Counts ---------- */
+
+.dm-preview-counts {
+  display: inline-flex;
+  gap: var(--space-sm);
+  margin-left: var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+}
+
+.dm-count-new    { color: #28a745; }
+.dm-count-update { color: #0366d6; }
+.dm-count-failed { color: var(--danger, #dc3545); }
+
+/* ---------- Result Cards ---------- */
+
+.dm-result-card {
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.dm-result-card h4 {
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.dm-result-success {
+  background: #e6f7ee;
+  border: 1px solid #28a745;
+}
+
+.dm-result-error {
+  background: #fdedf0;
+  border: 1px solid #dc3545;
+}
+
+/* ---------- Import Totals ---------- */
+
+.dm-import-totals {
+  display: flex;
+  gap: var(--space-lg);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.dm-import-type-result {
+  font-size: var(--font-size-sm);
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--border-light, #eee);
+}
+
+.dm-error-list {
+  margin: var(--space-xs) 0 0 var(--space-md);
+  color: var(--danger, #dc3545);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Dependency Section ---------- */
+
+.dm-dep-section {
+  margin-top: var(--space-sm);
+}
+
+.dm-dep-section h5 {
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
+}
+
+.dm-dep-section ul {
+  margin: 0;
+  padding-left: var(--space-md);
+  font-size: var(--font-size-sm);
+}
+
+.dm-dep-tag {
+  margin-left: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* ---------- Entity Counts ---------- */
+
+.dm-entity-counts {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.dm-count-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* ---------- Backup Info ---------- */
+
+.dm-backup-info {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--bg-hover, #f8f9fa);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.dm-backup-info p {
+  margin: 0;
+}
+
+.dm-backup-tag {
+  display: inline-block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--primary);
+}
+
+/* ---------- Loading ---------- */
+
+.dm-loading {
+  text-align: center;
+  color: var(--text-light);
+  padding: var(--space-md);
+}
+
+/* ---------- Import record highlight ---------- */
+
+.dm-import-create {
+  border-left: 3px solid #28a745;
+}
+
+.dm-import-update {
+  border-left: 3px solid #0366d6;
+}

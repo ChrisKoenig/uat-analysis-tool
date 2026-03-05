@@ -118,9 +118,11 @@ app.add_middleware(
 
 from .classify_routes import router as classify_router
 from .admin_routes import router as admin_router
+from .data_management_routes import router as data_mgmt_router
 
 app.include_router(classify_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
+app.include_router(data_mgmt_router)  # already has /api/v1 prefix
 
 
 # =============================================================================
