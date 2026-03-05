@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 6, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification (with retry logic) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint
+**Last Updated**: March 7, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification (with retry logic) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)**
 
 ---
 
@@ -354,6 +354,46 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 7, 2026) — ENG-007: Centralized Config Package (PR #1, ChrisKoenig)
+
+### ENG-007 — Environment-Aware Configuration Package
+
+**PR #1** from ChrisKoenig — squash-merged as commit `437bf75`.
+
+Replaces scattered `os.getenv()` calls and hardcoded values with a centralized `config/` Python package.
+
+**New files (config package):**
+- `config/__init__.py` — `AppConfig` dataclass (~40 fields), `get_app_config()` entry point, `_apply_env_overrides()` for container/App Service
+- `config/dev.py` — Dev defaults (Cosmos, OpenAI, ADO, ports)
+- `config/preprod.py` — Nonprod Azure resource config
+- `config/prod.py` — Production config (requires env vars for all critical fields — safety feature)
+- `config/environments/dev.ps1`, `preprod.ps1`, `prod.ps1` — PowerShell environment profiles for deployment scripts
+
+**New utility:**
+- `infrastructure/scripts/show-config.ps1` — Diagnostic script: `show-config.ps1 -Env dev|preprod|prod`
+
+**Refactored services (7 files):**
+| File | Change |
+|------|--------|
+| `shared_auth.py` | `TENANT_ID` from `_get_tenant_id()` → env var → config → hardcoded fallback |
+| `keyvault_config.py` | KV name from `_resolve_kv_name()` → env var → config → fallback with warning |
+| `ado_integration.py` | ADO org/project from config with env var override; TFT org/project from config |
+| `enhanced_matching.py` | ADO orgs, Microsoft tenant ID from config via `_load_ado_config()` |
+| `launcher.py` | All ports and Cosmos endpoint/tenant from config with try/except fallback |
+| `admin_service.py` | Port map from `_app_cfg.service_port_map`, service port from config |
+| `api_gateway.py` | CORS origins from config (no more wildcard `["*"]`), service URLs from config |
+
+**Other changes:**
+- `field-portal/api/config.py` — ADO orgs and CORS origins from config
+- `containers/deploy.ps1` — Dot-sources environment PS1 file instead of inline vars
+- `README.md` — Updated quick-start and configuration sections
+- `docs/CHANGE_LOG.md` — Added ENG-007 entry
+- Dependency bumps: `azure-identity 1.21.0`, `azure-keyvault-secrets 4.9.0`
+
+**Key design:** Set `APP_ENV=dev|preprod|prod` → reduces ~10 env vars to 1. Env var overrides still apply on top.
 
 ---
 
@@ -796,6 +836,8 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ✅ TFT Feature search for feature_request category
 ✅ Dual organization authentication (main + TFT)
 ✅ Admin portal on port 8008
+✅ Centralized config package (`config/`) — `AppConfig` dataclass, per-env configs (dev/preprod/prod), `get_app_config()`
+✅ PowerShell environment profiles (`config/environments/`) + `show-config.ps1` diagnostic script
 ✅ **Pre-prod App Service deployment** — all 4 services running, all 6 health components GREEN
 ✅ **Pre-prod MSAL auth** — App Registration `GCS-Triage-NonProd` with correct client ID
 ✅ **Pre-prod Cosmos DB** — `cosmos-aitriage-nonprod` with AAD auth, 10 containers
@@ -957,11 +999,12 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 ## Git Status
 
 **Branch**: `main`
-**Latest commit**: *pending* — fix: B0002/B0003 bugs, ENG-004 retry logic, ENG-005 diagnostics, ENG-006 batch resilience
+**Latest commit**: `437bf75` — ENG-007: centralized config package (PR #1 squash-merged from ChrisKoenig)
+**Previous**: `950abf3` — fix: B0002/B0003 bugs, ENG-004 retry logic, ENG-005 diagnostics, ENG-006 batch resilience
 **Previous**: `b7cb0fd` — fix: field portal pre-prod deployment (12 issues)
 **Previous**: `8114c35` — docs + code: comprehensive documentation and code comment updates
 
-**All changes staged for commit** — 12 files modified (10 tracked, 2 new).
+**Working tree**: Clean.
 
 ---
 
