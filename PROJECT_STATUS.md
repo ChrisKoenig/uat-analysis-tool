@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
 **Last Updated**: March 7, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification (with retry logic) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)**
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification (with retry logic) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)**
 
 ---
 
@@ -129,7 +129,7 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 - **Database**: Azure Cosmos DB (`cosmos-gcs-dev`, serverless, North Central US)
 - **Analysis Engine**: Hybrid pattern matching + LLM classification
 - **Startup**: `python launcher.py` (GUI launcher) OR manual start
-- **Pages** (11): Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections
+- **Pages** (12): Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management
 
 ### Field Portal (Built Feb 12, deployed to App Service Mar 2)
 - **Backend API**: FastAPI on port 8010 locally / port 8000 on App Service (uvicorn, `field-portal/api/main.py`)
@@ -354,6 +354,31 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 5, 2026) — FR-2005: Entity Export/Import (Data Management)
+
+### FR-2005 — Data Management Service + UI
+
+New Data Management page and API for exporting and importing Rules, Triggers, Routes, and Actions.
+
+**Backend:**
+- `triage/services/data_management_service.py` — `DataManagementService` with export, preview, execute, auto-backup, dependency resolution, ID remapping
+- `triage/api/data_management_routes.py` — FastAPI router: `POST export`, `POST import/preview`, `POST import/execute`
+- Import order: Rules → Actions → Routes → Triggers (leaves first)
+- Name-based upsert: matches by name (natural key), not UUID
+- Auto-includes dependencies: Trigger → Rules + Route; Route → Actions
+- Auto-backup of all affected entity types before every import
+
+**Frontend:**
+- `DataManagementPage.jsx` — tabbed Export/Import UI with per-record checkboxes
+- Export: load entity types, select individual records, download JSON bundle
+- Import: upload JSON, preview create/update actions, execute with result summary
+- Dependency display shows auto-included entities with reason and requiredBy
+- Sidebar nav entry: 📦 Data Mgmt
+
+**Git:** `099b45f`
 
 ---
 
@@ -819,7 +844,7 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ## Known Working Features
 
 ✅ Triage Management System — full pipeline: ADO fetch → hybrid analysis → Cosmos DB → React UI
-✅ Triage UI — 11 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections
+✅ Triage UI — 12 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management
 ✅ Corrections — full CRUD with blade pattern, edit mode, human-readable display
 ✅ Desktop launcher GUI (`launcher.py`)
 ✅ Azure Cosmos DB with AAD cross-tenant auth
@@ -838,6 +863,7 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ✅ Admin portal on port 8008
 ✅ Centralized config package (`config/`) — `AppConfig` dataclass, per-env configs (dev/preprod/prod), `get_app_config()`
 ✅ PowerShell environment profiles (`config/environments/`) + `show-config.ps1` diagnostic script
+✅ Data Management — entity export/import with auto-backup, name-based upsert, dependency resolution, per-record selection
 ✅ **Pre-prod App Service deployment** — all 4 services running, all 6 health components GREEN
 ✅ **Pre-prod MSAL auth** — App Registration `GCS-Triage-NonProd` with correct client ID
 ✅ **Pre-prod Cosmos DB** — `cosmos-aitriage-nonprod` with AAD auth, 10 containers

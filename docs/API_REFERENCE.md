@@ -18,10 +18,11 @@
 7. [Webhook Endpoint](#webhook-endpoint)
 8. [Audit Endpoints](#audit-endpoints)
 9. [Validation Endpoints](#validation-endpoints)
-10. [Admin Endpoints](#admin-endpoints) (Corrections, Training Signals, Weight Tuning)
-11. [Health Check](#health-check)
-12. [Error Handling](#error-handling)
-13. [Schemas](#schemas)
+10. [Data Management Endpoints](#data-management-endpoints)
+11. [Admin Endpoints](#admin-endpoints) (Corrections, Training Signals, Weight Tuning)
+12. [Health Check](#health-check)
+13. [Error Handling](#error-handling)
+14. [Schemas](#schemas)
 
 ---
 
@@ -553,6 +554,80 @@ Returns system-wide validation warnings:
 
 ```
 GET /api/v1/validation/references/{entity_type}/{entity_id}
+```
+
+---
+
+## Data Management Endpoints
+
+Data Management endpoints support exporting and importing Rules, Triggers, Routes, and Actions between environments.
+
+### Export Entities
+
+```
+POST /api/v1/data-management/export
+```
+
+**Request Body:**
+```json
+{
+  "selections": {
+    "rules": null,
+    "triggers": ["dt-abc123"]
+  }
+}
+```
+
+`selections` keys are entity types (`rules`, `actions`, `routes`, `triggers`). Value of `null` = export all; array of IDs = export specific records. Omitted key = skip that type.
+
+Auto-includes dependencies: Trigger → referenced Rules + Route; Route → referenced Actions.
+
+**Response:** JSON export bundle with `metadata`, `dependencies`, and per-type entity arrays.
+
+### Import Preview
+
+```
+POST /api/v1/data-management/import/preview
+```
+
+**Request Body:**
+```json
+{
+  "bundle": { /* ... export bundle ... */ }
+}
+```
+
+**Response:** Per-type preview showing each entity as `create` (new name) or `update` (name matches existing), with `existingId` if update.
+
+### Import Execute
+
+```
+POST /api/v1/data-management/import/execute
+```
+
+**Request Body:**
+```json
+{
+  "bundle": { /* ... export bundle ... */ },
+  "selected": {
+    "rules": ["My Rule Name"],
+    "actions": ["Set Priority"]
+  }
+}
+```
+
+`selected` is optional — omit to import everything in the bundle. Values are entity **names** (not IDs).
+
+Auto-backup of affected types is created before import. Import order: Rules → Actions → Routes → Triggers. Name-based upsert with automatic ID remapping for cross-environment transfers.
+
+**Response:**
+```json
+{
+  "success": true,
+  "results": { "rules": { "created": 0, "updated": 5, "failed": 0 } },
+  "totals": { "created": 0, "updated": 5, "failed": 0 },
+  "backup": { "exportDate": "...", "isBackup": true }
+}
 ```
 
 ---

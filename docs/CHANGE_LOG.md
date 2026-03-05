@@ -22,10 +22,41 @@
 | 10 | ENG-006 | 2026-03-06 | *pending* | **Batch fetch resilience — errorPolicy=Omit + null-safe iteration** — ADO batch API returned HTTP 404 for entire batch when any single work item ID was invalid, causing "Batch fetch failed" for all items. Fixed by adding `errorPolicy=Omit` to the batch URL (ADO returns 200 with null placeholders for invalid IDs). Added null-safe iteration and per-ID omission tracking in `get_work_items_batch()` so valid items are returned while invalid IDs are reported individually. |
 | 11 | ENG-007 | 2026-03-05 | `e0a015e` | **Environment profile config refactor + dependency refresh + docs alignment** — Added centralized `APP_ENV`-driven non-secret configuration (`config/`), environment PowerShell profiles (`config/environments/*.ps1`), and `infrastructure/scripts/show-config.ps1` for effective-value inspection. Refactored services/scripts to remove hardcoded environment values. Updated dependency lockfiles/requirements and aligned setup docs with the new environment workflow. |
 | 12 | FR-1998 | 2026-03-05 | `6f3d645` | **Microsoft Graph user lookup by email** — New `graph_user_lookup.py` module with `get_user_info(email)` function that resolves a requestor email to displayName, jobTitle, and department via Microsoft Graph API. Uses shared Azure credential from `shared_auth.py`. Implements 4-strategy cascade (direct UPN, mailNickname filter, mail/UPN filter, `$search`) to handle both native and guest (#EXT#) accounts. |
+| 13 | FR-2005 | 2026-03-05 | `099b45f` | **Entity export/import (Data Management)** — New Data Management page and API for exporting and importing Rules, Triggers, Routes, and Actions between environments. Auto-includes dependencies (Trigger→Rules+Route, Route→Actions). Auto-backup before import. Name-based upsert matching. Per-record selection with checkboxes. Import order: Rules→Actions→Routes→Triggers. |
 
 ---
 
 ## Change Detail
+
+### FR-2005 — Entity Export/Import (Data Management)
+
+**Date:** 2026-03-05  
+**Build ID:** `099b45f`  
+**Requested By:** Operations (environment portability and backup)  
+**Status:** Built, awaiting deployment
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/services/data_management_service.py` | Backend (new) | Core export/import service — dependency resolution, name-based upsert, auto-backup, ID remapping |
+| `triage/api/data_management_routes.py` | Backend (new) | FastAPI router with 3 POST endpoints (export, import/preview, import/execute) |
+| `triage/api/routes.py` | Backend | Mounted data management router |
+| `triage-ui/src/pages/DataManagementPage.jsx` | Frontend (new) | Tabbed Export/Import page with per-record checkboxes and dependency display |
+| `triage-ui/src/pages/DataManagementPage.css` | Frontend (new) | Styles matching existing design system |
+| `triage-ui/src/api/triageApi.js` | Frontend | Added 3 API functions: exportEntities, previewImport, executeImport |
+| `triage-ui/src/utils/constants.js` | Frontend | Added "Data Mgmt" nav item with 📦 icon |
+| `triage-ui/src/App.jsx` | Frontend | Added lazy import and route for /data-management |
+
+#### Behavior Summary
+
+1. **Export**: Select entity types and individual records → auto-includes dependencies → downloads JSON bundle.
+2. **Import Preview**: Upload JSON bundle → shows per-record create/update actions before committing.
+3. **Import Execute**: Auto-backs up current state → imports in dependency order (Rules→Actions→Routes→Triggers) → name-based upsert with ID remapping.
+4. **Dependency Resolution**: Triggers auto-include their referenced Rules and Route; Routes auto-include their Actions.
+5. **Cross-Environment**: Matches by name (natural key), not UUID — safe for transfers between environments with different IDs.
+
+---
 
 ### ENG-007 — Environment Profiles, Config Centralization, and Documentation Alignment
 

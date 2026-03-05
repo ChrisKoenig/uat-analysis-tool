@@ -3,7 +3,7 @@
 How to use the Triage Management System to manage work-item routing rules,
 run evaluations, and operate the triage queue.
 
-Last Updated: February 24, 2026
+Last Updated: March 5, 2026
 
 ---
 
@@ -501,7 +501,52 @@ pattern engine's confidence for capacity is multiplied by 1.15 before comparison
 
 ---
 
-## 11. Validation
+## 11. Data Management (Export / Import)
+
+The **Data Management** page (📦 in sidebar) allows you to export and import
+Rules, Triggers, Routes, and Actions. Use this for:
+
+- **Backup** – snapshot your current configuration before making changes
+- **Environment transfer** – move entities from dev → pre-prod → prod
+- **Restore** – re-import a previously exported bundle
+
+### Export Tab
+
+1. Check the entity types you want to export (Rules, Triggers, Routes, Actions).
+2. Click **Load Records** — individual records appear with checkboxes.
+3. Select/deselect individual records, or use **Select All / Deselect All**.
+4. Click **Export Selected** — a JSON file downloads to your machine.
+
+> **Auto-Dependencies:** When you export Triggers, the system automatically
+> includes any Rules and Routes they reference. When you export Routes, the
+> system automatically includes their Actions. Dependencies are listed in the
+> export summary.
+
+### Import Tab
+
+1. Click **Choose File** (or drag-and-drop) to upload a `.json` export bundle.
+2. The system shows an **import preview** with each entity marked as
+   **create** (new) or **update** (name already exists).
+3. Select which entities to import using the checkboxes.
+4. Click **Import Selected** — the system:
+   - Creates an **auto-backup** of all affected entity types first
+   - Imports in dependency order: Rules → Actions → Routes → Triggers
+   - Matches by **name** (not UUID) — safe across environments
+   - Remaps internal ID references automatically
+5. A result summary shows created / updated / failed counts.
+
+### Important Notes
+
+- **Name-based matching**: if an entity with the same name exists, it is
+  updated (overwritten). If the name is new, a new entity is created.
+- **Auto-backup**: before any import, the system exports all affected entity
+  types as a snapshot. This appears in the Audit Log.
+- **Import order**: Rules → Actions → Routes → Triggers ensures that
+  references point to already-imported entities.
+
+---
+
+## 12. Validation
 
 The Validation page runs integrity checks across all rules, actions, triggers,
 and routes. It detects broken references, orphaned entities, and configuration
@@ -529,7 +574,7 @@ errors.
 
 ---
 
-## 12. Audit Log
+## 13. Audit Log
 
 The Audit Log records every create, update, delete, status-change, copy, and
 evaluate operation in the system.
@@ -561,7 +606,7 @@ evaluate operation in the system.
 
 ---
 
-## 13. Evaluation History
+## 14. Evaluation History
 
 Look up past evaluation runs for a specific work item.
 
