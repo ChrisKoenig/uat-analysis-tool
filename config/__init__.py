@@ -157,9 +157,11 @@ def get_app_config() -> AppConfig:
         from config.preprod import PREPROD_CONFIG as cfg
     elif env == "prod":
         from config.prod import PROD_CONFIG as cfg
+    elif env == "chkoenig":
+        from config.chkoenig import CHKOENIG_CONFIG as cfg
     else:
         raise ValueError(
-            f"Unknown APP_ENV '{env}'. Valid values: dev, preprod, prod"
+            f"Unknown APP_ENV '{env}'. Valid values: dev, preprod, prod, chkoenig"
         )
 
     _apply_env_overrides(cfg)

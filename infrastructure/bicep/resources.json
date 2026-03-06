@@ -1,0 +1,486 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "11191444938732065921"
+    }
+  },
+  "definitions": {
+    "openAiDeploymentType": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "capacity": {
+          "type": "int"
+        },
+        "skuName": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "projectName": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "msalTenantId": {
+      "type": "string"
+    },
+    "msalClientId": {
+      "type": "string"
+    },
+    "kvAllowedIps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "defaultValue": []
+    },
+    "openAiDeployments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/openAiDeploymentType"
+      }
+    }
+  },
+  "variables": {
+    "suffix": "[format('{0}-{1}', parameters('projectName'), parameters('environment'))]",
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "tags": {
+      "Environment": "[parameters('environment')]",
+      "Project": "[parameters('projectName')]",
+      "Owner": "[parameters('owner')]",
+      "Purpose": "AI-Powered UAT Management System"
+    },
+    "cosmosContainers": [
+      {
+        "name": "rules",
+        "partitionKey": "/status"
+      },
+      {
+        "name": "actions",
+        "partitionKey": "/status"
+      },
+      {
+        "name": "triggers",
+        "partitionKey": "/status"
+      },
+      {
+        "name": "routes",
+        "partitionKey": "/status"
+      },
+      {
+        "name": "evaluations",
+        "partitionKey": "/workItemId"
+      },
+      {
+        "name": "analysis-results",
+        "partitionKey": "/workItemId"
+      },
+      {
+        "name": "field-schema",
+        "partitionKey": "/source"
+      },
+      {
+        "name": "audit-log",
+        "partitionKey": "/entityType"
+      },
+      {
+        "name": "corrections",
+        "partitionKey": "/workItemId"
+      },
+      {
+        "name": "triage-teams",
+        "partitionKey": "/status"
+      }
+    ]
+  },
+  "resources": {
+    "managedIdentity": {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('mi-{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    "logAnalytics": {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('log-{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 90
+      }
+    },
+    "appInsights": {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[format('appi-{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-{0}', variables('suffix')))]",
+        "RetentionInDays": 90
+      },
+      "dependsOn": [
+        "logAnalytics"
+      ]
+    },
+    "keyVault": {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[format('kv-{0}-{1}', variables('suffix'), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 7,
+        "networkAcls": {
+          "copy": [
+            {
+              "name": "ipRules",
+              "count": "[length(parameters('kvAllowedIps'))]",
+              "input": {
+                "value": "[parameters('kvAllowedIps')[copyIndex('ipRules')]]"
+              }
+            }
+          ],
+          "defaultAction": "[if(empty(parameters('kvAllowedIps')), 'Allow', 'Deny')]",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    "kvRoleAssignment": {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.KeyVault/vaults/{0}', format('kv-{0}-{1}', variables('suffix'), variables('uniqueSuffix')))]",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', format('kv-{0}-{1}', variables('suffix'), variables('uniqueSuffix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mi-{0}', variables('suffix'))), '4633458b-17de-408a-b874-0445c86b69e6')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
+        "principalId": "[reference('managedIdentity').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "keyVault",
+        "managedIdentity"
+      ]
+    },
+    "storageAccount": {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[format('st{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false
+      }
+    },
+    "blobServices": {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', format('st{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix')), 'default')]",
+      "dependsOn": [
+        "storageAccount"
+      ]
+    },
+    "dataContainer": {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', format('st{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix')), 'default', 'gcs-data')]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "blobServices"
+      ]
+    },
+    "storageRoleAssignment": {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', format('st{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix')))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('st{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mi-{0}', variables('suffix'))), 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalId": "[reference('managedIdentity').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "managedIdentity",
+        "storageAccount"
+      ]
+    },
+    "cosmosAccount": {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2024-05-15",
+      "name": "[format('cosmos-{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session"
+        },
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "capabilities": [
+          {
+            "name": "EnableServerless"
+          }
+        ]
+      }
+    },
+    "cosmosDatabase": {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}', format('cosmos-{0}', variables('suffix')), 'triage-management')]",
+      "properties": {
+        "resource": {
+          "id": "triage-management"
+        }
+      },
+      "dependsOn": [
+        "cosmosAccount"
+      ]
+    },
+    "cosmosContainerResources": {
+      "copy": {
+        "name": "cosmosContainerResources",
+        "count": "[length(variables('cosmosContainers'))]"
+      },
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', variables('suffix')), 'triage-management', variables('cosmosContainers')[copyIndex()].name)]",
+      "properties": {
+        "resource": {
+          "id": "[variables('cosmosContainers')[copyIndex()].name]",
+          "partitionKey": {
+            "paths": [
+              "[variables('cosmosContainers')[copyIndex()].partitionKey]"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "cosmosDatabase"
+      ]
+    },
+    "openAiAccount": {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2024-04-01-preview",
+      "name": "[format('oai-{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "kind": "OpenAI",
+      "sku": {
+        "name": "S0"
+      },
+      "properties": {
+        "customSubDomainName": "[format('oai-{0}', variables('suffix'))]",
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    "openAiModelDeployments": {
+      "copy": {
+        "name": "openAiModelDeployments",
+        "count": "[length(parameters('openAiDeployments'))]",
+        "mode": "serial",
+        "batchSize": 1
+      },
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2024-04-01-preview",
+      "name": "[format('{0}/{1}', format('oai-{0}', variables('suffix')), parameters('openAiDeployments')[copyIndex()].name)]",
+      "sku": {
+        "name": "[parameters('openAiDeployments')[copyIndex()].skuName]",
+        "capacity": "[parameters('openAiDeployments')[copyIndex()].capacity]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('openAiDeployments')[copyIndex()].model]",
+          "version": "[parameters('openAiDeployments')[copyIndex()].version]"
+        }
+      },
+      "dependsOn": [
+        "openAiAccount"
+      ]
+    },
+    "openAiRoleAssignment": {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', format('oai-{0}', variables('suffix')))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', variables('suffix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mi-{0}', variables('suffix'))), '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+        "principalId": "[reference('managedIdentity').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "managedIdentity",
+        "openAiAccount"
+      ]
+    },
+    "containerRegistry": {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-11-01-preview",
+      "name": "[format('acr{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "adminUserEnabled": false
+      }
+    },
+    "acrRoleAssignment": {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', format('acr{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix')))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('mi-{0}', variables('suffix'))), '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference('managedIdentity').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "containerRegistry",
+        "managedIdentity"
+      ]
+    },
+    "containerAppsEnv": {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2024-03-01",
+      "name": "[format('cae-{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference('logAnalytics').customerId]",
+            "sharedKey": "[listKeys('logAnalytics', '2023-09-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "logAnalytics"
+      ]
+    }
+  },
+  "outputs": {
+    "managedIdentityName": {
+      "type": "string",
+      "value": "[format('mi-{0}', variables('suffix'))]"
+    },
+    "managedIdentityClientId": {
+      "type": "string",
+      "value": "[reference('managedIdentity').clientId]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference('managedIdentity').principalId]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[format('cosmos-{0}', variables('suffix'))]"
+    },
+    "cosmosEndpoint": {
+      "type": "string",
+      "value": "[reference('cosmosAccount').documentEndpoint]"
+    },
+    "cosmosDatabaseName": {
+      "type": "string",
+      "value": "triage-management"
+    },
+    "openAiAccountName": {
+      "type": "string",
+      "value": "[format('oai-{0}', variables('suffix'))]"
+    },
+    "openAiEndpoint": {
+      "type": "string",
+      "value": "[reference('openAiAccount').endpoint]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[format('kv-{0}-{1}', variables('suffix'), variables('uniqueSuffix'))]"
+    },
+    "keyVaultUri": {
+      "type": "string",
+      "value": "[reference('keyVault').vaultUri]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[format('st{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix'))]"
+    },
+    "appInsightsName": {
+      "type": "string",
+      "value": "[format('appi-{0}', variables('suffix'))]"
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference('appInsights').ConnectionString]"
+    },
+    "logAnalyticsName": {
+      "type": "string",
+      "value": "[format('log-{0}', variables('suffix'))]"
+    },
+    "containerRegistryName": {
+      "type": "string",
+      "value": "[format('acr{0}{1}{2}', parameters('projectName'), parameters('environment'), variables('uniqueSuffix'))]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "value": "[reference('containerRegistry').loginServer]"
+    },
+    "containerAppsEnvName": {
+      "type": "string",
+      "value": "[format('cae-{0}', variables('suffix'))]"
+    }
+  }
+}

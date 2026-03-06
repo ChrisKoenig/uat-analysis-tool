@@ -18,12 +18,19 @@ import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 
-# Helper function to get config from Key Vault first, then environment
+# Mapping from Key Vault / env-var names → AppConfig property names
+_KEY_TO_APP_CONFIG = {
+    "AZURE_OPENAI_ENDPOINT": "openai_endpoint",
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "embedding_deployment",
+    "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": "classification_deployment",
+    "AZURE_OPENAI_API_KEY": None,
+    "AZURE_OPENAI_USE_AAD": None,
+}
+
+# Helper function to get config from Key Vault first, then environment, then AppConfig
 def _get_config_value(key: str, default: str = "") -> str:
-    """Get configuration value from Key Vault first, then environment variables.
-    
-    Calls get_secret(key) directly instead of rebuilding the full config dict
-    every time — avoids 10 unnecessary get_secret calls per field.
+    """Get configuration value from Key Vault first, then environment variables,
+    then the centralized AppConfig (config/environments/*.json).
     """
     try:
         from keyvault_config import get_keyvault_config
@@ -37,7 +44,22 @@ def _get_config_value(key: str, default: str = "") -> str:
     # Fall back to environment variables
     from dotenv import load_dotenv
     load_dotenv()
-    return os.environ.get(key, default)
+    env_val = os.environ.get(key)
+    if env_val:
+        return env_val
+    
+    # Fall back to centralized AppConfig (single source of truth)
+    attr = _KEY_TO_APP_CONFIG.get(key)
+    if attr:
+        try:
+            from config import get_app_config
+            cfg_val = getattr(get_app_config(), attr, None)
+            if cfg_val:
+                return cfg_val
+        except Exception:
+            pass
+    
+    return default
 
 @dataclass
 class AzureOpenAIConfig:

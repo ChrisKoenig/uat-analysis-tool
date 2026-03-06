@@ -20,7 +20,6 @@
 
 param(
     [Alias("Env")]
-    [ValidateSet("dev", "preprod", "prod")]
     [string]$Environment = "dev",
     [switch]$SkipUI,
     [switch]$SkipAPI
@@ -95,6 +94,7 @@ $env:PYTHONPATH = $Root
 Write-Host "  APP_ENV          = $Environment" -ForegroundColor Gray
 Write-Host "  Cosmos Account   = $COSMOS_ACCOUNT" -ForegroundColor Gray
 Write-Host "  OpenAI Account   = $OPENAI_ACCOUNT" -ForegroundColor Gray
+Write-Host "  Key Vault        = $KV_NAME" -ForegroundColor Gray
 Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 
 # -- Step 3: Write local UI config -------------------------------------------------

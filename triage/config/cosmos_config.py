@@ -163,10 +163,18 @@ class CosmosDBConfig:
         """
         kv_config = get_keyvault_config()
         
+        # App config fallback (single source of truth from config/environments/*.json)
+        try:
+            from config import get_app_config
+            _app_cfg = get_app_config()
+        except Exception:
+            _app_cfg = None
+        
         # Cosmos DB endpoint (required)
         self.endpoint = (
             kv_config.get_secret("COSMOS_ENDPOINT") or
             os.environ.get("COSMOS_ENDPOINT") or
+            (getattr(_app_cfg, 'cosmos_endpoint', None) if _app_cfg else None) or
             DEFAULT_COSMOS_ENDPOINT
         )
         
@@ -180,6 +188,7 @@ class CosmosDBConfig:
         # Database name
         self.database_name = (
             os.environ.get("COSMOS_DATABASE") or
+            (getattr(_app_cfg, 'cosmos_database', None) if _app_cfg else None) or
             DEFAULT_DATABASE_NAME
         )
         

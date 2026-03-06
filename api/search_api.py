@@ -30,13 +30,14 @@ def _generate_smart_search_query(title, description, services, technologies, key
         from openai import AzureOpenAI
         from ai_config import get_config as get_ai_config
 
+        ai_cfg = get_ai_config()
         client = AzureOpenAI(
-            azure_endpoint=os.environ.get('AZURE_OPENAI_ENDPOINT'),
-            api_key=os.environ.get('AZURE_OPENAI_API_KEY'),
-            api_version="2024-08-01-preview"
+            azure_endpoint=ai_cfg.azure_openai.endpoint,
+            api_key=ai_cfg.azure_openai.api_key or None,
+            api_version=ai_cfg.azure_openai.api_version,
         )
 
-        _deployment = get_ai_config().azure_openai.classification_deployment
+        _deployment = ai_cfg.azure_openai.classification_deployment
         
         # Build context for LLM
         context_parts = []

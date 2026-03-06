@@ -6,10 +6,13 @@ Supports both local development (DefaultAzureCredential) and
 production deployment (ManagedIdentityCredential).
 """
 import os
+import logging
 from functools import lru_cache
 from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from typing import Optional
+
+logger = logging.getLogger("keyvault_config")
 
 # Key Vault URI — resolved from env vars, then from the active environment config.
 def _resolve_kv_name() -> str:
@@ -104,27 +107,19 @@ class KeyVaultConfig:
             try:
                 import time as _t
                 _t0 = _t.time()
-                # Check if managed identity is configured
                 managed_identity_client_id = os.environ.get('AZURE_CLIENT_ID')
                 
                 if managed_identity_client_id:
-                    # Production: Use managed identity
-                    print(f"[KV] Creating ManagedIdentityCredential (client_id: {managed_identity_client_id[:8]}...)", flush=True)
                     self._credential = ManagedIdentityCredential(client_id=managed_identity_client_id)
-                    auth_method = f"Managed Identity (client_id: {managed_identity_client_id[:8]}...)"
+                    auth_method = f"Managed Identity ({managed_identity_client_id[:8]}...)"
                 else:
-                    # Development: Use DefaultAzureCredential with CLI/PowerShell
-                    # enabled so local dev works when logged into az cli.
-                    print("[KV] Creating DefaultAzureCredential...", flush=True)
                     self._credential = DefaultAzureCredential()
                     auth_method = "DefaultAzureCredential"
                 
-                print(f"[KV] Credential created in {_t.time()-_t0:.1f}s — creating SecretClient for {KEY_VAULT_URI}", flush=True)
                 self._client = SecretClient(vault_url=KEY_VAULT_URI, credential=self._credential)
-                print(f"[KV] ✅ SecretClient ready in {_t.time()-_t0:.1f}s ({auth_method})", flush=True)
+                logger.info("Key Vault ready: %s (%s, %.1fs)", KEY_VAULT_URI, auth_method, _t.time()-_t0)
             except Exception as e:
-                print(f"[KV] ⚠️ Could not connect to Key Vault: {type(e).__name__}: {e}", flush=True)
-                print("  Falling back to environment variables from .env.azure", flush=True)
+                logger.warning("Could not connect to Key Vault: %s — falling back to config", e)
         return self._client
     
     def get_secret(self, env_var_name: str, fallback_to_env: bool = True) -> Optional[str]:
@@ -138,8 +133,6 @@ class KeyVaultConfig:
         Returns:
             Secret value or None
         """
-        import time as _t
-
         # Check cache first
         if env_var_name in self._cache:
             return self._cache[env_var_name]
@@ -148,26 +141,26 @@ class KeyVaultConfig:
         secret_name = SECRET_MAPPINGS.get(env_var_name)
         if secret_name:
             try:
-                _t0 = _t.time()
-                print(f"[KV] get_secret('{env_var_name}' → KV name '{secret_name}')...", flush=True)
                 client = self._get_client()
                 if client:
                     secret = client.get_secret(secret_name)
                     value = secret.value
                     self._cache[env_var_name] = value
-                    print(f"[KV]   ✅ '{secret_name}' retrieved in {_t.time()-_t0:.1f}s (len={len(value) if value else 0})", flush=True)
+                    logger.debug("KV secret '%s' retrieved", secret_name)
                     return value
-                else:
-                    print(f"[KV]   ⚠️ No client available for '{secret_name}'", flush=True)
             except Exception as e:
-                print(f"[KV]   ⚠️ FAILED '{secret_name}' in {_t.time()-_t0:.1f}s: {type(e).__name__}: {e}", flush=True)
+                err_name = type(e).__name__
+                if "NotFound" in err_name or "ResourceNotFoundError" in err_name:
+                    logger.debug("KV secret '%s' not found — using config fallback", secret_name)
+                else:
+                    logger.warning("KV secret '%s' failed: %s", secret_name, e)
         
         # Fallback to environment variable
         if fallback_to_env:
             value = os.environ.get(env_var_name)
             if value:
                 self._cache[env_var_name] = value
-                print(f"[KV]   📋 '{env_var_name}' from env var (len={len(value)})", flush=True)
+                return value
                 return value
         
         return None
