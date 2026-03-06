@@ -24,6 +24,7 @@
 | 12 | FR-1998 | 2026-03-05 | `6f3d645` | **Microsoft Graph user lookup by email** — New `graph_user_lookup.py` module with `get_user_info(email)` function that resolves a requestor email to displayName, jobTitle, and department via Microsoft Graph API. Uses shared Azure credential from `shared_auth.py`. Implements 4-strategy cascade (direct UPN, mailNickname filter, mail/UPN filter, `$search`) to handle both native and guest (#EXT#) accounts. |
 | 13 | FR-2005 | 2026-03-05 | `099b45f` | **Entity export/import (Data Management)** — New Data Management page and API for exporting and importing Rules, Triggers, Routes, and Actions between environments. Auto-includes dependencies (Trigger→Rules+Route, Route→Actions). Auto-backup before import. Name-based upsert matching. Per-record selection with checkboxes. Import order: Rules→Actions→Routes→Triggers. |
 | 14 | FR-2005 | 2026-03-05 | *pending* | **Data Management UX improvements** — 6 fixes from user testing: (1) loading spinners/overlay during export, import, and preview; (2) smart dependency auto-selection on export — clicking a trigger auto-selects its rules/route, clicking a route auto-selects its actions; (3) new Backups tab to list/restore pre-import snapshots; (4) "Available in Audit Log" changed from inactive text to a real navigation link; (5) export result now shows the downloaded filename; (6) new backend endpoints for listing and retrieving backups. |
+| 15 | ENG-008 | 2026-03-05 | `e22e29c` | **ServiceTree routing integration — backend + UI inline edit** — Integrated ServiceTree BFF API for routing enrichment. New `servicetree_service.py` with 5-tier cache, fuzzy lookup, admin overrides. PATCH `/analysis/{id}/routing` endpoint for per-record inline corrections. `AnalysisResult` extended with 7 routing fields (serviceTreeMatch, serviceTreeOffering, solutionArea, csuDri, areaPathAdo, releaseManager, devContact). 6 admin catalog management endpoints. New `ServiceTreeRouting` React component (display/edit/compact modes) wired into QueuePage blade and EvaluatePage. `servicetree-catalog` Cosmos container. ServiceTree health dashboard component. |
 
 ---
 
@@ -56,6 +57,38 @@
 | `triage-ui/src/pages/DataManagementPage.jsx` | Frontend | Spinner overlay, dependency graph auto-selection, Backups tab, filename display, audit link |
 | `triage-ui/src/pages/DataManagementPage.css` | Frontend | Spinner animation, overlay styles, backup card styles, link styles |
 | `triage-ui/src/api/triageApi.js` | Frontend | New `listBackups()` and `getBackup()` API functions |
+
+---
+
+### ENG-008 — ServiceTree Routing Integration (Backend + UI Inline Edit)
+
+**Date:** 2026-03-05  
+**Build ID:** `e22e29c`  
+**Requested By:** Triage operations (automated routing enrichment)  
+**Status:** Built, awaiting deployment
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `servicetree_service.py` | Backend (new) | Core ServiceTree service — BFF API fetch, 5-tier cache, fuzzy lookup (exact→substring→fuzzy), admin overrides, singleton |
+| `triage/api/routes.py` | Backend | Added `_RoutingPatch` Pydantic model + `PATCH /analysis/{id}/routing` endpoint; ServiceTree enrichment in `_map_hybrid_to_analysis_result()` |
+| `triage/api/admin_routes.py` | Backend | 6 new ServiceTree admin endpoints: catalog summary, search, list services, refresh, apply/remove overrides; ServiceTree health component + diagnostics |
+| `triage/models/analysis_result.py` | Backend | 7 new ServiceTree fields: serviceTreeMatch, serviceTreeOffering, solutionArea, csuDri, areaPathAdo, releaseManager, devContact |
+| `triage/config/cosmos_config.py` | Backend | Added `servicetree-catalog` container (partition key `/solutionArea`) |
+| `triage-ui/src/components/ServiceTreeRouting.jsx` | Frontend (new) | Reusable component with display/edit/compact modes, override badge, 3-column grid |
+| `triage-ui/src/components/ServiceTreeRouting.css` | Frontend (new) | Styles for routing section, edit grid, override badge, compact variant |
+| `triage-ui/src/api/triageApi.js` | Frontend | Added `patchAnalysisRouting()` API function |
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | ServiceTree routing section in analysis detail blade |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Compact read-only in Overview tab, full editable in Decision tab |
+
+#### Behavior Summary
+
+1. **Automatic Enrichment**: During analysis, detected products/Azure services are matched against the ServiceTree catalog using exact → substring → fuzzy matching. The best match populates 7 routing fields on the `AnalysisResult`.
+2. **Inline Display**: ServiceTree routing fields are shown in a 3-column grid on the QueuePage analysis blade and as a compact card on the EvaluatePage Overview tab.
+3. **Inline Edit**: Admins can click "Edit Routing" on the Decision tab of EvaluatePage (or QueuePage blade) to correct any routing field. Changes are saved via `PATCH /analysis/{id}/routing` and stamped with `routingOverrideBy` / `routingOverrideAt`.
+4. **Catalog Management**: 6 admin endpoints for searching, refreshing, and overriding the cached ServiceTree catalog. Cache refreshes from the BFF API every 7 days.
+5. **ServiceTree BFF**: Proxied through `tf-servicetree-api.azurewebsites.net` (Express.js → `F051-PRD-Automation` Function App), authenticated via corp tenant AAD.
 
 ---
 

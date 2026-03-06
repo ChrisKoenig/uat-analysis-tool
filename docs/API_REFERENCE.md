@@ -500,6 +500,39 @@ POST /api/v1/ado/analysis-state
 
 Updates the `Custom.ROBAnalysisState` field on the specified ADO work items.
 
+### Update Routing Fields (Inline Override)
+
+```
+PATCH /api/v1/analysis/{work_item_id}/routing
+```
+
+Updates ServiceTree routing fields on a stored analysis result. Used for inline admin corrections on individual triage records.
+
+**Request Body** (`_RoutingPatch`):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `serviceTreeMatch` | string | No | ServiceTree service name match |
+| `serviceTreeOffering` | string | No | ServiceTree offering name |
+| `solutionArea` | string | No | Solution area for routing |
+| `csuDri` | string | No | CSU DRI owner |
+| `areaPathAdo` | string | No | ADO area path for routing |
+| `releaseManager` | string | No | Release manager contact |
+| `devContact` | string | No | Dev lead contact |
+
+Only non-null fields are applied. Stamps `routingOverrideBy` and `routingOverrideAt` metadata on the record.
+
+**Response** (200):
+```json
+{
+  "status": "updated",
+  "workItemId": 12345,
+  "updatedFields": ["solutionArea", "csuDri", "areaPathAdo"]
+}
+```
+
+**Errors**: 404 if no analysis exists for the work item.
+
 ---
 
 ## Webhook Endpoint
@@ -874,6 +907,75 @@ Computes the agreement rate between the pattern engine and LLM classifier across
 - `rate` — Agreement percentage as a decimal (0.0 – 1.0).
 - `trainingSignals` — Count of human-submitted training signals (excludes system docs).
 - `periods` — Breakdown for the last 7, 30, and 90 days.
+
+### ServiceTree Catalog Management
+
+Endpoints for managing the cached ServiceTree service catalog used for routing enrichment.
+
+#### Catalog Summary
+
+```
+GET /admin/servicetree/catalog-summary
+```
+
+Returns offering/service counts and cache freshness.
+
+#### Search Catalog
+
+```
+GET /admin/servicetree/search?q={query}
+```
+
+Fuzzy search across the cached ServiceTree catalog. Returns matching services with solution area, CSU DRI, and area path.
+
+#### List Services by Offering
+
+```
+GET /admin/servicetree/offerings/{offering_id}/services
+```
+
+Returns all services under an offering.
+
+#### Refresh Catalog
+
+```
+POST /admin/servicetree/refresh
+```
+
+Force-refreshes the ServiceTree catalog cache from the BFF API. The cache has a 7-day TTL by default.
+
+#### Apply Override
+
+```
+POST /admin/servicetree/overrides
+```
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `serviceKey` | string | Yes | Service name to override |
+| `solutionArea` | string | No | Override solution area |
+| `csuDri` | string | No | Override CSU DRI |
+| `areaPathAdo` | string | No | Override ADO area path |
+| `releaseManager` | string | No | Override release manager |
+| `devContact` | string | No | Override dev contact |
+
+#### List Overrides
+
+```
+GET /admin/servicetree/overrides
+```
+
+Returns all admin-applied ServiceTree overrides.
+
+#### Remove Override
+
+```
+DELETE /admin/servicetree/overrides/{service_key}
+```
+
+Removes a previously applied override for the specified service key.
 
 ---
 

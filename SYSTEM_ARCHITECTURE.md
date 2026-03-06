@@ -228,6 +228,7 @@ the results back to ADO — with human review at the decision point.
 | Cosmos Config | `triage/config/cosmos_config.py` | Triage API |
 | Cache Manager | `cache_manager.py` | LLM Classifier |
 | Weight Tuner | `weight_tuner.py` | Pattern Analyzer (via active learning) |
+| ServiceTree Service | `servicetree_service.py` | Triage API (routing enrichment) |
 
 ### Triage Engines (deterministic logic, no AI)
 
@@ -261,6 +262,7 @@ the results back to ADO — with human review at the decision point.
 | FieldSchema | `triage/models/field_schema.py` | `field-schema` |
 | Correction | *(schema in admin_routes.py)* | `corrections` |
 | TrainingSignal | *(schema in admin_routes.py)* | `training-signals` |
+| ServiceTreeCatalog | *(schema in servicetree_service.py)* | `servicetree-catalog` |
 
 > **Shared containers:** The `evaluations` container is written by both the
 > triage system (`source: "triage"`) and the field portal (`source: "field-portal"`).
@@ -640,6 +642,7 @@ Database: `triage-management`
 | `queue-cache` | `/id` | Cached queue data |
 | `corrections` | `/id` | AI classification corrections (Cosmos-backed, migrated from JSON) |
 | `training-signals` | `/id` | Human resolutions of LLM/Pattern disagreements + computed weight adjustments |
+| `servicetree-catalog` | `/solutionArea` | Cached ServiceTree service catalog (offerings, services, routing metadata) |
 | `field-schema` | `/id` | Field Portal schema definitions |
 
 ---
@@ -670,6 +673,7 @@ C:\Projects\Hack\
 ├── cache_manager.py              ← LLM response caching (7-day TTL)
 ├── corrections.json              ← Legacy correction file (migrated to Cosmos)
 ├── weight_tuner.py               ← Active learning: pattern weight adjustment batch
+├── servicetree_service.py        ← ServiceTree BFF integration (catalog cache, fuzzy lookup, admin overrides)
 │
 ├── ─── CONFIGURATION ─────────────────────────────────
 ├── keyvault_config.py            ← Key Vault integration
@@ -682,7 +686,8 @@ C:\Projects\Hack\
 │   │   ├── routes.py             ← FastAPI app, core triage endpoints (:8009)
 │   │   ├── schemas.py            ← Pydantic request/response models
 │   │   ├── classify_routes.py    ← Standalone classify API (new platform)
-│   │   └── admin_routes.py       ← Corrections, training signals, weight tuning, health API
+│   │   ├── admin_routes.py       ← Corrections, training signals, weight tuning, ServiceTree catalog, health API
+│   │   └── (PATCH /analysis/{id}/routing — inline routing overrides)
 │   ├── config/
 │   │   └── cosmos_config.py      ← Cosmos DB connection + AAD auth
 │   ├── engines/
@@ -691,7 +696,7 @@ C:\Projects\Hack\
 │   │   └── routes_engine.py      ← Execute field changes
 │   ├── models/
 │   │   ├── rule.py, action.py, trigger.py, route.py
-│   │   ├── analysis_result.py    ← AnalysisResult with _sanitize()
+│   │   ├── analysis_result.py    ← AnalysisResult with _sanitize() + 7 ServiceTree routing fields
 │   │   ├── evaluation.py, audit_entry.py, field_schema.py
 │   │   └── base.py               ← Base model utilities
 │   ├── services/
@@ -707,7 +712,7 @@ C:\Projects\Hack\
 ├── triage-ui/
 │   ├── src/
 │   │   ├── pages/                ← 13 page components (10 triage + classify, corrections, health)
-│   │   ├── components/           ← Shared UI components
+│   │   ├── components/           ← Shared UI components (incl. ServiceTreeRouting)
 │   │   ├── api/                  ← API client functions
 │   │   ├── App.jsx               ← Router + layout
 │   │   └── main.jsx              ← Entry point
@@ -786,7 +791,7 @@ npm run dev
 |-----------|-------|
 | Triage API (FastAPI :8009) | Full CRUD, evaluate, analyze, ADO integration |
 | React SPA (:3000) | 11 pages (ClassifyPage removed, HealthPage merged into Dashboard) |
-| Cosmos DB persistence | 11 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
+| Cosmos DB persistence | 12 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
 | Hybrid Analysis Engine | Pattern + LLM + vectors + corrections |
 | Rules Engine (15 operators) | Full evaluation logic |
 | Trigger Engine (AND/OR/NOT) | Priority-ordered, first-match-wins |
@@ -799,6 +804,7 @@ npm run dev
 | Corrections management UI | CRUD for corrective learning entries (Cosmos-backed) |
 | Active learning feedback loop | Disagreement resolution UI, training signals, pattern weight tuning |
 | Health dashboard | Comprehensive component-by-component status |
+| ServiceTree routing | Catalog lookup, inline routing override, fuzzy match enrichment |
 | Input Web App (:5003) | Legacy Flask UI |
 | Admin Portal (:8008) | Config management |
 | 7 Microservices (:8001-8007) | Independently deployable |
@@ -814,7 +820,7 @@ npm run dev
 | Key Vault secrets | Cosmos, OpenAI, ADO config stored in `kv-aitriage` |
 | MSAL SPA auth | `GCS-Triage-NonProd` app registration, Corp tenant |
 | Pre-prod OpenAI | `openai-aitriage-nonprod` with MI-based AAD auth |
-| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 11 containers, MI auth |
+| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 12 containers, MI auth |
 
 ### Planned / Not Yet Built
 

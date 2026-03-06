@@ -48,7 +48,7 @@ The Triage Management System automates the triage process for Azure DevOps (ADO)
 ┌─────────────────┐     ┌─────────────────┐     ┌──────────────┐
 │ React Frontend  │────▶│ Triage API      │────▶│ Cosmos DB    │
 │ (port 3000)     │     │ (port 8009)     │     │              │
-│                 │     │                 │     │ 8 containers │
+│                 │     │                 │     │ 12 containers│
 │ - Admin UI      │     │ - CRUD APIs     │     │              │
 │ - Triage UI     │     │ - Rules Engine  │     └──────────────┘
 │ - Visual Design │     │ - Trigger Engine│            │
@@ -528,7 +528,16 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
   "relevantCorrections": [],
   "similarIssues": [],
   "aiAvailable": true,
-  "aiError": null
+  "aiError": null,
+  "serviceTreeMatch": "Azure Machine Learning",
+  "serviceTreeOffering": "Azure AI",
+  "solutionArea": "Data & AI",
+  "csuDri": "Jane.Doe@microsoft.com",
+  "areaPathAdo": "Technical Feedback\\Data & AI\\Azure ML",
+  "releaseManager": "John.Smith@microsoft.com",
+  "devContact": "Dev.Lead@microsoft.com",
+  "routingOverrideBy": null,
+  "routingOverrideAt": null
 }
 ```
 
@@ -567,6 +576,26 @@ Enriched with custom metadata: valid operators per field, display grouping, sour
     "status": { "from": "active", "to": "disabled" }
   },
   "correlationId": "abc-123"
+}
+```
+
+### Container: servicetree-catalog
+
+**Partition Key**: `/solutionArea`
+
+Cached ServiceTree service catalog data. Refreshed every 7 days from the ServiceTree BFF API (`tf-servicetree-api.azurewebsites.net`). Used during analysis to enrich results with routing metadata.
+
+```json
+{
+  "id": "svc-azure-machine-learning",
+  "serviceName": "Azure Machine Learning",
+  "offeringName": "Azure AI",
+  "solutionArea": "Data & AI",
+  "csuDri": "Jane.Doe@microsoft.com",
+  "areaPathAdo": "Technical Feedback\\Data & AI\\Azure ML",
+  "releaseManager": "John.Smith@microsoft.com",
+  "devContact": "Dev.Lead@microsoft.com",
+  "lastRefreshed": "2026-03-05T10:00:00Z"
 }
 ```
 
@@ -641,7 +670,25 @@ Delete is blocked if the entity is still referenced by other entities.
 |--------|----------|-------------|
 | `GET` | `/health` | Service health + Cosmos DB status |
 
-**Total: 48 endpoints** (32 CRUD + 16 specialized)
+### Analysis Routing API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `PATCH` | `/analysis/{work_item_id}/routing` | Update ServiceTree routing fields on a stored analysis |
+
+### ServiceTree Catalog Admin API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/servicetree/catalog-summary` | Offering/service counts and cache freshness |
+| `GET` | `/admin/servicetree/search?q=` | Fuzzy search across cached catalog |
+| `GET` | `/admin/servicetree/offerings/{id}/services` | Services under an offering |
+| `POST` | `/admin/servicetree/refresh` | Force-refresh catalog from BFF |
+| `POST` | `/admin/servicetree/overrides` | Apply admin routing override |
+| `GET` | `/admin/servicetree/overrides` | List all overrides |
+| `DELETE` | `/admin/servicetree/overrides/{key}` | Remove an override |
+
+**Total: 56 endpoints** (32 CRUD + 24 specialized)
 
 ---
 
@@ -696,6 +743,7 @@ Left navigation (sidebar):
 - **Select & evaluate**: Choose 1, n, or all items, click "Evaluate"
 - **Results display**: Per-item analysis summary, rules fired, route applied
 - **ADO deep link**: Click to open item in ADO for review/approval
+- **ServiceTree routing**: Inline display/edit of ServiceTree routing fields (solution area, CSU DRI, area path) on QueuePage blade and EvaluatePage
 
 ---
 

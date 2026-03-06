@@ -225,8 +225,8 @@ COSMOS_TENANT_ID=16b3c013-d300-468d-ac64-7eda0820b6d3
 ```
 These are injected automatically by `launcher.py` or must be set manually.
 
-### Containers (9 total, auto-created)
-`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`
+### Containers (12 total, auto-created)
+`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`
 
 **Shared containers:**
 - `evaluations` — Written by both triage (`source: "triage"`) and field portal (`source: "field-portal"`); partition key `/workItemId`
@@ -354,6 +354,34 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 5, 2026) — ServiceTree Routing Integration
+
+### ServiceTree Catalog Integration — Backend + UI Inline Edit
+
+Integrated the ServiceTree service catalog API to enrich triage analysis results with routing metadata (solution area, CSU DRI, ADO area path). Routing fields are displayed inline on triage records with admin override support.
+
+**Backend:**
+- `servicetree_service.py` — Core ServiceTree service with 5-tier cache fallback, fuzzy lookup (exact→substring→fuzzy), admin overrides, singleton via `get_servicetree_service()`
+- `PATCH /api/v1/analysis/{work_item_id}/routing` — Per-record routing field override endpoint with `_RoutingPatch` Pydantic model
+- `AnalysisResult` model extended with 7 new fields: `serviceTreeMatch`, `serviceTreeOffering`, `solutionArea`, `csuDri`, `areaPathAdo`, `releaseManager`, `devContact`
+- ServiceTree enrichment wired into `_map_hybrid_to_analysis_result()` in the analysis pipeline
+- 6 admin API routes for catalog management: catalog summary, search, list services, refresh, apply/remove overrides
+- `servicetree-catalog` Cosmos container (partition key `/solutionArea`)
+- ServiceTree health component in health dashboard + diagnostics
+
+**Frontend:**
+- `ServiceTreeRouting.jsx` + `ServiceTreeRouting.css` — Reusable component with display/edit/compact modes
+- `patchAnalysisRouting()` API function in `triageApi.js`
+- QueuePage: Routing section in analysis detail blade (between Classification and AI Reasoning)
+- EvaluatePage: Compact read-only in Overview tab, full editable in Decision tab
+- Override badge shown when `routingOverrideBy` is set
+
+**ServiceTree BFF:** `tf-servicetree-api.azurewebsites.net` — Express.js proxy to `F051-PRD-Automation` Function App, auth via `api://73b8d7d8-5640-4047-879f-7f0a0298905b` (corp tenant)
+
+**Git:** `e22e29c`
 
 ---
 
