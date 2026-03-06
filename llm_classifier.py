@@ -88,7 +88,8 @@ class LLMClassifier:
         "capacity_request",
         "escalation_request",
         "business_engagement",
-        "sustainability_inquiry"
+        "sustainability_inquiry",
+        "regional_availability"
     ]
     
     VALID_BUSINESS_IMPACTS = [

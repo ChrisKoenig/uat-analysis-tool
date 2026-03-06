@@ -133,6 +133,7 @@ class IntentType(Enum):
     ESCALATION_REQUEST = "escalation_request"  # Need urgent escalation
     BUSINESS_ENGAGEMENT = "business_engagement"  # Business discussions
     SUSTAINABILITY_INQUIRY = "sustainability_inquiry"  # Environmental concerns
+    REGIONAL_AVAILABILITY = "regional_availability"  # Service availability in specific regions
 
 @dataclass
 class ContextAnalysis:
@@ -1338,7 +1339,8 @@ class IntelligentContextAnalyzer:
             IntentType.CAPACITY_REQUEST: ["need capacity", "capacity needed", "increase quota", "quota needed", "capacity limit", "quota exceeded", "more capacity", "requesting capacity", "capacity request", "quota request", "increase capacity"],
             IntentType.ESCALATION_REQUEST: ["escalate", "urgent", "critical", "emergency", "high priority", "business critical"],
             IntentType.BUSINESS_ENGAGEMENT: ["business discussion", "partnership", "commercial", "account team", "business case"],
-            IntentType.SUSTAINABILITY_INQUIRY: ["carbon footprint", "environmental impact", "sustainability", "green", "renewable"]
+            IntentType.SUSTAINABILITY_INQUIRY: ["carbon footprint", "environmental impact", "sustainability", "green", "renewable"],
+            IntentType.REGIONAL_AVAILABILITY: ["available in region", "regional availability", "service in region", "needed in region", "required in region", "supported in region", "region support", "available in country"]
         }
     
     def _load_retirements_data(self) -> Dict:
