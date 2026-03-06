@@ -135,6 +135,9 @@ export default function Dashboard({ addToast }) {
   const [agreementRate, setAgreementRate] = useState(undefined);
   const [showAgreementDetail, setShowAgreementDetail] = useState(false);
 
+  // AI Discoveries count (dynamic classification config)
+  const [discoveryCount, setDiscoveryCount] = useState(undefined);
+
   // ── Load Health Dashboard ────────────────────────────────────
   const loadHealth = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -181,6 +184,11 @@ export default function Dashboard({ addToast }) {
     api.getAgreementRate()
       .then(d => setAgreementRate(d))
       .catch(() => setAgreementRate(null));
+
+    // AI discovery count (pending review)
+    api.listClassificationDiscoveries()
+      .then(d => setDiscoveryCount(d.total ?? 0))
+      .catch(() => setDiscoveryCount(0));
 
     // Detailed health dashboard
     loadHealth();
@@ -361,41 +369,11 @@ export default function Dashboard({ addToast }) {
           <span className="dashboard-count-value">{isLoading(counts.routes) ? <Skeleton width="2rem" /> : counts.routes}</span>
           <span className="dashboard-count-label">Routes</span>
         </Link>
-      </div>
-
-      {/* Validation Warnings */}
-      <div className="card dashboard-warnings-card">
-        <div className="card-header">
-          <h2>⚠️ Validation Warnings ({isLoading(warnings) ? '…' : warnings.length})</h2>
-          <Link to="/validation" className="btn btn-ghost btn-sm">View All</Link>
-        </div>
-        <div className="card-body">
-          {isLoading(warnings) ? (
-            <div className="dashboard-skeleton-block">
-              <Skeleton width="80%" /><br/>
-              <Skeleton width="60%" />
-            </div>
-          ) : warnings.length === 0 ? (
-            <p className="text-muted">No warnings — everything looks good!</p>
-          ) : (
-            <ul className="dashboard-warnings-list">
-              {warnings.slice(0, 5).map((w, i) => (
-                <li key={i} className="dashboard-warning-item">
-                  <span className={`dashboard-warning-type warning-${w.type}`}>
-                    {w.type.replace(/_/g, ' ')}
-                  </span>
-                  <span>{w.message}</span>
-                </li>
-              ))}
-              {warnings.length > 5 && (
-                <li className="text-muted">
-                  …and {warnings.length - 5} more.{' '}
-                  <Link to="/validation">View all →</Link>
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
+        <Link to="/classification" className={`dashboard-count-card ${discoveryCount > 0 ? 'dashboard-count-highlight' : ''}`}>
+          <span className="dashboard-count-icon">🧠</span>
+          <span className="dashboard-count-value">{isLoading(discoveryCount) ? <Skeleton width="2rem" /> : discoveryCount}</span>
+          <span className="dashboard-count-label">AI Discoveries</span>
+        </Link>
       </div>
 
       {/* ── Component Health ─────────────────────────────────────── */}
@@ -432,6 +410,55 @@ export default function Dashboard({ addToast }) {
 
             {/* Component cards */}
             <div className="health-grid">
+              {/* Validation Summary Card — links to /validation */}
+              {(() => {
+                const warnCount = isLoading(warnings) ? null : warnings.length;
+                const warnStatus = warnCount === null ? 'loading' : warnCount > 0 ? 'degraded' : 'healthy';
+                // Group warnings by type for summary
+                const typeCounts = {};
+                if (warnings && warnings.length > 0) {
+                  warnings.forEach(w => {
+                    const t = (w.type || 'unknown').replace(/_/g, ' ');
+                    typeCounts[t] = (typeCounts[t] || 0) + 1;
+                  });
+                }
+                const summaryParts = Object.entries(typeCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 3)
+                  .map(([t, c]) => `${c} ${t}`);
+                return (
+                  <Link
+                    to="/validation"
+                    className={`health-component-card ${warnStatus} clickable health-validation-card`}
+                    title="Click to view all validation warnings"
+                  >
+                    <div className="health-component-name">
+                      <span>Validation</span>
+                      <span className={`health-status-badge ${warnStatus}`}>
+                        {warnCount === null ? '…' : warnCount > 0 ? `${warnCount} warnings` : 'clean'}
+                      </span>
+                    </div>
+                    {warnCount === null ? (
+                      <Skeleton width="80%" />
+                    ) : warnCount === 0 ? (
+                      <div className="health-detail">
+                        <span>No issues found</span>
+                      </div>
+                    ) : (
+                      <div className="health-detail">
+                        <span className="health-validation-summary">
+                          {summaryParts.join(', ')}
+                          {Object.keys(typeCounts).length > 3 && ` + ${Object.keys(typeCounts).length - 3} more types`}
+                        </span>
+                      </div>
+                    )}
+                    {warnCount > 0 && (
+                      <div className="health-validation-cta">View all warnings →</div>
+                    )}
+                  </Link>
+                );
+              })()}
+
               {(healthDashboard.components || []).map((comp, i) => (
                 <div
                   key={i}

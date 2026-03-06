@@ -55,9 +55,10 @@ cd field-portal\ui && npm run dev
 ```
 C:\Projects\Hack\
 ├── triage-ui/             # ★ Triage Admin UI (React + Vite, port 3000)
-│   └── src/pages/         #   11 pages: Dashboard, Queue, Evaluate, Rules,
+│   └── src/pages/         #   14 pages: Dashboard, Queue, Evaluate, Rules,
 │                          #   Triggers, Actions, Routes, Teams, Validation,
-│                          #   Audit Log, Eval History, Corrections
+│                          #   Audit Log, Eval History, Corrections, Data Mgmt,
+│                          #   Classification Config
 ├── triage/                # ★ Triage API (FastAPI, port 8009)
 │   ├── api/               #   Routes, admin routes, schemas
 │   ├── config/            #   Cosmos DB config
@@ -96,11 +97,11 @@ C:\Projects\Hack\
 | **API Gateway**      | 8000  | `api_gateway.py`                               |
 | **Admin Service**    | 8008  | `admin-service/`                               |
 
-## Triage Admin Pages (11)
+## Triage Admin Pages (14)
 
 | Page | Description |
 |------|-------------|
-| **Dashboard** | System health, status cards, component health indicators |
+| **Dashboard** | System health, status cards, component health indicators, AI discovery count |
 | **Queue** | Work item queue with caching and filters |
 | **Evaluate/Analyze** | AI evaluation with history and detail views |
 | **Rules** | Classification rule management (blade pattern) |
@@ -112,6 +113,8 @@ C:\Projects\Hack\
 | **Audit Log** | Change history with filters and search |
 | **Eval History** | Historical evaluation results |
 | **Corrections** | Corrective learning CRUD (blade pattern with edit mode) |
+| **Data Management** | Entity export/import with auto-backup, dependency resolution |
+| **Classification Config** | Dynamic categories/intents/impacts — AI auto-discovery review, accept/reject/redirect |
 
 ## Field Portal Wizard Flow (9 Steps)
 
@@ -138,7 +141,7 @@ Deployed Feb-Mar 2026 to subscription `a1e66643-...`, resource group `rg-nonprod
 
 - **Auth**: Managed Identity (`TechRoB-Automation-DEV`) for all Azure resources
 - **MSAL SPA**: App Registration `GCS-Triage-NonProd` (`6257f944-...`)
-- **Cosmos DB**: `cosmos-aitriage-nonprod` (10 containers, AAD-only)
+- **Cosmos DB**: `cosmos-aitriage-nonprod` (13 containers, AAD-only)
 - **OpenAI**: `openai-aitriage-nonprod` (gpt-4o-standard, text-embedding-3-large)
 - **Key Vault**: `kv-aitriage` (all secrets)
 
@@ -202,6 +205,6 @@ data handling requirements.
 
 ---
 
-**Last Updated**: March 2, 2026  
-**Version**: 6.1 (Dual React SPA + FastAPI + Cosmos DB + App Service Pre-Prod [All 4 Healthy] + Container Apps Dev)  
+**Last Updated**: March 8, 2026  
+**Version**: 6.3 (Dual React SPA + FastAPI + Cosmos DB 13 containers + Dynamic Classification Config + Graph User Lookup + Background Prefetch/Cache + App Service Pre-Prod [All 4 Healthy] + Container Apps Dev)  
 **Compatibility**: Python 3.12, Node.js 20 LTS, Modern Browsers

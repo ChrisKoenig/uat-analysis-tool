@@ -89,6 +89,7 @@ export default function RouteDesigner({ actionIds = [], onChange, actions = [] }
                   </span>
                 </div>
                 <button
+                  type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => addAction(action.id)}
                   title="Add to route"
@@ -122,13 +123,17 @@ export default function RouteDesigner({ actionIds = [], onChange, actions = [] }
                 <span className="route-designer-step">{index + 1}</span>
                 <div className="route-designer-item-info">
                   <span className="route-designer-item-name">{action.name}</span>
-                  <span className="route-designer-item-detail">
+                  <span
+                    className="route-designer-item-detail"
+                    title={`${action.operation}: ${action.field}${action.value ? ` → ${action.value}` : ''}`}
+                  >
                     {action.operation}: {action.field}
                     {action.value ? ` → ${action.value}` : ''}
                   </span>
                 </div>
                 <div className="route-designer-item-actions">
                   <button
+                    type="button"
                     className="btn-icon btn-sm"
                     title="Move up"
                     onClick={() => moveUp(index)}
@@ -137,6 +142,7 @@ export default function RouteDesigner({ actionIds = [], onChange, actions = [] }
                     ▲
                   </button>
                   <button
+                    type="button"
                     className="btn-icon btn-sm"
                     title="Move down"
                     onClick={() => moveDown(index)}
@@ -145,6 +151,7 @@ export default function RouteDesigner({ actionIds = [], onChange, actions = [] }
                     ▼
                   </button>
                   <button
+                    type="button"
                     className="btn-icon btn-sm"
                     title="Remove"
                     onClick={() => removeAction(index)}

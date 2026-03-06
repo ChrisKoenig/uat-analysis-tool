@@ -1,0 +1,246 @@
+/**
+ * ClassificationConfigPage Styles
+ * Follows the blade pattern (list + detail panel) like CorrectionsPage.
+ */
+
+.classification-config-page {
+  max-width: 1400px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.page-subtitle {
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-xs);
+}
+
+/* ── Stat chips ───────────────────────────────────────────────── */
+
+.config-stats {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.stat-chip {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+.stat-chip.official   { background: var(--green-bg, #e6f4ea); color: var(--green-text, #1e7e34); }
+.stat-chip.discovered { background: var(--blue-bg, #e3f2fd);  color: var(--blue-text, #0d47a1); }
+.stat-chip.rejected   { background: var(--red-bg, #fdecea);   color: var(--red-text, #b71c1c); }
+
+/* ── Filters ──────────────────────────────────────────────────── */
+
+.config-filters {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.config-filters select {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Error banner ─────────────────────────────────────────────── */
+
+.config-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--red-bg, #fdecea);
+  color: var(--red-text, #b71c1c);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+}
+.config-error button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1rem;
+}
+
+/* ── Layout (list + detail) ────────────────────────────────────── */
+
+.config-layout {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.config-list {
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.2s ease;
+}
+.config-list-narrow {
+  flex: 0.55;
+}
+
+.config-detail-panel {
+  flex: 0.45;
+  min-width: 380px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  position: sticky;
+  top: var(--space-lg);
+}
+
+/* ── Table ─────────────────────────────────────────────────────── */
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.config-table th {
+  text-align: left;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+.config-table td {
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--border-light, var(--border));
+}
+
+.config-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.config-row:hover {
+  background: var(--hover-bg, rgba(0,0,0,0.03));
+}
+.config-row-selected {
+  background: var(--primary-bg, #e3f2fd) !important;
+}
+.config-row-discovered {
+  border-left: 3px solid var(--blue-text, #0d47a1);
+}
+
+.config-value {
+  font-weight: 500;
+}
+.config-redirect-hint {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+/* ── Badges ────────────────────────────────────────────────────── */
+
+.config-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-official   { background: var(--green-bg, #e6f4ea); color: var(--green-text, #1e7e34); }
+.badge-discovered { background: var(--blue-bg, #e3f2fd);  color: var(--blue-text, #0d47a1); }
+.badge-rejected   { background: var(--red-bg, #fdecea);   color: var(--red-text, #b71c1c); }
+
+.config-type-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.type-category { background: #ede7f6; color: #4527a0; }
+.type-intent   { background: #fff3e0; color: #e65100; }
+.type-impact   { background: #fce4ec; color: #880e4f; }
+
+.source-seed { color: var(--text-light); }
+.source-ai   { color: var(--blue-text, #0d47a1); font-weight: 600; }
+
+/* ── Actions cell ──────────────────────────────────────────────── */
+
+.config-actions-cell {
+  white-space: nowrap;
+}
+.config-actions-cell .btn {
+  margin-right: var(--space-xs);
+}
+
+/* ── Detail panel ──────────────────────────────────────────────── */
+
+.config-detail-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-md);
+}
+
+.config-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.config-edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.config-edit-form select,
+.config-edit-form input,
+.config-edit-form textarea {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 400;
+}
+
+.help-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+.config-edit-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* ── Empty / Skeleton states ───────────────────────────────────── */
+
+.config-skeleton,
+.config-empty {
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}

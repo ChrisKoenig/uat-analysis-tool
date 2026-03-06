@@ -68,7 +68,8 @@ $sharedFiles = @(
     "intelligent_context_analyzer.py",
     "cache_manager.py",
     "servicetree_service.py",
-    "weight_tuner.py"
+    "weight_tuner.py",
+    "graph_user_lookup.py"
 )
 
 # --- Runtime JSON data files that modules load via Path(__file__).parent ---

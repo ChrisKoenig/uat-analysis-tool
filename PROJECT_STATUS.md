@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 7, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (10 containers) + AI classification (with retry logic) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)**
+**Last Updated**: March 8, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **60 API endpoints**
 
 ---
 
@@ -129,7 +129,7 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 - **Database**: Azure Cosmos DB (`cosmos-gcs-dev`, serverless, North Central US)
 - **Analysis Engine**: Hybrid pattern matching + LLM classification
 - **Startup**: `python launcher.py` (GUI launcher) OR manual start
-- **Pages** (12): Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management
+- **Pages** (14): Dashboard (with health + AI discoveries count), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management, Classification Config
 
 ### Field Portal (Built Feb 12, deployed to App Service Mar 2)
 - **Backend API**: FastAPI on port 8010 locally / port 8000 on App Service (uvicorn, `field-portal/api/main.py`)
@@ -225,8 +225,8 @@ COSMOS_TENANT_ID=16b3c013-d300-468d-ac64-7eda0820b6d3
 ```
 These are injected automatically by `launcher.py` or must be set manually.
 
-### Containers (12 total, auto-created)
-`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`
+### Containers (13 total, auto-created)
+`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`, `classification-config`
 
 **Shared containers:**
 - `evaluations` — Written by both triage (`source: "triage"`) and field portal (`source: "field-portal"`); partition key `/workItemId`
@@ -354,6 +354,65 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 5, 2026) — Bug Fixes: B0004, B0005 + Dashboard UI (ENG-011)
+
+### B0004 — ServiceTree Stats Key Mismatch
+`servicetree_service.py` `get_catalog_stats()` returned camelCase keys (`totalServices`, `totalOfferings`) but all 7 consumers in `admin_routes.py` expected snake_case (`total_services`, `total_offerings`). Dashboard showed 0 services despite 1439 loaded. **Fixed** by changing return keys to snake_case.
+
+### B0005 — Classification Config Cosmos ORDER BY BadRequest
+Two Cosmos queries in `admin_routes.py` used multi-field `ORDER BY` clauses requiring composite indexes not defined on the container. Cosmos returned `(BadRequest) One of the input values is invalid`. **Fixed** by removing `ORDER BY` and sorting in Python.
+
+### ENG-011 — Dashboard UI Improvements
+Compact 5-across count cards, validation warnings promoted to inline health card, 3-column responsive health grid. Files: `Dashboard.jsx`, `Dashboard.css`.
+
+### Classification Config Seed Data
+Ran `seed_classification_config.py` — 40 items seeded into Cosmos (20 categories, 16 intents, 4 business impacts). Verified via API: all 40 items returned correctly grouped by configType.
+
+---
+
+## Recent Changes (Mar 7, 2026) — ENG-010: Dynamic Classification Config
+
+### Dynamic Classification Config — AI Auto-Discovery + Admin Review
+
+Replaced hardcoded classification lists in `llm_classifier.py` with a fully dynamic, Cosmos DB-backed configuration system. Categories, intents, and business-impact values are now loaded at runtime from the `classification-config` container (5-minute cache, thread-safe). When the AI returns a value not in the official list, it is automatically recorded as a "discovered" item for admin review — instead of raising a ValueError that blocked analysis.
+
+**Backend:**
+- `triage/config/cosmos_config.py` — Added `classification-config` container definition (partition key `/configType`, now 13 containers total)
+- `llm_classifier.py` — Major refactor: hardcoded `VALID_CATEGORIES`/`VALID_INTENTS`/`VALID_BUSINESS_IMPACTS` replaced with `_FALLBACK_*` constants + dynamic `_load_dynamic_config()` from Cosmos (5-min TTL, `_config_lock` for thread safety). New `_record_discovery()` persists AI-found values. Validation no longer raises ValueError; unknown values are recorded and analysis continues.
+- `triage/api/admin_routes.py` — 3 new endpoints:
+  - `GET /admin/classification-config` — List all config items (filterable by `config_type` and `status`)
+  - `GET /admin/classification-config/discoveries` — Only AI-discovered items, sorted by `discoveredCount` DESC
+  - `PUT /admin/classification-config/{id}` — Accept/reject/redirect discovered values (update status, displayName, keywords, redirectTo)
+- `seed_classification_config.py` — One-time migration script to seed 40 documents (20 categories + 16 intents + 4 business impacts) from hardcoded fallback lists. Safe to re-run (skips existing docs).
+
+**Frontend:**
+- `ClassificationConfigPage.jsx` + `.css` (new) — Full management page with filterable table (type/status), status badges (official/discovered/rejected), quick accept/reject buttons, detail/edit panel with redirect dropdown, stat chips
+- `Dashboard.jsx` — New "AI Discoveries" count card with pulse animation when discoveries > 0, links to Classification Config page
+- `Dashboard.css` — `.dashboard-count-highlight` with `disco-pulse` keyframe
+- `triageApi.js` — 3 new API functions: `listClassificationConfig()`, `listClassificationDiscoveries()`, `updateClassificationConfig()`
+- `App.jsx` — Lazy import `ClassificationConfigPage`, new route `/classification`
+- `constants.js` — New nav item: 🧠 Classification
+
+**Classification Config Document Schema:**
+```json
+{
+  "id": "cat_technical_support",
+  "configType": "category | intent | business_impact",
+  "value": "technical_support",
+  "status": "official | discovered | rejected",
+  "displayName": "Technical Support",
+  "keywords": [],
+  "discoveredFrom": null,
+  "discoveredCount": 0,
+  "redirectTo": null,
+  "source": "seed | ai",
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
 
 ---
 
@@ -872,7 +931,7 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ## Known Working Features
 
 ✅ Triage Management System — full pipeline: ADO fetch → hybrid analysis → Cosmos DB → React UI
-✅ Triage UI — 12 pages: Dashboard (with health), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management
+✅ Triage UI — 14 pages: Dashboard (with health + AI discoveries), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management, Classification Config
 ✅ Corrections — full CRUD with blade pattern, edit mode, human-readable display
 ✅ Desktop launcher GUI (`launcher.py`)
 ✅ Azure Cosmos DB with AAD cross-tenant auth
@@ -892,6 +951,11 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ✅ Centralized config package (`config/`) — `AppConfig` dataclass, per-env configs (dev/preprod/prod), `get_app_config()`
 ✅ PowerShell environment profiles (`config/environments/`) + `show-config.ps1` diagnostic script
 ✅ Data Management — entity export/import with auto-backup, name-based upsert, dependency resolution, per-record selection
+✅ Dynamic Classification Config — Cosmos-backed categories/intents/impacts with 5-min cache, AI auto-discovery, admin review workflow, seed migration script
+✅ Graph user lookup — resolve email → displayName/jobTitle/department via Microsoft Graph API (`/api/v1/graph/user`)
+✅ Background prefetch + cache for Graph user data — eliminates 5-second blade delay (useRef Map cache, 80ms stagger)
+✅ Collapsible accordion blade sections in Queue analysis blade
+✅ Requestor field fix — reads `Custom.Requestors` / `Custom.Requestor` instead of only `System.CreatedBy`
 ✅ **Pre-prod App Service deployment** — all 4 services running, all 6 health components GREEN
 ✅ **Pre-prod MSAL auth** — App Registration `GCS-Triage-NonProd` with correct client ID
 ✅ **Pre-prod Cosmos DB** — `cosmos-aitriage-nonprod` with AAD auth, 10 containers
@@ -1190,7 +1254,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Mar 6, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB (`cosmos-aitriage-nonprod`) with 10 containers, OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 11 pages. Field Portal had 12 deployment issues fixed in commit `b7cb0fd` (Mar 2). **Mar 6 session**: Fixed B0002 (hybrid source), B0003 (pattern-only crash), added LLM retry logic (ENG-004), diagnostics endpoint + inline UI (ENG-005), batch fetch resilience with errorPolicy=Omit (ENG-006). Next: end-to-end pre-prod testing, deploy latest changes.
+**STATUS** (Mar 8, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB with 13 containers (added `classification-config`), OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 14 pages, **60 API endpoints**. **Mar 8 session**: FR-1998 — Graph user lookup in Queue analysis blade (displayName/jobTitle/department from Microsoft Graph); B0007 — Requestor card fix (Custom.Requestors field instead of System.CreatedBy); PERF-001 — Background prefetch + cache for Graph user data (useRef Map, 80ms stagger, 3-path cache-first logic); B0006 — SharedAuth Windows az CLI fix. Next: deploy latest changes to pre-prod.
 
 ---
 

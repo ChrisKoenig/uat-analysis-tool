@@ -1,13 +1,22 @@
 """
 LLM Classification Service
-Uses GPT-4 for intelligent context classification with reasoning
-Designed as independent service for future agent architecture
+Uses GPT-4 for intelligent context classification with reasoning.
+Designed as independent service for future agent architecture.
+
+Dynamic Classification Config:
+    Categories, intents, and business-impact levels are loaded at runtime
+    from the Cosmos DB `classification-config` container (5-minute cache).
+    Hardcoded _FALLBACK_* lists are used only when Cosmos is unavailable.
+    When the AI returns a value not in the official list, it is recorded as
+    a "discovered" item for admin review instead of raising an error.
 """
 
 import json
 import hashlib
 import time
-from typing import Dict, List, Optional, Any
+import threading
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass
 from openai import AzureOpenAI
 import numpy as np
@@ -47,63 +56,45 @@ class LLMClassifier:
     - Reasoning explanation
     - Pattern matching features integration
     - Smart caching with 7-day TTL
+    - Dynamic classification config from Cosmos DB (categories, intents, impacts)
+    - AI auto-discovery of new classification values with admin review workflow
     """
     
-    # Valid categories and intents from IntelligentContextAnalyzer
-    VALID_CATEGORIES = [
-        "compliance_regulatory",
-        "technical_support",
-        "feature_request",
-        "migration_modernization",
-        "security_governance",
-        "performance_optimization",
-        "integration_connectivity",
-        "cost_billing",
-        "training_documentation",
-        "service_retirement",
-        "service_availability",
-        "data_sovereignty",
-        "product_roadmap",
-        "aoai_capacity",
-        "business_desk",
-        "capacity",
-        "retirements",
-        "roadmap",
-        "support",
-        "support_escalation"
+    # Fallback lists — used when Cosmos is unavailable
+    _FALLBACK_CATEGORIES = [
+        "compliance_regulatory", "technical_support", "feature_request",
+        "migration_modernization", "security_governance", "performance_optimization",
+        "integration_connectivity", "cost_billing", "training_documentation",
+        "service_retirement", "service_availability", "data_sovereignty",
+        "product_roadmap", "aoai_capacity", "business_desk", "capacity",
+        "retirements", "roadmap", "support", "support_escalation"
     ]
-    
-    VALID_INTENTS = [
-        "seeking_guidance",
-        "reporting_issue",
-        "requesting_feature",
-        "need_migration_help",
-        "compliance_support",
-        "troubleshooting",
-        "configuration_help",
-        "best_practices",
-        "requesting_service",
-        "sovereignty_concern",
-        "roadmap_inquiry",
-        "capacity_request",
-        "escalation_request",
-        "business_engagement",
-        "sustainability_inquiry",
+    _FALLBACK_INTENTS = [
+        "seeking_guidance", "reporting_issue", "requesting_feature",
+        "need_migration_help", "compliance_support", "troubleshooting",
+        "configuration_help", "best_practices", "requesting_service",
+        "sovereignty_concern", "roadmap_inquiry", "capacity_request",
+        "escalation_request", "business_engagement", "sustainability_inquiry",
         "regional_availability"
     ]
-    
-    VALID_BUSINESS_IMPACTS = [
-        "critical",
-        "high",
-        "medium",
-        "low"
-    ]
+    _FALLBACK_BUSINESS_IMPACTS = ["critical", "high", "medium", "low"]
+
+    # Dynamic config cache (TTL = 5 minutes)
+    _CONFIG_CACHE_TTL = 300  # seconds
     
     def __init__(self):
         print(f"\n[LLMClassifier] 🚀 Initializing LLM Classifier...")
         self.config = get_config()
         self.azure_config = self.config.azure_openai
         self.caching_config = self.config.caching
+
+        # Dynamic classification config state
+        self._config_lock = threading.Lock()
+        self._cached_categories: List[str] = []
+        self._cached_intents: List[str] = []
+        self._cached_business_impacts: List[str] = []
+        self._config_loaded_at: float = 0.0
+        self._cosmos_container = None  # lazy-init
         
         print(f"[LLMClassifier] 📋 Configuration loaded:")
         print(f"[LLMClassifier]   Endpoint: {self.azure_config.endpoint}")
@@ -157,7 +148,140 @@ class LLMClassifier:
         self.max_tokens = service_config["max_tokens"]
         
         print(f"[LLMClassifier] Deployment: {self.deployment}, Model: {self.model}")
-    
+
+    # ─── Dynamic classification config from Cosmos ──────────────────────
+
+    def _get_cosmos_container(self):
+        """Lazy-init Cosmos container for classification-config."""
+        if self._cosmos_container is None:
+            try:
+                import sys as _sys
+                import os as _os
+                _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), "triage"))
+                from triage.config.cosmos_config import CosmosDBConfig
+                cosmos = CosmosDBConfig()
+                self._cosmos_container = cosmos.get_container("classification-config")
+                print("[LLMClassifier] ✅ Connected to classification-config container")
+            except Exception as e:
+                print(f"[LLMClassifier] ⚠️ Could not connect to classification-config: {e}")
+                self._cosmos_container = None
+        return self._cosmos_container
+
+    def _load_dynamic_config(self) -> tuple:
+        """Load categories/intents/impacts from Cosmos (cached 5 min).
+
+        Returns (categories, intents, business_impacts) as lists of strings.
+        Falls back to hardcoded _FALLBACK_* lists if Cosmos is unreachable.
+        """
+        now = time.time()
+        if (now - self._config_loaded_at) < self._CONFIG_CACHE_TTL and self._cached_categories:
+            return self._cached_categories, self._cached_intents, self._cached_business_impacts
+
+        with self._config_lock:
+            # Double-check after acquiring lock
+            if (time.time() - self._config_loaded_at) < self._CONFIG_CACHE_TTL and self._cached_categories:
+                return self._cached_categories, self._cached_intents, self._cached_business_impacts
+
+            container = self._get_cosmos_container()
+            if container is None:
+                print("[LLMClassifier] Using fallback hardcoded classification lists")
+                self._cached_categories = list(self._FALLBACK_CATEGORIES)
+                self._cached_intents = list(self._FALLBACK_INTENTS)
+                self._cached_business_impacts = list(self._FALLBACK_BUSINESS_IMPACTS)
+                self._config_loaded_at = time.time()
+                return self._cached_categories, self._cached_intents, self._cached_business_impacts
+
+            try:
+                cats, intents, impacts = [], [], []
+                query = "SELECT c.configType, c.value, c.status, c.redirectTo FROM c WHERE c.status IN ('official', 'discovered')"
+                items = list(container.query_items(query=query, enable_cross_partition_query=True))
+                for item in items:
+                    val = item.get("redirectTo") or item["value"]
+                    ct = item["configType"]
+                    if ct == "category":
+                        cats.append(val)
+                    elif ct == "intent":
+                        intents.append(val)
+                    elif ct == "business_impact":
+                        impacts.append(val)
+
+                # De-dup while preserving order
+                self._cached_categories = list(dict.fromkeys(cats)) or list(self._FALLBACK_CATEGORIES)
+                self._cached_intents = list(dict.fromkeys(intents)) or list(self._FALLBACK_INTENTS)
+                self._cached_business_impacts = list(dict.fromkeys(impacts)) or list(self._FALLBACK_BUSINESS_IMPACTS)
+                self._config_loaded_at = time.time()
+                print(f"[LLMClassifier] 🔄 Loaded dynamic config: {len(self._cached_categories)} categories, "
+                      f"{len(self._cached_intents)} intents, {len(self._cached_business_impacts)} impacts")
+            except Exception as e:
+                print(f"[LLMClassifier] ⚠️ Error loading dynamic config: {e} — using fallback")
+                self._cached_categories = list(self._FALLBACK_CATEGORIES)
+                self._cached_intents = list(self._FALLBACK_INTENTS)
+                self._cached_business_impacts = list(self._FALLBACK_BUSINESS_IMPACTS)
+                self._config_loaded_at = time.time()
+
+        return self._cached_categories, self._cached_intents, self._cached_business_impacts
+
+    def _record_discovery(self, config_type: str, value: str, work_item_id: Optional[str] = None):
+        """Persist a newly AI-discovered category/intent to Cosmos.
+
+        If the value already exists as 'discovered', increment its counter.
+        """
+        container = self._get_cosmos_container()
+        if container is None:
+            print(f"[LLMClassifier] ⚠️ Cannot record discovery (no Cosmos connection): {config_type}/{value}")
+            return
+
+        prefix_map = {"category": "cat", "intent": "int", "business_impact": "biz"}
+        prefix = prefix_map.get(config_type, config_type[:3])
+        doc_id = f"{prefix}_{value}"
+        now = datetime.now(timezone.utc).isoformat()
+
+        try:
+            existing = container.read_item(item=doc_id, partition_key=config_type)
+            # Already tracked — bump counter
+            existing["discoveredCount"] = existing.get("discoveredCount", 0) + 1
+            existing["updatedAt"] = now
+            container.replace_item(item=doc_id, body=existing)
+            print(f"[LLMClassifier] 🔄 Discovery count updated: {config_type}/{value} → {existing['discoveredCount']}")
+        except Exception:
+            # New discovery
+            doc = {
+                "id": doc_id,
+                "configType": config_type,
+                "value": value,
+                "status": "discovered",
+                "displayName": value.replace("_", " ").title(),
+                "description": "",
+                "keywords": [],
+                "discoveredFrom": work_item_id,
+                "discoveredCount": 1,
+                "redirectTo": None,
+                "source": "ai",
+                "createdAt": now,
+                "updatedAt": now,
+            }
+            container.create_item(body=doc)
+            print(f"[LLMClassifier] 🆕 New AI discovery recorded: {config_type}/{value}")
+            # Invalidate cache so next classification picks up the new value
+            self._config_loaded_at = 0.0
+
+    # ─── Convenience properties ─────────────────────────────────────────
+
+    @property
+    def VALID_CATEGORIES(self) -> List[str]:
+        cats, _, _ = self._load_dynamic_config()
+        return cats
+
+    @property
+    def VALID_INTENTS(self) -> List[str]:
+        _, intents, _ = self._load_dynamic_config()
+        return intents
+
+    @property
+    def VALID_BUSINESS_IMPACTS(self) -> List[str]:
+        _, _, impacts = self._load_dynamic_config()
+        return impacts
+
     def _make_cache_key(self, title: str, description: str, impact: str, pattern_features: Optional[Dict]) -> str:
         """Generate cache key for classification"""
         key_data = json.dumps({
@@ -364,17 +488,29 @@ You MUST respond with valid JSON only (no markdown):
                 if not all(k in result for k in ["category", "intent", "business_impact", "confidence", "reasoning"]):
                     raise ValueError(f"Missing required fields in LLM response: {result}")
                 
+                # ── Dynamic validation: accept AI discoveries ────────
                 if result["category"] not in self.VALID_CATEGORIES:
-                    print(f"[LLMClassifier] ⚠️ Warning: Invalid category '{result['category']}', using pattern fallback")
-                    raise ValueError(f"Invalid category: {result['category']}")
+                    print(f"[LLMClassifier] 🆕 AI discovered new category: '{result['category']}'")
+                    try:
+                        self._record_discovery("category", result["category"])
+                    except Exception as rec_err:
+                        print(f"[LLMClassifier] ⚠️ Could not record category discovery: {rec_err}")
                 
                 if result["intent"] not in self.VALID_INTENTS:
-                    print(f"[LLMClassifier] ⚠️ Warning: Invalid intent '{result['intent']}', using pattern fallback")
-                    raise ValueError(f"Invalid intent: {result['intent']}")
+                    print(f"[LLMClassifier] 🆕 AI discovered new intent: '{result['intent']}'")
+                    try:
+                        self._record_discovery("intent", result["intent"])
+                    except Exception as rec_err:
+                        print(f"[LLMClassifier] ⚠️ Could not record intent discovery: {rec_err}")
                 
                 if result["business_impact"] not in self.VALID_BUSINESS_IMPACTS:
-                    print(f"[LLMClassifier] ⚠️ Warning: Invalid business_impact '{result['business_impact']}'")
-                    result["business_impact"] = "medium"
+                    print(f"[LLMClassifier] 🆕 AI discovered new business_impact: '{result['business_impact']}'")
+                    try:
+                        self._record_discovery("business_impact", result["business_impact"])
+                    except Exception as rec_err:
+                        print(f"[LLMClassifier] ⚠️ Could not record impact discovery: {rec_err}")
+                    # Still default to medium for safety
+                    result["business_impact"] = result.get("business_impact", "medium")
                 
                 print(f"[LLMClassifier] ✅ Classification complete: category={result['category']}, intent={result['intent']}, confidence={result['confidence']}")
                 return result

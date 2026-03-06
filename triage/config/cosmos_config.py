@@ -19,6 +19,7 @@ Cosmos DB Structure:
         - field-schema:     Field definitions and metadata
         - audit-log:        Change tracking for all entities
         - corrections:      User corrections to AI classifications (fine-tuning)
+        - classification-config: Dynamic categories, intents, and impacts (AI-discoverable)
 
 Configuration is loaded from Azure Key Vault with environment variable fallback.
 """
@@ -100,6 +101,10 @@ CONTAINER_DEFINITIONS = {
     "servicetree-catalog": {
         "partition_key": "/solutionArea",
         "description": "ServiceTree service catalog with admin overrides for triage routing"
+    },
+    "classification-config": {
+        "partition_key": "/configType",
+        "description": "Dynamic classification categories, intents, and business impacts (AI-discoverable)"
     }
 }
 

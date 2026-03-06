@@ -582,8 +582,10 @@ class AdoClient:
             fetch_fields = list(set(column_refs + [
                 "System.Id", "System.State", "System.AssignedTo",
                 "System.AreaPath", "System.Tags",
+                "System.CreatedBy",
                 "System.CreatedDate", "System.ChangedDate",
                 "System.WorkItemType", "Custom.ROBAnalysisState",
+                "Custom.Requestor", "Custom.Requestors",
             ] + (fields or [])))
 
             # Step 4: Batch fetch using the work item batch API
@@ -616,6 +618,13 @@ class AdoClient:
                                     normalized[k] = v["displayName"]
                                 else:
                                     normalized[k] = v
+                            # Preserve raw email for identity fields (FR-1998 Graph lookup)
+                            raw_cb = raw_fields.get("System.CreatedBy")
+                            if isinstance(raw_cb, dict) and raw_cb.get("uniqueName"):
+                                normalized["_createdByEmail"] = raw_cb["uniqueName"]
+                            raw_rq = raw_fields.get("Custom.Requestor")
+                            if isinstance(raw_rq, dict) and raw_rq.get("uniqueName"):
+                                normalized["_requestorEmail"] = raw_rq["uniqueName"]
                             items.append({
                                 "id": item["id"],
                                 "rev": item.get("rev", 0),

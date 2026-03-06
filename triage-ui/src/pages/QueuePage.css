@@ -1515,6 +1515,142 @@
   display: block;
 }
 
+/* ═══ Blade Accordion Sections (FR-1998 / FR-1999) ═══════════ */
+
+.blade-accordion {
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.blade-accordion.collapsed {
+  border-color: var(--border, #e8e8e8);
+}
+
+.blade-accordion-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--muted-bg, #f8f9fa);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.blade-accordion-toggle:hover {
+  background: var(--hover-bg, #eef1f4);
+}
+
+.blade-accordion-toggle h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-light, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.blade-accordion-chevron {
+  font-size: 12px;
+  color: var(--text-light, #999);
+  flex-shrink: 0;
+  width: 14px;
+}
+
+.blade-accordion-badge {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #e3f2fd;
+  color: #1565c0;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.blade-accordion-badge.badge-warn {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.blade-accordion-body {
+  padding: 12px 14px 14px;
+}
+
+
+/* ═══ Requestor Card (FR-1998) ═══════════════════════════════ */
+
+.requestor-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.requestor-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1565c0, #42a5f5);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.requestor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.requestor-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #333);
+}
+
+.requestor-detail {
+  font-size: 12px;
+  color: var(--text-light, #666);
+}
+
+.requestor-email {
+  font-size: 11px;
+  color: var(--text-light, #999);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ═══ Entity Grouping (FR-1998) ══════════════════════════════ */
+
+.blade-entities-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entity-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entity-group > label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-light, #666);
+}
+
+
 /* ── Dark mode: Column Filter Dropdown ────────────────────────── */
 @media (prefers-color-scheme: dark) {
   .col-filter-dropdown {
@@ -1526,4 +1662,10 @@
   .cfd-search input { background: var(--card-bg, #252525); }
   .cfd-value-item:hover { background: rgba(255, 255, 255, 0.06); }
   .col-filter-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+  .blade-accordion-toggle { background: rgba(255, 255, 255, 0.04); }
+  .blade-accordion-toggle:hover { background: rgba(255, 255, 255, 0.08); }
+  .blade-accordion-badge { background: #1a3a5c; color: #90caf9; }
+  .blade-accordion-badge.badge-warn { background: #3e2800; color: #ffb74d; }
+  .requestor-avatar { background: linear-gradient(135deg, #1565c0, #1e88e5); }
 }

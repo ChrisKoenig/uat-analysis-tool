@@ -504,6 +504,19 @@ export function reanalyzeWithCorrections(workItemId, corrections) {
   return post('/analyze/reanalyze', { workItemId, ...corrections });
 }
 
+
+// =============================================================================
+// Graph User Lookup  (FR-1998)
+// =============================================================================
+
+/**
+ * Look up Microsoft Graph user info by email / UPN.
+ * Returns { displayName, jobTitle, department, email }.
+ */
+export function getGraphUser(email) {
+  return get(`/graph/user?email=${encodeURIComponent(email)}`);
+}
+
 /**
  * Update ROBAnalysisState on one or more ADO work items.
  * @param {number[]} workItemIds
@@ -797,4 +810,42 @@ export function listBackups(limit = 20) {
  */
 export function getBackup(auditId) {
   return get(`/data-management/backups/${encodeURIComponent(auditId)}`);
+}
+
+
+// =============================================================================
+// Classification Config API (dynamic categories / intents / impacts)
+// =============================================================================
+
+/**
+ * List all classification config items.
+ * @param {Object} [filters]
+ * @param {string} [filters.configType] - "category" | "intent" | "business_impact"
+ * @param {string} [filters.status]     - "official" | "discovered" | "rejected"
+ */
+export function listClassificationConfig(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.configType) params.set('config_type', filters.configType);
+  if (filters.status) params.set('status', filters.status);
+  const qs = params.toString();
+  return get(`/admin/classification-config${qs ? '?' + qs : ''}`);
+}
+
+/** List only AI-discovered items pending review */
+export function listClassificationDiscoveries() {
+  return get('/admin/classification-config/discoveries');
+}
+
+/**
+ * Update a classification config item (accept / reject / redirect).
+ * @param {string} id        - Document ID (e.g. "cat_technical_support")
+ * @param {Object} updates
+ * @param {string} [updates.status]       - "official" | "rejected"
+ * @param {string} [updates.redirectTo]   - Value to redirect to
+ * @param {string} [updates.displayName]
+ * @param {string} [updates.description]
+ * @param {string[]} [updates.keywords]
+ */
+export function updateClassificationConfig(id, updates) {
+  return put(`/admin/classification-config/${encodeURIComponent(id)}`, updates);
 }

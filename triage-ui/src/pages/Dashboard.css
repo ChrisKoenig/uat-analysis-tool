@@ -117,8 +117,8 @@
 
 .dashboard-counts-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-md);
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-sm);
   margin-bottom: var(--space-lg);
 }
 
@@ -126,7 +126,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-lg);
+  padding: var(--space-sm) var(--space-xs);
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -142,20 +142,63 @@
   transform: translateY(-2px);
 }
 
+/* Pulse highlight for AI Discoveries when count > 0 */
+.dashboard-count-highlight {
+  border-color: var(--blue-text, #0d47a1);
+  background: var(--blue-bg, #e3f2fd);
+  animation: disco-pulse 2s ease-in-out infinite;
+}
+@keyframes disco-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(13, 71, 161, 0.2); }
+  50%      { box-shadow: 0 0 0 6px rgba(13, 71, 161, 0); }
+}
+
 .dashboard-count-icon {
-  font-size: 2rem;
-  margin-bottom: var(--space-xs);
+  font-size: 1.4rem;
+  margin-bottom: 2px;
 }
 
 .dashboard-count-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--primary);
 }
 
 .dashboard-count-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--text-light);
+}
+
+/* ── Validation Summary Card (inside health grid) ────────────── */
+
+.health-validation-card {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.health-validation-card .health-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.health-validation-summary {
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.health-validation-cta {
+  font-size: var(--font-size-xs);
+  color: var(--primary);
+  font-weight: 500;
+  margin-top: auto;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.health-validation-card:hover .health-validation-cta {
+  opacity: 1;
 }
 
 /* ── Warnings Card ───────────────────────────────────────────── */
@@ -278,9 +321,24 @@
 /* Component grid */
 .health-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
+}
+
+@media (max-width: 900px) {
+  .health-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .health-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-counts-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .health-component-card {

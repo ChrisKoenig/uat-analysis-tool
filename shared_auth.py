@@ -99,9 +99,11 @@ def _create_credential():
 
     # 2. Local dev: Quick check if Azure CLI is logged in (~0.5s vs ~10s timeout)
     try:
+        import sys
         result = subprocess.run(
             ["az", "account", "show"],
             capture_output=True, timeout=5,
+            shell=(sys.platform == "win32"),  # az is a .cmd on Windows
         )
         if result.returncode == 0:
             logger.info("[SharedAuth] Azure CLI is logged in — using CLI credential")

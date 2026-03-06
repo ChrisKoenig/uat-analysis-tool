@@ -76,6 +76,7 @@ the results back to ADO — with human review at the decision point.
 │                       │          │  /api/v1/classify    Standalone classify  │
 │                       │          │  /api/v1/admin/*     Corrections, signals, │
 │                       │          │                      weight tuning, health │
+│                       │          │  /api/v1/graph/*     Graph user lookup     │
 │                       │          │  /health             Health + Cosmos     │
 └───────────┬───────────┘          └──────────┬───────────────────────────────┘
             │                                  │
@@ -160,7 +161,7 @@ the results back to ADO — with human review at the decision point.
 │  │ DB: triage-      │  │ - OpenAI config  │  │ Deployments:     │            │
 │  │   management     │  │ - ADO PAT        │  │ - gpt-4o-standard│            │
 │  │                  │  │ - Storage keys   │  │ - text-embedding-│            │
-│  │ 11 containers:   │  │ - App Insights   │  │   3-large        │            │
+│  │ 13 containers:   │  │ - App Insights   │  │   3-large        │            │
 │  │ rules, actions,  │  │                  │  │                  │            │
 │  │ triggers, routes,│  │ Auth: Default    │  │ Auth: AAD only   │            │
 │  │ analysis-results,│  │ AzureCredential  │  │ (keys disabled)  │            │
@@ -169,6 +170,10 @@ the results back to ADO — with human review at the decision point.
 │  │ queue-cache,     │  │                  │  │                  │            │
 │  │ corrections,     │  │                  │  │                  │            │
 │  │ training-signals,│  │                  │  │                  │            │
+│  │ servicetree-     │  │                  │  │                  │            │
+│  │  catalog,        │  │                  │  │                  │            │
+│  │ classification-  │  │                  │  │                  │            │
+│  │  config,         │  │                  │  │                  │            │
 │  │ field-schema     │  │                  │  │                  │            │
 │  │                  │  │                  │  │                  │            │
 │  │ Auth: AAD only   │  │                  │  │                  │            │
@@ -229,6 +234,7 @@ the results back to ADO — with human review at the decision point.
 | Cache Manager | `cache_manager.py` | LLM Classifier |
 | Weight Tuner | `weight_tuner.py` | Pattern Analyzer (via active learning) |
 | ServiceTree Service | `servicetree_service.py` | Triage API (routing enrichment) |
+| Graph User Lookup | `graph_user_lookup.py` | Triage API (resolve email → displayName/jobTitle/department via Microsoft Graph) |
 
 ### Triage Engines (deterministic logic, no AI)
 
@@ -287,6 +293,8 @@ the results back to ADO — with human review at the decision point.
 | Eval History | `triage-ui/src/pages/EvalHistoryPage.jsx` | Past evaluation results |
 | Classify | `triage-ui/src/pages/ClassifyPage.jsx` | ~~Removed~~ — merged into Dashboard quick-classify |
 | Corrections | `triage-ui/src/pages/CorrectionsPage.jsx` | Corrective learning management |
+| Data Management | `triage-ui/src/pages/DataManagementPage.jsx` | Entity export/import with auto-backup |
+| Classification Config | `triage-ui/src/pages/ClassificationConfigPage.jsx` | Dynamic classification categories/intents/impacts — AI discovery review |
 | Health | `triage-ui/src/pages/HealthPage.jsx` | ~~Removed~~ — health indicator integrated into Dashboard |
 
 ---
@@ -615,7 +623,7 @@ resource group `rg-nonprod-aitriage`, North Central US.
 
 | Resource | Type | Key Detail |
 |----------|------|------------|
-| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 11 containers |
+| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 13 containers |
 | `kv-aitriage` | Key Vault | OpenAI, Cosmos, ADO secrets via MI |
 | `openai-aitriage-nonprod` | Azure OpenAI | gpt-4o-standard + text-embedding-3-large |
 | `TechRoB-Automation-DEV` | User-Assigned Managed Identity | Assigned to all 4 App Services |
@@ -643,6 +651,7 @@ Database: `triage-management`
 | `corrections` | `/id` | AI classification corrections (Cosmos-backed, migrated from JSON) |
 | `training-signals` | `/id` | Human resolutions of LLM/Pattern disagreements + computed weight adjustments |
 | `servicetree-catalog` | `/solutionArea` | Cached ServiceTree service catalog (offerings, services, routing metadata) |
+| `classification-config` | `/configType` | Dynamic classification categories, intents, and business-impact values (AI auto-discovery + admin review) |
 | `field-schema` | `/id` | Field Portal schema definitions |
 
 ---
@@ -674,6 +683,7 @@ C:\Projects\Hack\
 ├── corrections.json              ← Legacy correction file (migrated to Cosmos)
 ├── weight_tuner.py               ← Active learning: pattern weight adjustment batch
 ├── servicetree_service.py        ← ServiceTree BFF integration (catalog cache, fuzzy lookup, admin overrides)
+├── graph_user_lookup.py          ← Microsoft Graph user lookup (email → displayName/jobTitle/department)
 │
 ├── ─── CONFIGURATION ─────────────────────────────────
 ├── keyvault_config.py            ← Key Vault integration
@@ -711,7 +721,7 @@ C:\Projects\Hack\
 ├── ─── TRIAGE FRONTEND ───────────────────────────────
 ├── triage-ui/
 │   ├── src/
-│   │   ├── pages/                ← 13 page components (10 triage + classify, corrections, health)
+│   │   ├── pages/                ← 14 page components (Dashboard, Queue, Evaluate, Rules, Actions, Triggers, Routes, Teams, Validation, Audit, EvalHistory, Corrections, DataMgmt, ClassificationConfig)
 │   │   ├── components/           ← Shared UI components (incl. ServiceTreeRouting)
 │   │   ├── api/                  ← API client functions
 │   │   ├── App.jsx               ← Router + layout
@@ -790,8 +800,9 @@ npm run dev
 | Component | Notes |
 |-----------|-------|
 | Triage API (FastAPI :8009) | Full CRUD, evaluate, analyze, ADO integration |
-| React SPA (:3000) | 11 pages (ClassifyPage removed, HealthPage merged into Dashboard) |
-| Cosmos DB persistence | 12 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
+| React SPA (:3000) | 14 pages (incl. Data Management, Classification Config; ClassifyPage/HealthPage merged into Dashboard) |
+| Graph user lookup | Microsoft Graph integration — email → displayName/jobTitle/department, background prefetch + cache |
+| Cosmos DB persistence | 13 containers, AAD cross-tenant auth (dev) / MI auth (pre-prod) |
 | Hybrid Analysis Engine | Pattern + LLM + vectors + corrections |
 | Rules Engine (15 operators) | Full evaluation logic |
 | Trigger Engine (AND/OR/NOT) | Priority-ordered, first-match-wins |
@@ -805,6 +816,8 @@ npm run dev
 | Active learning feedback loop | Disagreement resolution UI, training signals, pattern weight tuning |
 | Health dashboard | Comprehensive component-by-component status |
 | ServiceTree routing | Catalog lookup, inline routing override, fuzzy match enrichment |
+| Dynamic classification config | Cosmos-backed categories/intents/impacts with 5-min cache, AI auto-discovery, admin review workflow |
+| Data management | Entity export/import with auto-backup, name-based upsert, dependency resolution |
 | Input Web App (:5003) | Legacy Flask UI |
 | Admin Portal (:8008) | Config management |
 | 7 Microservices (:8001-8007) | Independently deployable |
@@ -820,7 +833,7 @@ npm run dev
 | Key Vault secrets | Cosmos, OpenAI, ADO config stored in `kv-aitriage` |
 | MSAL SPA auth | `GCS-Triage-NonProd` app registration, Corp tenant |
 | Pre-prod OpenAI | `openai-aitriage-nonprod` with MI-based AAD auth |
-| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 12 containers, MI auth |
+| Pre-prod Cosmos DB | `cosmos-aitriage-nonprod`, 13 containers, MI auth |
 
 ### Planned / Not Yet Built
 
@@ -830,7 +843,7 @@ npm run dev
 | Analytics dashboard | Trends, accuracy, volume metrics |
 | Full automation mode | Trigger → route → ADO write without human review |
 | Container deployment | Docker images for each service (alternative to App Service) |
-| Classification tuning | Few-shot injection from training signals into LLM prompt (ENG-003 Step 4), dashboard agreement rate metric (ENG-003 Step 5) |
+| Classification tuning | Few-shot injection from training signals into LLM prompt (ENG-003 Step 4), dashboard agreement rate metric (ENG-003 Step 5). *Note: dynamic classification config (ENG-010) now handles runtime category/intent management; this item covers prompt-level tuning.* |
 | Copilot API plugin | Expose classify/search endpoints as Copilot agent skills |
 | Legacy UI retirement | Migrate remaining Flask pages to React, retire :5003/:8008 |
 | End-to-end pre-prod testing | Full 9-step field flow and triage workflow through App Services |

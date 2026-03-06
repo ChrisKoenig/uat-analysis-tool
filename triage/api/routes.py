@@ -1028,6 +1028,38 @@ async def get_analysis_engine_status():
         }
 
 
+# ── Graph User Lookup (FR-1998) ──────────────────────────────────────────
+
+@app.get("/api/v1/graph/user", tags=["Graph"])
+async def get_graph_user(email: str):
+    """
+    Look up user info from Microsoft Graph by email/UPN.
+
+    Returns displayName, jobTitle, and department for the given user.
+    The email can be a bare address (user@domain.com) or an ADO-style
+    identity string like "Display Name <user@domain.com>".
+    """
+    import re as _re
+    from graph_user_lookup import get_user_info
+
+    # Normalise ADO identity strings: "Display Name <email>" → email
+    clean = email.strip()
+    m = _re.search(r"<([^>]+)>", clean)
+    if m:
+        clean = m.group(1)
+
+    info = get_user_info(clean)
+    if not info:
+        raise HTTPException(status_code=404, detail=f"User not found: {clean}")
+
+    return {
+        "displayName": info.display_name,
+        "jobTitle": info.job_title,
+        "department": info.department,
+        "email": clean,
+    }
+
+
 @app.get("/api/v1/diagnostics", tags=["Health"])
 async def get_diagnostics():
     """

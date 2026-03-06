@@ -688,7 +688,15 @@ Delete is blocked if the entity is still referenced by other entities.
 | `GET` | `/admin/servicetree/overrides` | List all overrides |
 | `DELETE` | `/admin/servicetree/overrides/{key}` | Remove an override |
 
-**Total: 56 endpoints** (32 CRUD + 24 specialized)
+### Classification Config Admin API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/classification-config` | List all classification config items (filterable by `config_type`, `status`) |
+| `GET` | `/admin/classification-config/discoveries` | AI-discovered values only, sorted by `discoveredCount` DESC |
+| `PUT` | `/admin/classification-config/{id}` | Accept/reject/redirect a discovered value (update status, displayName, keywords, redirectTo) |
+
+**Total: 59 endpoints** (32 CRUD + 27 specialized)
 
 ---
 
@@ -706,6 +714,7 @@ Left navigation (sidebar):
 |---------|-------|
 | Operations | Dashboard, Queue, Evaluate |
 | Configuration | Rules, Triggers, Actions, Routes |
+| Management | Data Management, Classification |
 | System | Validation, Audit Log, Eval History |
 
 > **Design note:** The configuration nav order follows the compositional
@@ -725,6 +734,8 @@ Left navigation (sidebar):
 - **Confirm dialogs**: Safe delete with reference checking
 - **Status filter**: Filter entity lists by active/disabled/staged
 - **Test mode**: Enter work item ID → dry run without updating ADO
+- **Data Management**: Entity export/import with auto-backup, name-based upsert, dependency resolution
+- **Classification Config**: Dynamic categories/intents/impacts from Cosmos, AI auto-discovery review, accept/reject/redirect workflow
 
 ### Features (Planned)
 

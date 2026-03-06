@@ -26,10 +26,205 @@
 | 14 | FR-2005 | 2026-03-05 | *pending* | **Data Management UX improvements** — 6 fixes from user testing: (1) loading spinners/overlay during export, import, and preview; (2) smart dependency auto-selection on export — clicking a trigger auto-selects its rules/route, clicking a route auto-selects its actions; (3) new Backups tab to list/restore pre-import snapshots; (4) "Available in Audit Log" changed from inactive text to a real navigation link; (5) export result now shows the downloaded filename; (6) new backend endpoints for listing and retrieving backups. |
 | 15 | ENG-008 | 2026-03-05 | `e22e29c` | **ServiceTree routing integration — backend + UI inline edit** — Integrated ServiceTree BFF API for routing enrichment. New `servicetree_service.py` with 5-tier cache, fuzzy lookup, admin overrides. PATCH `/analysis/{id}/routing` endpoint for per-record inline corrections. `AnalysisResult` extended with 7 routing fields (serviceTreeMatch, serviceTreeOffering, solutionArea, csuDri, areaPathAdo, releaseManager, devContact). 6 admin catalog management endpoints. New `ServiceTreeRouting` React component (display/edit/compact modes) wired into QueuePage blade and EvaluatePage. `servicetree-catalog` Cosmos container. ServiceTree health dashboard component. |
 | 16 | ENG-009 | 2026-03-05 | `d142975` | **Dedicated ServiceTree tab + regional_availability intent fix** — (1) Moved ServiceTree from Overview/Decision tabs into a dedicated 🗂️ ServiceTree tab with visual routing flow (horizontal chain), grouped cards (Service Match, Routing Assignment, Contacts), inline editing, empty state with "Add Routing Manually", and override audit trail. Tab bar now 5 tabs: Overview / Analysis / Decision / ServiceTree / Correct & Reanalyze. (2) Fixed "Invalid Intent: regional_availability" error by adding `regional_availability` to `VALID_INTENTS` in `llm_classifier.py` and `IntentType` enum in `intelligent_context_analyzer.py`. |
+| 17 | ENG-010 | 2026-03-07 | *pending* | **Dynamic classification config — AI auto-discovery + admin review** — Replaced hardcoded classification lists in `llm_classifier.py` with Cosmos DB-backed dynamic config (`classification-config` container, partition key `/configType`). Categories, intents, and business-impact values loaded at runtime with 5-min cache (thread-safe). When the AI returns an unknown value, it is auto-recorded as "discovered" for admin review instead of raising ValueError. 3 new admin API endpoints (`GET /admin/classification-config`, `GET .../discoveries`, `PUT .../{id}`). New Classification Config page (filterable table, status badges, accept/reject/redirect workflow). Dashboard "AI Discoveries" count card with pulse animation. Seed migration script (`seed_classification_config.py`) for 40 initial documents (20 categories + 16 intents + 4 impacts). Total Cosmos containers: 13. Total API endpoints: 59. Total UI pages: 14. |
+| 18 | ENG-011 | 2026-03-05 | *pending* | **Dashboard UI improvements — compact count cards, validation health card, 3-column grid** — Redesigned Dashboard layout: count metric cards condensed to compact 5-across row, validation warnings promoted from a separate page into an inline health card with severity icons, health status grid changed to responsive 3-column layout (was 2-column). Improved information density and reduced need to navigate away from Dashboard. |
+| 19 | B0004 | 2026-03-05 | *pending* | **Bug fix — ServiceTree stats key mismatch (camelCase vs snake_case)** — `servicetree_service.py` `get_catalog_stats()` returned camelCase keys (`totalServices`, `totalOfferings`, etc.) but all 7 consumers in `admin_routes.py` expected snake_case (`total_services`, `total_offerings`). ServiceTree health dashboard showed 0 services despite 1439 being loaded. Fixed by changing `get_catalog_stats()` to return snake_case keys. |
+| 20 | B0005 | 2026-03-05 | *pending* | **Bug fix — Classification Config Cosmos ORDER BY BadRequest** — Two Cosmos queries in `admin_routes.py` used multi-field `ORDER BY` clauses (`ORDER BY c.configType, c.value` and `ORDER BY c.discoveredCount DESC`) which require composite indexes not defined on the container. Cosmos returned `(BadRequest) One of the input values is invalid`. Fixed by removing `ORDER BY` from Cosmos queries and sorting in Python instead. |
+| 21 | FR-2013 | 2026-03-05 | *pending* | **Routes page UX fixes — scrollable panels, truncated descriptions, reorder without save** — 4 fixes: (1) Routes list table scrolls at viewport height instead of pushing page infinitely. (2) RouteDesigner Available Actions and Route Actions panels cap at 420px with internal scroll. (3) Action detail text (operation/field/value) truncated with ellipsis + native tooltip on hover, action buttons pinned with `flex-shrink: 0`. (4) Critical bug: reorder (▲/▼) and remove (✕) buttons lacked `type="button"`, defaulting to `type="submit"` inside `<form>`, which triggered form submission on every click — user can now reorder freely and save explicitly. |
+| 22 | FR-1998 | 2026-03-05 | *pending* | **Graph user card in analysis blade + collapsible accordion sections** — Two improvements to the Queue page analysis detail blade: (1) New `GET /api/v1/graph/user?email=` endpoint surfaces Graph user data (displayName, jobTitle, department) in a Requestor card with avatar circle, integrated into the blade header. (2) Blade body refactored from linear scroll into collapsible accordion sections (Summary, Requestor, ServiceTree Routing, AI Reasoning, Pattern & Disagreement, Domain Entities, Metadata) — Domain Entities groups 7 tag types behind a single toggle with count badge, collapsed by default. Each section independently expandable/collapsible. |
+| 23 | B0006 | 2026-03-05 | *pending* | **Bug fix — SharedAuth AZ CLI not found on Windows** — `shared_auth.py` used `subprocess.run(["az", ...])` which raises `FileNotFoundError` on Windows because `az` is a `.cmd` file. Fixed by adding `shell=True` on Windows (`sys.platform == "win32"`), allowing the CLI credential path to work and preventing fallback to blocking interactive browser auth. |
+| 24 | B0007 | 2026-03-06 | *pending* | **Bug fix — Requestor card always empty (wrong ADO field)** — `System.CreatedBy` was a service account ("Action 360 Platform") on all queue items, so the Requestor card always showed "No requestor data available". The actual human requestor is in `Custom.Requestors` (email string) and `Custom.Requestor` (identity object). Fixed by adding these fields to the ADO batch fetch, preserving raw emails in hidden `_requestorEmail`/`_createdByEmail` fields, and updating the frontend email extraction chain: `Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → display name fallback. |
+| 25 | PERF-001 | 2026-03-06 | *pending* | **Performance — Background prefetch + cache for Graph user data** — Opening the analysis blade showed a 5-second "Loading requestor info..." spinner on every click, and re-clicking the same item re-fetched. Implemented: (1) `useRef(new Map())` cache keyed by email with `{ data, loading, promise }` entries persisting across blade open/close. (2) Background prefetch IIFE fires after queue load, extracting all unique requestor emails and calling `getGraphUser()` with 80 ms stagger. (3) Cache-first blade open logic: cache hit → instant display, prefetch in-flight → await existing promise, cache miss → on-demand fetch + cache. Total API endpoints: 60. |
 
 ---
 
 ## Change Detail
+
+### PERF-001 — Background Prefetch + Cache for Graph User Data
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** User feedback — 5-second latency on every blade open  
+**Status:** Built, awaiting deployment
+
+#### Problem
+
+Every time a user clicked an analysis blade on the Queue page, the frontend called `GET /api/v1/graph/user?email=` and waited ~5 seconds for the Microsoft Graph API response. Closing and re-opening the same item repeated the fetch. With 30+ items in the queue, this created a poor user experience.
+
+#### Solution — Three-Part Fix
+
+1. **`useRef(new Map())` cache** — A `graphCacheRef` stores email → `{ data, loading, promise }` entries. The cache lives in a ref (not state) so it persists across renders and blade open/close cycles without triggering re-renders.
+
+2. **Background prefetch after queue load** — After items are loaded into the queue, an IIFE extracts all unique requestor emails using the priority chain (`Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → `Custom.Requestor` → `System.CreatedBy`). For each unique email not already cached, it fires `api.getGraphUser(email)` with 80 ms stagger between requests to avoid hammering the API.
+
+3. **Cache-first blade open** — `handleAnalysisClick` checks the cache before fetching:
+   - **Cache hit** (data exists): instantly `setGraphUser(cached.data)`, no spinner
+   - **Prefetch in-flight** (promise exists): `setGraphUserLoading(true)`, awaits the existing promise
+   - **Cache miss**: creates a new entry, calls the API, caches the result
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | Replaced `useState(null)` for graphUser with `useRef(new Map())` cache; added prefetch IIFE in queue load effect; replaced `handleAnalysisClick` Graph fetch with 3-path cache-first logic |
+
+---
+
+### B0007 — Requestor Card Always Empty (Wrong ADO Field)
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Bug — blade showed "No requestor data available" on all items  
+**Status:** Fixed
+
+#### Symptom
+
+The Requestor card in the analysis blade always showed "No requestor data available" on every queue item, despite Graph user lookup working correctly when tested with a known email.
+
+#### Root Cause
+
+`System.CreatedBy` — the field used to extract the requestor email — was a service account ("Action 360 Platform") on all queue items, not a human user. The actual human requestor is stored in ADO custom fields:
+- `Custom.Requestors` — email string (e.g., `sujaypillai@microsoft.com`)
+- `Custom.Requestor` — identity object with `displayName`, `uniqueName`, `imageUrl`
+
+Neither field was included in the ADO batch fetch `fields` parameter.
+
+#### Fix — Two Parts
+
+1. **Backend** (`triage/services/ado_client.py`): Added `Custom.Requestor`, `Custom.Requestors`, and `System.CreatedBy` to the batch fetch `fields` list. After normalizing identity fields to displayName strings for table display, preserved raw emails in hidden fields: `_requestorEmail` (from `Custom.Requestor.uniqueName`) and `_createdByEmail` (from `System.CreatedBy.uniqueName`).
+
+2. **Frontend** (`QueuePage.jsx`): Updated email extraction to use a priority chain: `Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → `Custom.Requestor` → `System.CreatedBy` display name fallback.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/services/ado_client.py` | Backend | Added `Custom.Requestor`, `Custom.Requestors`, `System.CreatedBy` to fetch fields; preserved `_requestorEmail` and `_createdByEmail` hidden fields |
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | Updated requestor email extraction chain for blade + prefetch |
+
+---
+
+### FR-2013 — Routes Page UX Fixes
+
+**Date:** 2026-03-05  
+**Build ID:** *pending*  
+**Requested By:** Feature Request 2013 — user testing feedback  
+**Status:** Built, awaiting deployment
+
+#### Issues Addressed
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | Routes list grows infinitely when many routes exist, pushing page content down | Added `max-height: calc(100vh - 200px)` + `overflow-y: auto` to `.routes-list .card` |
+| 2 | Available Actions list in RouteDesigner overflows below the panel when many actions exist | Both Available Actions and Route Actions panels capped at `max-height: 420px` with `overflow-y: auto` on the list |
+| 3 | Long action descriptions (value text) push reorder/remove buttons off-screen to the right | Action detail text constrained to `max-width: 220px` with `text-overflow: ellipsis`; native `title` tooltip shows full text on hover; action buttons set to `flex-shrink: 0` |
+| 4 | Clicking reorder arrows (▲/▼) or remove (✕) immediately saves and closes the edit panel | Added `type="button"` to all interactive buttons in RouteDesigner — they previously defaulted to `type="submit"` inside the `<form>`, triggering form submission on every click |
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage-ui/src/components/routes/RouteDesigner.jsx` | Frontend | Added `type="button"` to Add, Move Up, Move Down, and Remove buttons; added `title` attribute to detail span for tooltip |
+| `triage-ui/src/components/routes/RouteDesigner.css` | Frontend | Added `max-height: 420px` + flex column layout to panels; `overflow-y: auto` on lists; `max-width: 220px` on detail text; `flex-shrink: 0` on action buttons |
+| `triage-ui/src/pages/RoutesPage.css` | Frontend | Added `max-height: calc(100vh - 200px)` + `overflow-y: auto` to `.routes-list .card` |
+
+---
+
+### FR-1998 — Graph User Card in Analysis Blade + Collapsible Sections
+
+**Date:** 2026-03-05  
+**Build ID:** *pending*  
+**Requested By:** Feature Request 1998 — blade usability + requestor context  
+**Status:** Built, awaiting deployment
+
+#### Summary
+
+Two improvements to the Queue page analysis detail blade:
+
+1. **Requestor card** — When the blade opens, the frontend calls the new `GET /api/v1/graph/user?email=` endpoint (which delegates to `graph_user_lookup.get_user_info`). The returned display name, job title, and department render in a card with an avatar circle (blue gradient, first-initial). The endpoint normalises ADO identity strings (`"Display Name <email>"` → email via regex).
+
+2. **Collapsible accordion sections** — The blade body, previously a long linear scroll, is now organized into independently collapsible sections:
+   - **Summary** (always visible) — Confidence ring + classification grid
+   - **Requestor** (open by default) — Graph user card
+   - **ServiceTree Routing** (open by default) — Existing `<ServiceTreeRouting>` component
+   - **AI Reasoning** (open by default) — Reasoning text
+   - **Pattern & Disagreement** (open when present) — Pattern comparison + ENG-003 disagreement UI
+   - **Domain Entities** (collapsed by default) — Groups 7 tag types (keyConcepts, azureServices, technologies, technicalAreas, regions, complianceFrameworks, detectedProducts) behind a single toggle with total count badge
+   - **Metadata** (always visible footer)
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/api/routes.py` | Backend | New `GET /api/v1/graph/user?email=` endpoint — normalises ADO identity strings, calls `graph_user_lookup.get_user_info`, returns `{displayName, jobTitle, department, email}` or 404 |
+| `triage-ui/src/api/triageApi.js` | Frontend | New `getGraphUser(email)` function in Graph User Lookup section |
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | Added `graphUser`/`graphUserLoading`/`collapsedSections` state + `toggleSection` helper; modified `handleAnalysisClick` to fetch Graph user; replaced entire blade body with collapsible accordion structure |
+| `triage-ui/src/pages/QueuePage.css` | Frontend | ~140 lines: `.blade-accordion` toggle/chevron/badge/body, `.requestor-card`/avatar/info, `.blade-entities-grid`, dark-mode variants |
+
+---
+
+### B0006 — SharedAuth AZ CLI Not Found on Windows
+
+**Date:** 2026-03-05  
+**Build ID:** *pending*  
+**Requested By:** Bug — server hung on startup  
+**Status:** Fixed
+
+#### Root Cause
+
+`shared_auth.py` used `subprocess.run(["az", "account", "show"])` to probe Azure CLI availability. On Windows, `az` is a `.cmd` batch file (`az.cmd`), not an executable. Without `shell=True`, Python's `subprocess` raises `FileNotFoundError` (`[WinError 2]`). The code caught this as a non-fatal skip, falling through to `InteractiveBrowserCredential` which blocks the event loop waiting for browser interaction — hanging the single uvicorn worker and making all HTTP requests time out indefinitely.
+
+#### Fix
+
+Added `shell=(sys.platform == "win32")` to the `subprocess.run()` call so Windows resolves `az.cmd` through the shell. Azure CLI credential now works on Windows, avoiding the blocking browser fallback.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `shared_auth.py` | Backend | Added `shell=True` on Windows for `az` subprocess call |
+
+---
+
+### ENG-010 — Dynamic Classification Config
+
+**Date:** 2026-03-07  
+**Build ID:** *pending*  
+**Requested By:** System design — hardcoded lists prevented AI from growing  
+**Status:** Built, awaiting deployment + seed migration
+
+#### Problem
+
+`llm_classifier.py` had hardcoded `VALID_CATEGORIES`, `VALID_INTENTS`, and `VALID_BUSINESS_IMPACTS` lists. When GPT-4o returned a value not in these lists (e.g., `regional_availability`), a `ValueError` was raised and analysis failed. Adding new values required a code change and redeployment.
+
+#### Solution
+
+Dynamic classification config stored in Cosmos DB. The system loads categories/intents/impacts at runtime with a 5-minute cache. Unknown AI values are automatically recorded as "discovered" items for admin review, rather than blocking analysis.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/config/cosmos_config.py` | Modified | Added `classification-config` container definition (13 total) |
+| `llm_classifier.py` | Modified | Major refactor — dynamic loading, 5-min cache, AI auto-discovery, no more ValueError |
+| `triage/api/admin_routes.py` | Modified | 3 new endpoints: list config, list discoveries, update config item |
+| `seed_classification_config.py` | New | One-time seed migration (40 docs: 20 cats + 16 intents + 4 impacts) |
+| `triage-ui/src/pages/ClassificationConfigPage.jsx` | New | Full management page with filters, badges, accept/reject/redirect |
+| `triage-ui/src/pages/ClassificationConfigPage.css` | New | Styles for classification config page |
+| `triage-ui/src/pages/Dashboard.jsx` | Modified | AI Discoveries count card with pulse animation |
+| `triage-ui/src/pages/Dashboard.css` | Modified | `.dashboard-count-highlight` + `disco-pulse` keyframe |
+| `triage-ui/src/api/triageApi.js` | Modified | 3 new API functions for classification config |
+| `triage-ui/src/App.jsx` | Modified | Lazy import + route for `/classification` |
+| `triage-ui/src/utils/constants.js` | Modified | 🧠 Classification nav item |
+
+#### Deployment Steps
+
+1. Deploy updated Triage API (backend changes)
+2. Run seed migration: `python seed_classification_config.py` (creates `classification-config` container + 40 docs)
+3. Deploy updated Triage UI (frontend changes)
+4. Verify: Dashboard shows "AI Discoveries: 0", Classification Config page lists 40 official items
+
+---
 
 ### FR-2005 (UX) — Data Management UX Improvements
 
@@ -518,6 +713,8 @@ The project already has a **Corrections** system (Phase 1 — Corrective Learnin
 | 1 | B0001 | 2026-03-04 | ENG-003 | *pending* | **False disagreement — enum vs string comparison** — Agreement check always returned `False` because pattern engine returns an `IssueCategory` enum (e.g., `IssueCategory.SUPPORT_ESCALATION`) while the LLM classifier returns a plain string (`"support_escalation"`). Python `==` between enum and string is always `False`. Also, original check required both category AND intent to match, but only category matters for triage routing. |
 | 2 | B0002 | 2026-03-06 | ENG-003 | *pending* | **Hybrid source not recognized as LLM** — `isLLM` check in `EvaluatePage.jsx` only matched `"llm"`, so `"hybrid"` source items appeared as pattern-only. Fixed to include `"hybrid"`. |
 | 3 | B0003 | 2026-03-06 | ENG-003 | *pending* | **Comparison crash on pattern-only fallback** — When LLM unavailable, `agreement` is `null`. UI assumed boolean, crashing on Pattern Engine Comparison. Fixed in both backend (`agreement=None`) and frontend (null guard). |
+| 4 | B0004 | 2026-03-05 | ENG-008 | *pending* | **ServiceTree stats key mismatch (camelCase vs snake_case)** — `get_catalog_stats()` returned camelCase keys but 7 consumers expected snake_case. Dashboard showed 0 services despite 1439 loaded. Fixed to return snake_case. |
+| 5 | B0005 | 2026-03-05 | ENG-010 | *pending* | **Classification Config Cosmos ORDER BY BadRequest** — Multi-field `ORDER BY` clauses in Cosmos queries required undefined composite indexes. Cosmos returned BadRequest. Fixed by removing ORDER BY and sorting in Python. |
 
 ### B0001 — False Disagreement: Enum vs String Category Comparison
 
@@ -599,6 +796,94 @@ Two-part fix:
 |------|-------------|
 | `hybrid_context_analyzer.py` | Added `agreement=None` in pattern-only fallback result |
 | `triage-ui/src/pages/EvaluatePage.jsx` | Gated Pattern Engine Comparison on non-null `agreement` |
+
+---
+
+### B0004 — ServiceTree Stats Key Mismatch (camelCase vs snake_case)
+
+**Date:** 2026-03-05  
+**Related CR:** ENG-008 (ServiceTree Routing Integration)  
+**Found During:** ServiceTree catalog refresh testing  
+**Severity:** Medium — Dashboard showed 0 services despite 1439 being loaded, ServiceTree health appeared degraded  
+**Status:** Fixed
+
+#### Symptom
+
+After refreshing the ServiceTree catalog (which successfully loaded 1439 services across 123 offerings from the BFF API), the admin dashboard health components showed `total_services: 0` and `total_offerings: 0`. The ServiceTree section appeared empty despite data being present in Cosmos.
+
+#### Root Cause
+
+`servicetree_service.py` `get_catalog_stats()` returned camelCase keys (`totalServices`, `totalOfferings`, `solutionAreas`, `areaPaths`, `cacheAge`, `cacheFile`), but all 7 consumers in `admin_routes.py` accessed them using snake_case (`total_services`, `total_offerings`, `solution_areas`, `area_paths`, `cache_age`, `cache_file`). Python `dict.get()` returned `0`/`None` for all lookups.
+
+#### Fix
+
+Changed `get_catalog_stats()` to return snake_case keys matching the consumer expectations.
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `servicetree_service.py` | `get_catalog_stats()` return dict keys changed from camelCase to snake_case |
+
+---
+
+### B0005 — Classification Config Cosmos ORDER BY BadRequest
+
+**Date:** 2026-03-05  
+**Related CR:** ENG-010 (Dynamic Classification Config)  
+**Found During:** Classification Config page testing  
+**Severity:** High — Entire Classification Config page returned 500 error, no config data visible  
+**Status:** Fixed
+
+#### Symptom
+
+Navigating to the Classification Config page showed a BadRequest error. The API returned HTTP 500 with Cosmos error: `(BadRequest) One of the input values is invalid`.
+
+#### Root Cause
+
+Two Cosmos queries in `admin_routes.py` used `ORDER BY` clauses that require composite indexes:
+1. `SELECT * FROM c WHERE ... ORDER BY c.configType, c.value` — multi-field ORDER BY requires a composite index on `(configType ASC, value ASC)`
+2. `SELECT * FROM c WHERE c.status = 'discovered' ORDER BY c.discoveredCount DESC` — ORDER BY on a non-partition-key field requires a range index in the correct direction
+
+Neither composite index was defined on the `classification-config` container.
+
+#### Fix
+
+Removed `ORDER BY` from both Cosmos queries and replaced with Python-side sorting:
+1. Query 1: `raw.sort(key=lambda d: (d.get("configType", ""), d.get("value", "")))`
+2. Query 2: `raw.sort(key=lambda d: d.get("discoveredCount", 0), reverse=True)`
+
+#### Files Modified
+
+| File | Description |
+|------|-------------|
+| `triage/api/admin_routes.py` | Removed ORDER BY from 2 Cosmos queries; added Python `list.sort()` after query execution |
+
+---
+
+### ENG-011 — Dashboard UI Improvements (Compact Cards + Health Grid)
+
+**Date:** 2026-03-05  
+**Build ID:** *pending*  
+**Requested By:** User feedback (information density)  
+**Status:** Built, awaiting deployment
+
+#### Problem
+
+The Dashboard count metric cards occupied too much vertical space (one per row). Validation warnings required navigating to a separate page. The health status grid was 2-column, leaving wasted horizontal space.
+
+#### Solution
+
+1. **Compact count cards**: Metric cards (Total Analyses, Rules, Triggers, Routes, Actions, AI Discoveries) condensed into a 5-across compact row.
+2. **Validation warnings as health card**: Top 5 validation warnings promoted from the Validation page into an inline health card on the Dashboard with severity icons (⚠️ warning, ℹ️ info).
+3. **3-column health grid**: Health status cards arranged in a responsive 3-column grid layout.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage-ui/src/pages/Dashboard.jsx` | Frontend | Compact count card layout, validation warnings health card, 3-column grid structure |
+| `triage-ui/src/pages/Dashboard.css` | Frontend | `.dashboard-count-row` compact layout, `.dashboard-health-grid` 3-column responsive grid, validation card styles |
 
 ---
 

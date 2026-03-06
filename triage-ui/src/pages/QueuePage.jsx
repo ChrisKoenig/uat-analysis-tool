@@ -176,6 +176,21 @@ export default function QueuePage({ addToast }) {
   const [analysisDetailId, setAnalysisDetailId] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // Graph user info cache + blade state (FR-1998)
+  // Cache: email → { data, loading, promise } — persists across blade open/close
+  const graphCacheRef = useRef(new Map());
+  const [graphUser, setGraphUser] = useState(null);       // current blade's resolved user
+  const [graphUserLoading, setGraphUserLoading] = useState(false);
+
+  // Collapsible blade section state — keys that are currently collapsed
+  const [collapsedSections, setCollapsedSections] = useState(new Set(['entities']));
+  const toggleSection = (key) =>
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
   // Analysis progress panel state
   const [analysisProgress, setAnalysisProgress] = useState(null);
   // Shape: { total, completed, failed, currentId, items: [ { id, title, status, category, intent, confidence, source, error } ] }
@@ -455,6 +470,32 @@ export default function QueuePage({ addToast }) {
       if (data.failedIds?.length > 0) {
         addToast?.(`${data.failedIds.length} items failed to load`, 'warning');
       }
+
+      // FR-1998: Prefetch Graph user data for all requestor emails in background
+      (() => {
+        const cache = graphCacheRef.current;
+        const emails = new Set();
+        for (const it of loadedItems) {
+          const em = it.fields?.['Custom.Requestors']
+            || it.fields?.['_requestorEmail']
+            || it.fields?.['_createdByEmail']
+            || it.fields?.['Custom.Requestor']
+            || it.fields?.['System.CreatedBy']
+            || '';
+          if (em && !cache.has(em)) emails.add(em);
+        }
+        // Fire-and-forget: fetch each unique email with slight stagger to avoid burst
+        let delay = 0;
+        for (const email of emails) {
+          cache.set(email, { data: null, loading: true, promise: null });
+          const entry = cache.get(email);
+          entry.promise = new Promise(resolve => setTimeout(resolve, delay))
+            .then(() => api.getGraphUser(email))
+            .then(info => { entry.data = info; entry.loading = false; })
+            .catch(() => { entry.data = null; entry.loading = false; });
+          delay += 80; // 80ms stagger between requests
+        }
+      })();
 
       // Step 2: Details loaded (batch fetch happened server-side)
       updateStep(1, {
@@ -920,13 +961,49 @@ export default function QueuePage({ addToast }) {
     if (analysisDetailId === workItemId) {
       setAnalysisDetailId(null);
       setAnalysisDetail(null);
+      setGraphUser(null);
       return;
     }
     setAnalysisDetailId(workItemId);
     setLoadingDetail(true);
+    setGraphUser(null);
+    setGraphUserLoading(false);
     try {
       const detail = await api.getAnalysisDetail(workItemId);
       setAnalysisDetail(detail);
+
+      // FR-1998: Resolve Graph user from cache or fetch on-demand
+      const item = items.find(i => i.id === workItemId);
+      const email = item?.fields?.['Custom.Requestors']
+        || item?.fields?.['_requestorEmail']
+        || item?.fields?.['_createdByEmail']
+        || item?.fields?.['Custom.Requestor']
+        || item?.fields?.['System.CreatedBy']
+        || '';
+      if (email) {
+        const cache = graphCacheRef.current;
+        const cached = cache.get(email);
+        if (cached?.data) {
+          // Cache hit — instant
+          setGraphUser(cached.data);
+          setGraphUserLoading(false);
+        } else if (cached?.promise) {
+          // Prefetch in progress — wait for it
+          setGraphUserLoading(true);
+          cached.promise
+            .then(() => setGraphUser(cached.data))
+            .finally(() => setGraphUserLoading(false));
+        } else {
+          // Cache miss — fetch on-demand and cache
+          setGraphUserLoading(true);
+          const entry = { data: null, loading: true, promise: null };
+          cache.set(email, entry);
+          entry.promise = api.getGraphUser(email)
+            .then(info => { entry.data = info; entry.loading = false; setGraphUser(info); })
+            .catch(() => { entry.data = null; entry.loading = false; setGraphUser(null); })
+            .finally(() => setGraphUserLoading(false));
+        }
+      }
     } catch {
       setAnalysisDetail(null);
       addToast?.(`No analysis found for #${workItemId}`, 'info');
@@ -1569,11 +1646,11 @@ export default function QueuePage({ addToast }) {
 
       {/* Analysis Detail Panel (slide-out) */}
       {analysisDetailId && (
-        <div className="analysis-detail-overlay" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); }}>
+        <div className="analysis-detail-overlay" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); setGraphUser(null); }}>
           <div className="analysis-detail-panel" onClick={(e) => e.stopPropagation()}>
             <div className="analysis-detail-header">
               <h3>Analysis Details — #{analysisDetailId}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setAnalysisDetailId(null); setAnalysisDetail(null); setGraphUser(null); }}>
                 {'✕'}
               </button>
             </div>
@@ -1581,9 +1658,10 @@ export default function QueuePage({ addToast }) {
               <div className="analysis-detail-loading">Loading analysis...</div>
             ) : analysisDetail ? (
               <div className="analysis-detail-body">
-                {/* FR-1999: Blade uses linear layout (tabs tested & reverted).
-                    All sections always render — empty fields show "No data" placeholder
-                    so the layout is consistent across LLM-analyzed and pattern-only items. */}
+                {/* FR-1999 + FR-1998: Collapsible accordion sections.
+                    Summary (confidence + classification) always visible.
+                    Remaining sections are collapsible to reduce scrolling.
+                    Requestor card powered by Graph user lookup (FR-1998). */}
 
                 {/* AI Availability Warning */}
                 {analysisDetail.aiAvailable === false && (
@@ -1592,6 +1670,8 @@ export default function QueuePage({ addToast }) {
                     {analysisDetail.aiError && <span className="ai-error-detail"> ({analysisDetail.aiError})</span>}
                   </div>
                 )}
+
+                {/* ═══ SUMMARY (always visible) ═══ */}
 
                 {/* Quality Score (prominent) */}
                 <section className="analysis-section analysis-quality-section">
@@ -1645,185 +1725,260 @@ export default function QueuePage({ addToast }) {
                   </div>
                 </section>
 
-                {/* ServiceTree Routing (inline-editable) */}
-                <ServiceTreeRouting
-                  detail={analysisDetail}
-                  workItemId={analysisDetailId}
-                  onSaved={(updatedFields) => {
-                    setAnalysisDetail(prev => ({ ...prev, ...updatedFields }));
-                  }}
-                />
-
-                {/* AI Reasoning */}
-                <section className="analysis-section">
-                  <h4>{(analysisDetail.source || '').includes('llm') || (analysisDetail.source || '').includes('hybrid')
-                    ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</h4>
-                  {analysisDetail.reasoning
-                    ? <p className="analysis-summary-text" style={{ whiteSpace: 'pre-wrap' }}>
-                        {typeof analysisDetail.reasoning === 'object'
-                          ? JSON.stringify(analysisDetail.reasoning, null, 2)
-                          : analysisDetail.reasoning}
-                      </p>
-                    : <p className="no-data">No data</p>}
-                </section>
-
-                {/* Pattern Comparison */}
-                {analysisDetail.patternCategory && (
-                  <section className="analysis-section">
-                    <h4>📊 Pattern Engine Comparison</h4>
-                    <div className="analysis-field-grid">
-                      <div className="analysis-field">
-                        <label>Pattern Category</label>
-                        <span className="queue-badge analysis-category-badge">{(analysisDetail.patternCategory || '').replace(/_/g, ' ')}</span>
-                      </div>
-                      <div className="analysis-field">
-                        <label>Pattern Confidence</label>
-                        <span>{((analysisDetail.patternConfidence || 0) * 100).toFixed(0)}%</span>
-                      </div>
-                      <div className="analysis-field">
-                        <label>Agreement</label>
-                        <span>{analysisDetail.agreement ? '✅ LLM & Pattern agree' : '⚠️ Disagreement'}</span>
-                      </div>
+                {/* ═══ REQUESTOR (FR-1998 — collapsible, open by default) ═══ */}
+                <div className={`blade-accordion ${collapsedSections.has('requestor') ? 'collapsed' : ''}`}>
+                  <button type="button" className="blade-accordion-toggle" onClick={() => toggleSection('requestor')}>
+                    <span className="blade-accordion-chevron">{collapsedSections.has('requestor') ? '▸' : '▾'}</span>
+                    <h4>👤 Requestor</h4>
+                  </button>
+                  {!collapsedSections.has('requestor') && (
+                    <div className="blade-accordion-body">
+                      {graphUserLoading ? (
+                        <p className="no-data">Loading requestor info…</p>
+                      ) : graphUser ? (
+                        <div className="requestor-card">
+                          <div className="requestor-avatar">{(graphUser.displayName || '?')[0].toUpperCase()}</div>
+                          <div className="requestor-info">
+                            <span className="requestor-name">{graphUser.displayName}</span>
+                            <span className="requestor-detail">{graphUser.jobTitle}</span>
+                            <span className="requestor-detail">{graphUser.department}</span>
+                            {graphUser.email && <span className="requestor-email">{graphUser.email}</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="no-data">No requestor data available</p>
+                      )}
                     </div>
-                  </section>
+                  )}
+                </div>
+
+                {/* ═══ SERVICETREE ROUTING (collapsible, open by default) ═══ */}
+                <div className={`blade-accordion ${collapsedSections.has('routing') ? 'collapsed' : ''}`}>
+                  <button type="button" className="blade-accordion-toggle" onClick={() => toggleSection('routing')}>
+                    <span className="blade-accordion-chevron">{collapsedSections.has('routing') ? '▸' : '▾'}</span>
+                    <h4>🌳 ServiceTree Routing</h4>
+                  </button>
+                  {!collapsedSections.has('routing') && (
+                    <div className="blade-accordion-body">
+                      <ServiceTreeRouting
+                        detail={analysisDetail}
+                        workItemId={analysisDetailId}
+                        onSaved={(updatedFields) => {
+                          setAnalysisDetail(prev => ({ ...prev, ...updatedFields }));
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* ═══ AI REASONING (collapsible, open by default) ═══ */}
+                <div className={`blade-accordion ${collapsedSections.has('reasoning') ? 'collapsed' : ''}`}>
+                  <button type="button" className="blade-accordion-toggle" onClick={() => toggleSection('reasoning')}>
+                    <span className="blade-accordion-chevron">{collapsedSections.has('reasoning') ? '▸' : '▾'}</span>
+                    <h4>{(analysisDetail.source || '').includes('llm') || (analysisDetail.source || '').includes('hybrid')
+                      ? '🧠 AI Classification Reasoning' : '🧠 Classification Reasoning'}</h4>
+                  </button>
+                  {!collapsedSections.has('reasoning') && (
+                    <div className="blade-accordion-body">
+                      {analysisDetail.reasoning
+                        ? <p className="analysis-summary-text" style={{ whiteSpace: 'pre-wrap' }}>
+                            {typeof analysisDetail.reasoning === 'object'
+                              ? JSON.stringify(analysisDetail.reasoning, null, 2)
+                              : analysisDetail.reasoning}
+                          </p>
+                        : <p className="no-data">No data</p>}
+                    </div>
+                  )}
+                </div>
+
+                {/* ═══ PATTERN & DISAGREEMENT (collapsible, open by default when present) ═══ */}
+                {analysisDetail.patternCategory && (
+                  <div className={`blade-accordion ${collapsedSections.has('pattern') ? 'collapsed' : ''}`}>
+                    <button type="button" className="blade-accordion-toggle" onClick={() => toggleSection('pattern')}>
+                      <span className="blade-accordion-chevron">{collapsedSections.has('pattern') ? '▸' : '▾'}</span>
+                      <h4>📊 Pattern Comparison</h4>
+                      {!analysisDetail.agreement && <span className="blade-accordion-badge badge-warn">Disagreement</span>}
+                    </button>
+                    {!collapsedSections.has('pattern') && (
+                      <div className="blade-accordion-body">
+                        <div className="analysis-field-grid">
+                          <div className="analysis-field">
+                            <label>Pattern Category</label>
+                            <span className="queue-badge analysis-category-badge">{(analysisDetail.patternCategory || '').replace(/_/g, ' ')}</span>
+                          </div>
+                          <div className="analysis-field">
+                            <label>Pattern Confidence</label>
+                            <span>{((analysisDetail.patternConfidence || 0) * 100).toFixed(0)}%</span>
+                          </div>
+                          <div className="analysis-field">
+                            <label>Agreement</label>
+                            <span>{analysisDetail.agreement ? '✅ LLM & Pattern agree' : '⚠️ Disagreement'}</span>
+                          </div>
+                        </div>
+
+                        {/* ENG-003: Disagreement Resolution */}
+                        {!analysisDetail.agreement && analysisDetailId && (() => {
+                          const ds = getBladeDs(analysisDetailId);
+                          if (ds.submitted) {
+                            return (
+                              <section className="analysis-section" style={{ background: '#f0faf0', borderRadius: 8, padding: 12, marginTop: 12 }}>
+                                <h4>✅ Training Signal Submitted</h4>
+                                <p className="no-data" style={{ color: '#555' }}>
+                                  You selected <strong>{ds.choice === 'llm' ? 'LLM' : ds.choice === 'pattern' ? 'Pattern' : 'Neither'}</strong>.
+                                </p>
+                              </section>
+                            );
+                          }
+                          return (
+                            <section className="analysis-section" style={{ border: '2px solid #e67e22', borderRadius: 8, padding: 12, background: '#fef9f3', marginTop: 12 }}>
+                              <h4>🎓 Resolve Disagreement</h4>
+                              <p style={{ margin: '4px 0 10px', color: '#555', fontSize: 13 }}>
+                                LLM says <strong>{(analysisDetail.category || '').replace(/_/g, ' ')}</strong>,
+                                Pattern says <strong>{(analysisDetail.patternCategory || '').replace(/_/g, ' ')}</strong>.
+                                Which is correct?
+                              </p>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <button
+                                  className={`btn btn-sm ${ds.choice === 'llm' ? 'btn-primary' : 'btn-ghost'}`}
+                                  onClick={() => updateBladeDs(analysisDetailId, { choice: 'llm' })}
+                                  disabled={ds.submitting}
+                                >🧠 LLM</button>
+                                <button
+                                  className={`btn btn-sm ${ds.choice === 'pattern' ? 'btn-primary' : 'btn-ghost'}`}
+                                  onClick={() => updateBladeDs(analysisDetailId, { choice: 'pattern' })}
+                                  disabled={ds.submitting}
+                                >📊 Pattern</button>
+                                <button
+                                  className={`btn btn-sm ${ds.choice === 'neither' ? 'btn-primary' : 'btn-ghost'}`}
+                                  onClick={() => updateBladeDs(analysisDetailId, { choice: 'neither' })}
+                                  disabled={ds.submitting}
+                                >❌ Neither</button>
+                              </div>
+                              {ds.choice === 'neither' && (
+                                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Correct category..."
+                                    value={ds.neitherCategory}
+                                    onChange={(e) => updateBladeDs(analysisDetailId, { neitherCategory: e.target.value })}
+                                    style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, width: 160 }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Correct intent..."
+                                    value={ds.neitherIntent}
+                                    onChange={(e) => updateBladeDs(analysisDetailId, { neitherIntent: e.target.value })}
+                                    style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, width: 160 }}
+                                  />
+                                </div>
+                              )}
+                              {ds.choice && (
+                                <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Notes (optional)..."
+                                    value={ds.notes}
+                                    onChange={(e) => updateBladeDs(analysisDetailId, { notes: e.target.value })}
+                                    style={{ flex: 1, padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                                    disabled={ds.submitting}
+                                  />
+                                  <button
+                                    className="btn btn-sm btn-primary"
+                                    onClick={() => handleBladeSubmitSignal(analysisDetailId)}
+                                    disabled={ds.submitting || (ds.choice === 'neither' && !ds.neitherCategory)}
+                                  >
+                                    {ds.submitting ? '...' : 'Submit'}
+                                  </button>
+                                </div>
+                              )}
+                            </section>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                {/* ENG-003: Disagreement Resolution */}
-                {analysisDetail.patternCategory && !analysisDetail.agreement && analysisDetailId && (() => {
-                  const ds = getBladeDs(analysisDetailId);
-                  if (ds.submitted) {
-                    return (
-                      <section className="analysis-section" style={{ background: '#f0faf0', borderRadius: 8, padding: 12 }}>
-                        <h4>✅ Training Signal Submitted</h4>
-                        <p className="no-data" style={{ color: '#555' }}>
-                          You selected <strong>{ds.choice === 'llm' ? 'LLM' : ds.choice === 'pattern' ? 'Pattern' : 'Neither'}</strong>.
-                        </p>
-                      </section>
-                    );
-                  }
-                  return (
-                    <section className="analysis-section" style={{ border: '2px solid #e67e22', borderRadius: 8, padding: 12, background: '#fef9f3' }}>
-                      <h4>🎓 Resolve Disagreement</h4>
-                      <p style={{ margin: '4px 0 10px', color: '#555', fontSize: 13 }}>
-                        LLM says <strong>{(analysisDetail.category || '').replace(/_/g, ' ')}</strong>,
-                        Pattern says <strong>{(analysisDetail.patternCategory || '').replace(/_/g, ' ')}</strong>.
-                        Which is correct?
-                      </p>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button
-                          className={`btn btn-sm ${ds.choice === 'llm' ? 'btn-primary' : 'btn-ghost'}`}
-                          onClick={() => updateBladeDs(analysisDetailId, { choice: 'llm' })}
-                          disabled={ds.submitting}
-                        >🧠 LLM</button>
-                        <button
-                          className={`btn btn-sm ${ds.choice === 'pattern' ? 'btn-primary' : 'btn-ghost'}`}
-                          onClick={() => updateBladeDs(analysisDetailId, { choice: 'pattern' })}
-                          disabled={ds.submitting}
-                        >📊 Pattern</button>
-                        <button
-                          className={`btn btn-sm ${ds.choice === 'neither' ? 'btn-primary' : 'btn-ghost'}`}
-                          onClick={() => updateBladeDs(analysisDetailId, { choice: 'neither' })}
-                          disabled={ds.submitting}
-                        >❌ Neither</button>
+                {/* ═══ DOMAIN ENTITIES (collapsible, collapsed by default) ═══ */}
+                <div className={`blade-accordion ${collapsedSections.has('entities') ? 'collapsed' : ''}`}>
+                  <button type="button" className="blade-accordion-toggle" onClick={() => toggleSection('entities')}>
+                    <span className="blade-accordion-chevron">{collapsedSections.has('entities') ? '▸' : '▾'}</span>
+                    <h4>🏷️ Domain Entities</h4>
+                    {(() => {
+                      const total = (analysisDetail.keyConcepts?.length || 0)
+                        + (analysisDetail.azureServices?.length || 0)
+                        + (analysisDetail.technologies?.length || 0)
+                        + (analysisDetail.technicalAreas?.length || 0)
+                        + (analysisDetail.regions?.length || 0)
+                        + (analysisDetail.complianceFrameworks?.length || 0)
+                        + (analysisDetail.detectedProducts?.length || 0);
+                      return total > 0
+                        ? <span className="blade-accordion-badge">{total} tags</span>
+                        : null;
+                    })()}
+                  </button>
+                  {!collapsedSections.has('entities') && (
+                    <div className="blade-accordion-body blade-entities-grid">
+                      {/* Key Concepts */}
+                      <div className="entity-group">
+                        <label>Key Concepts</label>
+                        {analysisDetail.keyConcepts?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.keyConcepts.map((c, i) => <span key={i} className="analysis-tag tag-concept">{c}</span>)}</div>
+                          : <span className="no-data">None</span>}
                       </div>
-                      {ds.choice === 'neither' && (
-                        <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <input
-                            type="text"
-                            placeholder="Correct category..."
-                            value={ds.neitherCategory}
-                            onChange={(e) => updateBladeDs(analysisDetailId, { neitherCategory: e.target.value })}
-                            style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, width: 160 }}
-                          />
-                          <input
-                            type="text"
-                            placeholder="Correct intent..."
-                            value={ds.neitherIntent}
-                            onChange={(e) => updateBladeDs(analysisDetailId, { neitherIntent: e.target.value })}
-                            style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, width: 160 }}
-                          />
-                        </div>
-                      )}
-                      {ds.choice && (
-                        <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input
-                            type="text"
-                            placeholder="Notes (optional)..."
-                            value={ds.notes}
-                            onChange={(e) => updateBladeDs(analysisDetailId, { notes: e.target.value })}
-                            style={{ flex: 1, padding: '3px 8px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
-                            disabled={ds.submitting}
-                          />
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={() => handleBladeSubmitSignal(analysisDetailId)}
-                            disabled={ds.submitting || (ds.choice === 'neither' && !ds.neitherCategory)}
-                          >
-                            {ds.submitting ? '...' : 'Submit'}
-                          </button>
-                        </div>
-                      )}
-                    </section>
-                  );
-                })()}
 
-                {/* Key Concepts */}
-                <section className="analysis-section">
-                  <h4>Key Concepts</h4>
-                  {analysisDetail.keyConcepts?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.keyConcepts.map((c, i) => <span key={i} className="analysis-tag tag-concept">{c}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
+                      {/* Azure & Modern Work Services */}
+                      <div className="entity-group">
+                        <label>Azure & Modern Work Services</label>
+                        {analysisDetail.azureServices?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag tag-service">{s}</span>)}</div>
+                          : <span className="no-data">None</span>}
+                      </div>
 
-                {/* Azure & Modern Work Services */}
-                <section className="analysis-section">
-                  <h4>Azure & Modern Work Services</h4>
-                  {analysisDetail.azureServices?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.azureServices.map((s, i) => <span key={i} className="analysis-tag tag-service">{s}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
+                      {/* Technologies */}
+                      <div className="entity-group">
+                        <label>Technologies</label>
+                        {analysisDetail.technologies?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag tag-tech">{t}</span>)}</div>
+                          : <span className="no-data">None</span>}
+                      </div>
 
-                {/* Technologies */}
-                <section className="analysis-section">
-                  <h4>Technologies</h4>
-                  {analysisDetail.technologies?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.technologies.map((t, i) => <span key={i} className="analysis-tag tag-tech">{t}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
+                      {/* Technical Areas */}
+                      <div className="entity-group">
+                        <label>Technical Areas</label>
+                        {analysisDetail.technicalAreas?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.technicalAreas.map((a, i) => <span key={i} className="analysis-tag tag-area">{a}</span>)}</div>
+                          : <span className="no-data">None</span>}
+                      </div>
 
-                {/* Technical Areas */}
-                <section className="analysis-section">
-                  <h4>Technical Areas</h4>
-                  {analysisDetail.technicalAreas?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.technicalAreas.map((a, i) => <span key={i} className="analysis-tag tag-area">{a}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
+                      {/* Regions / Locations */}
+                      <div className="entity-group">
+                        <label>Regions / Locations</label>
+                        {analysisDetail.regions?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.regions.map((r, i) => <span key={i} className="analysis-tag tag-region">{r}</span>)}</div>
+                          : <span className="no-data">None</span>}
+                      </div>
 
-                {/* Regions / Locations */}
-                <section className="analysis-section">
-                  <h4>Regions / Locations</h4>
-                  {analysisDetail.regions?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.regions.map((r, i) => <span key={i} className="analysis-tag tag-region">{r}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
+                      {/* Compliance Frameworks */}
+                      <div className="entity-group">
+                        <label>Compliance Frameworks</label>
+                        {analysisDetail.complianceFrameworks?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.complianceFrameworks.map((f, i) => <span key={i} className="analysis-tag tag-compliance">{f}</span>)}</div>
+                          : <span className="no-data">None</span>}
+                      </div>
 
-                {/* Compliance Frameworks */}
-                <section className="analysis-section">
-                  <h4>Compliance Frameworks</h4>
-                  {analysisDetail.complianceFrameworks?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.complianceFrameworks.map((f, i) => <span key={i} className="analysis-tag tag-compliance">{f}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
+                      {/* Products */}
+                      <div className="entity-group">
+                        <label>Detected Products</label>
+                        {analysisDetail.detectedProducts?.length > 0
+                          ? <div className="analysis-tags">{analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag tag-product">{p}</span>)}</div>
+                          : <span className="no-data">None</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                {/* Products */}
-                <section className="analysis-section">
-                  <h4>Detected Products</h4>
-                  {analysisDetail.detectedProducts?.length > 0
-                    ? <div className="analysis-tags">{analysisDetail.detectedProducts.map((p, i) => <span key={i} className="analysis-tag tag-product">{p}</span>)}</div>
-                    : <p className="no-data">No data</p>}
-                </section>
-
-                {/* Metadata */}
+                {/* ═══ METADATA (always visible footer) ═══ */}
                 <section className="analysis-section analysis-meta">
                   <span className="text-muted">Analyzed: {analysisDetail.timestamp ? formatDate(analysisDetail.timestamp) : '—'}</span>
                   <span className="text-muted">ID: {analysisDetail.id}</span>

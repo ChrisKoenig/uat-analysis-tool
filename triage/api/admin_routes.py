@@ -18,6 +18,9 @@ Endpoints:
     GET    /admin/agreement-rate       — Agreement rate metric
     GET    /admin/health              — Comprehensive health dashboard
     GET    /admin/health/services     — Individual service status
+    GET    /admin/classification-config           — List all config items
+    GET    /admin/classification-config/discoveries — Only AI-discovered items
+    PUT    /admin/classification-config/{id}      — Accept / reject / redirect
 """
 
 import json
@@ -1381,3 +1384,160 @@ async def health_dashboard():
         ai_status=ai_status,
         cache_stats=cache_stats,
     )
+
+
+# ---------------------------------------------------------------------------
+# Classification Config endpoints  (dynamic categories / intents / impacts)
+# ---------------------------------------------------------------------------
+
+class ClassificationConfigItem(BaseModel):
+    """One classification-config document from Cosmos."""
+    id: str
+    configType: str  # "category" | "intent" | "business_impact"
+    value: str
+    status: str  # "official" | "discovered" | "rejected"
+    displayName: str = ""
+    description: str = ""
+    keywords: List[str] = []
+    discoveredFrom: Optional[str] = None
+    discoveredCount: int = 0
+    redirectTo: Optional[str] = None
+    source: str = "seed"  # "seed" | "ai"
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+
+
+class ClassificationConfigListResponse(BaseModel):
+    items: List[ClassificationConfigItem]
+    total: int
+
+
+class ClassificationConfigUpdate(BaseModel):
+    """Payload for accepting / rejecting / redirecting a config item."""
+    status: Optional[Literal["official", "discovered", "rejected"]] = None
+    redirectTo: Optional[str] = None
+    displayName: Optional[str] = None
+    description: Optional[str] = None
+    keywords: Optional[List[str]] = None
+
+
+def _get_classification_config_container():
+    """Return the Cosmos classification-config container (or None)."""
+    try:
+        from ..config.cosmos_config import get_cosmos_config
+        cfg = get_cosmos_config()
+        if cfg._in_memory:
+            return None
+        return cfg.get_container("classification-config")
+    except Exception as e:
+        logger.warning(f"Cannot get classification-config container: {e}")
+        return None
+
+
+@router.get(
+    "/classification-config",
+    response_model=ClassificationConfigListResponse,
+    summary="List all classification config items",
+)
+async def list_classification_config(
+    config_type: Optional[str] = Query(None, description="Filter by configType (category, intent, business_impact)"),
+    status: Optional[str] = Query(None, description="Filter by status (official, discovered, rejected)"),
+):
+    """Return all classification-config documents, optionally filtered."""
+    container = _get_classification_config_container()
+    if container is None:
+        raise HTTPException(status_code=503, detail="Classification config container unavailable")
+
+    clauses = []
+    if config_type:
+        clauses.append(f"c.configType = '{config_type}'")
+    if status:
+        clauses.append(f"c.status = '{status}'")
+
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    query = f"SELECT * FROM c{where}"
+
+    try:
+        raw = list(container.query_items(query=query, enable_cross_partition_query=True))
+        # Sort in Python to avoid requiring a Cosmos composite index
+        raw.sort(key=lambda d: (d.get("configType", ""), d.get("value", "")))
+        return ClassificationConfigListResponse(
+            items=[ClassificationConfigItem(**{k: v for k, v in it.items() if not k.startswith("_")}) for it in raw],
+            total=len(raw),
+        )
+    except Exception as e:
+        logger.error(f"Error listing classification config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/classification-config/discoveries",
+    response_model=ClassificationConfigListResponse,
+    summary="List AI-discovered config items pending review",
+)
+async def list_classification_discoveries():
+    """Convenience endpoint: only items with status='discovered'."""
+    container = _get_classification_config_container()
+    if container is None:
+        raise HTTPException(status_code=503, detail="Classification config container unavailable")
+
+    query = "SELECT * FROM c WHERE c.status = 'discovered'"
+    try:
+        raw = list(container.query_items(query=query, enable_cross_partition_query=True))
+        # Sort in Python to avoid requiring a Cosmos composite index
+        raw.sort(key=lambda d: d.get("discoveredCount", 0), reverse=True)
+        return ClassificationConfigListResponse(
+            items=[ClassificationConfigItem(**{k: v for k, v in it.items() if not k.startswith("_")}) for it in raw],
+            total=len(raw),
+        )
+    except Exception as e:
+        logger.error(f"Error listing discoveries: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put(
+    "/classification-config/{item_id}",
+    response_model=ClassificationConfigItem,
+    summary="Update a classification config item (accept / reject / redirect)",
+)
+async def update_classification_config(
+    item_id: str,
+    body: ClassificationConfigUpdate,
+):
+    """Accept, reject, or redirect a discovered classification value."""
+    container = _get_classification_config_container()
+    if container is None:
+        raise HTTPException(status_code=503, detail="Classification config container unavailable")
+
+    # Need to find the item first (we don't know its partition)
+    query = f"SELECT * FROM c WHERE c.id = '{item_id}'"
+    try:
+        hits = list(container.query_items(query=query, enable_cross_partition_query=True))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not hits:
+        raise HTTPException(status_code=404, detail=f"Config item '{item_id}' not found")
+
+    doc = hits[0]
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Apply updates
+    if body.status is not None:
+        doc["status"] = body.status
+    if body.redirectTo is not None:
+        doc["redirectTo"] = body.redirectTo
+    if body.displayName is not None:
+        doc["displayName"] = body.displayName
+    if body.description is not None:
+        doc["description"] = body.description
+    if body.keywords is not None:
+        doc["keywords"] = body.keywords
+    doc["updatedAt"] = now
+
+    try:
+        container.replace_item(item=doc["id"], body=doc)
+        return ClassificationConfigItem(**{k: v for k, v in doc.items() if not k.startswith("_")})
+    except Exception as e:
+        logger.error(f"Error updating classification config {item_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

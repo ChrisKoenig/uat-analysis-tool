@@ -188,12 +188,12 @@ class ServiceTreeService:
                 pass
 
         return {
-            "totalServices": len(self._catalog),
-            "totalOfferings": len(set(s.get("offering", "") for s in self._catalog)),
-            "solutionAreas": self.solution_areas,
-            "areaPaths": self.area_paths,
-            "cacheAge": cache_age,
-            "cacheFile": str(cache_file),
+            "total_services": len(self._catalog),
+            "total_offerings": len(set(s.get("offering", "") for s in self._catalog)),
+            "solution_areas": self.solution_areas,
+            "area_paths": self.area_paths,
+            "cache_age": cache_age,
+            "cache_file": str(cache_file),
         }
 
     def refresh(self, force: bool = False) -> Dict[str, Any]:

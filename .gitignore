@@ -68,6 +68,8 @@ node_modules/
 # Caches
 cache/
 **/cache/
+.cache/
+servicetree_offerings.json
 
 # Build artifacts
 build_log.txt

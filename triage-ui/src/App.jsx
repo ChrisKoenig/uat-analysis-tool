@@ -6,13 +6,20 @@
  * All page components are lazily loaded for code splitting.
  *
  * Routes:
- *   /            → Dashboard (system overview)
- *   /evaluate    → Evaluate triage queue
- *   /rules       → Rules CRUD
- *   /actions     → Actions CRUD
- *   /triggers    → Triggers CRUD
- *   /routes      → Routes CRUD *   /teams      → Triage Teams config *   /validation  → Validation warnings
- *   /audit       → Audit log
+ *   /               → Dashboard (system overview + AI discoveries count)
+ *   /evaluate       → Evaluate triage queue
+ *   /queue          → Work item queue with caching and filters
+ *   /rules          → Rules CRUD
+ *   /actions        → Actions CRUD
+ *   /triggers       → Triggers CRUD
+ *   /routes         → Routes CRUD
+ *   /teams          → Triage Teams config
+ *   /validation     → Validation warnings
+ *   /audit          → Audit log
+ *   /history        → Evaluation history
+ *   /corrections    → Corrective learning CRUD
+ *   /data-management → Entity export/import
+ *   /classification → Dynamic classification config (categories, intents, impacts)
  */
 
 import React, { Suspense, lazy, useState, useCallback } from 'react';
@@ -38,6 +45,7 @@ const AuditPage       = lazy(() => import('./pages/AuditPage'));
 const EvalHistoryPage = lazy(() => import('./pages/EvalHistoryPage'));
 const CorrectionsPage  = lazy(() => import('./pages/CorrectionsPage'));
 const TriageTeamsPage  = lazy(() => import('./pages/TriageTeamsPage'));const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
+const ClassificationConfigPage = lazy(() => import('./pages/ClassificationConfigPage'));
 
 // ---------------------------------------------------------------------------
 // Loading fallback shown while page chunks load
@@ -121,6 +129,7 @@ export default function App({ msalInstance }) {
             <Route path="/corrections" element={<CorrectionsPage addToast={addToast} />} />
             <Route path="/teams"      element={<TriageTeamsPage addToast={addToast} />} />
             <Route path="/data-management" element={<DataManagementPage addToast={addToast} />} />
+            <Route path="/classification" element={<ClassificationConfigPage addToast={addToast} />} />
           </Routes>
         </Suspense>
         </ErrorBoundary>
