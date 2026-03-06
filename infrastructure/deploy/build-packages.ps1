@@ -66,7 +66,16 @@ $sharedFiles = @(
     "llm_classifier.py",
     "hybrid_context_analyzer.py",
     "intelligent_context_analyzer.py",
-    "cache_manager.py"
+    "cache_manager.py",
+    "servicetree_service.py",
+    "weight_tuner.py"
+)
+
+# --- Runtime JSON data files that modules load via Path(__file__).parent ---
+$dataFiles = @(
+    "retirements.json",
+    "servicetree_offerings.json",
+    "corrections.json"
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -100,6 +109,12 @@ if ($Target -eq "all" -or $Target -eq "triage-api") {
 
     # Copy shared root modules
     foreach ($f in $sharedFiles) {
+        $src = Join-Path $repoRoot $f
+        if (Test-Path $src) { Copy-Item $src $staging }
+    }
+
+    # Copy runtime JSON data files
+    foreach ($f in $dataFiles) {
         $src = Join-Path $repoRoot $f
         if (Test-Path $src) { Copy-Item $src $staging }
     }
@@ -146,6 +161,12 @@ if ($Target -eq "all" -or $Target -eq "field-api") {
 
     # Copy shared root modules
     foreach ($f in $sharedFiles) {
+        $src = Join-Path $repoRoot $f
+        if (Test-Path $src) { Copy-Item $src $staging }
+    }
+
+    # Copy runtime JSON data files
+    foreach ($f in $dataFiles) {
         $src = Join-Path $repoRoot $f
         if (Test-Path $src) { Copy-Item $src $staging }
     }
