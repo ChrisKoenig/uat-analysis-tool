@@ -25,6 +25,7 @@ import * as api from '../api/triageApi';
 import StatusBadge from '../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../utils/helpers';
 import ServiceTreeRouting from '../components/ServiceTreeRouting';
+import ServiceTreeTab from '../components/ServiceTreeTab';
 import './EvaluatePage.css';
 
 /* ── Category / Intent Options (match Flask UI reference) ───── */
@@ -558,6 +559,9 @@ export default function EvaluatePage({ addToast }) {
             <span className="tab-icon">🎯</span> Decision
             {entityCount > 0 && <span className="tab-badge">{entityCount}</span>}
           </button>
+          <button className={`analysis-tab ${currentDetailTab === 'servicetree' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'servicetree')}>
+            <span className="tab-icon">🗂️</span> ServiceTree
+          </button>
           <button className={`analysis-tab ${currentDetailTab === 'evaluate' ? 'active' : ''}`} onClick={() => setActiveDetailTab(workItemId, 'evaluate')}>
             <span className="tab-icon">🔄</span> Correct & Reanalyze
           </button>
@@ -626,8 +630,7 @@ export default function EvaluatePage({ addToast }) {
                   </div>
                 </div>
 
-                {/* ServiceTree Routing (compact, read-only) */}
-                <ServiceTreeRouting detail={detail} workItemId={workItemId} compact />
+
               </div>
             </div>
           </div>
@@ -863,19 +866,7 @@ export default function EvaluatePage({ addToast }) {
                   </div>
                 )}
 
-                {/* ServiceTree Routing */}
-                <ServiceTreeRouting
-                  detail={detail}
-                  workItemId={workItemId}
-                  onSaved={(updatedFields) => {
-                    // Update the nested detail object within analysisResults
-                    setAnalysisResults(prev => prev.map(r =>
-                      r.workItemId === workItemId
-                        ? { ...r, detail: { ...r.detail, ...updatedFields } }
-                        : r
-                    ));
-                  }}
-                />
+
 
                 {/* Domain Entities */}
                 {entityCount > 0 && (
@@ -917,6 +908,23 @@ export default function EvaluatePage({ addToast }) {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ══════════ TAB: ServiceTree ══════════ */}
+        {currentDetailTab === 'servicetree' && (
+          <div className="analysis-tab-panel">
+            <ServiceTreeTab
+              detail={detail}
+              workItemId={workItemId}
+              onSaved={(updatedFields) => {
+                setAnalysisResults(prev => prev.map(r =>
+                  r.workItemId === workItemId
+                    ? { ...r, detail: { ...r.detail, ...updatedFields } }
+                    : r
+                ));
+              }}
+            />
           </div>
         )}
 
