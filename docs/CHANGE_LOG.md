@@ -13,7 +13,7 @@
 | 1 | FR-1997 | 2026-03-03 | `6abe2e1` | **Add multi-field, multi-value search to Rules** — New `containsAny` and `regexMatchAny` operators enabling rules to search across multiple ADO fields for multiple keywords or regex patterns simultaneously. Changes span backend (rule model, Pydantic schemas, rules engine evaluation with `_evaluate_contains_any` and `_evaluate_regex_match_any`) and frontend (new `MultiFieldCombobox` component, updated `RuleForm` with conditional multi-field picker and regex-specific hints, updated `RulesPage` table display). |
 | 2 | FR-1993 | 2026-03-03 | `6abe2e1` | **Rules table pagination, search & expandable value cells** — Added pagination (25/50/100 page sizes), a search box to filter rules by name/field/value, and expandable value cells that truncate long lists with a "+N more" badge. |
 | 3 | FR-1993 | 2026-03-03 | *pending* | **Extend pagination, search & expandable values to Triggers, Actions, Routes** — Applied the same FR-1993 UX improvements (pagination, search input, expandable value cells) to all remaining entity list pages. Extracted shared EntitySearch CSS. |
-| 4 | FR-1994, FR-1999 | 2026-03-04 | `4b06cff` | **Tabbed analysis detail views + blade "No data" placeholders** — Added pill-style tabbed interface (Overview / Analysis / Decision / Evaluate) to Field Portal `AnalysisDetailPage` and Triage UI `EvaluatePage` to reduce scrolling. QueuePage blade kept as linear layout with all section headers always visible and "No data" placeholders for empty fields. |
+| 4 | FR-1994, FR-1999 | 2026-03-04 | `4b06cff` | **Tabbed analysis detail views + blade "No data" placeholders** — Added pill-style tabbed interface (Overview / Analysis / Decision / ServiceTree / Correct & Reanalyze) to Field Portal `AnalysisDetailPage` and Triage UI `EvaluatePage` to reduce scrolling. QueuePage blade kept as linear layout with all section headers always visible and "No data" placeholders for empty fields. |
 | 5 | ENG-003 | 2026-03-05 | *pending* | **Active Learning — Full feedback loop (Steps 1-5)** — Training signals Cosmos container, corrections Cosmos migration, disagreement UI, pattern weight tuning, few-shot signal injection into LLM prompt, and dashboard agreement rate metric. All five design steps implemented. |
 | 6 | B0002 | 2026-03-06 | *pending* | **Bug fix — hybrid source not recognized as LLM** — `isLLM` check in `EvaluatePage.jsx` only matched `"llm"` source. Items analyzed as `"hybrid"` (LLM primary with pattern features) appeared as pattern-only in the UI. Fixed to include `"hybrid"` in the `isLLM` check. |
 | 7 | B0003 | 2026-03-06 | *pending* | **Bug fix — comparison crash on pattern-only fallback** — When LLM is unavailable and `agreement` field is `null`, the Pattern Engine Comparison section crashed because it assumed `agreement` was always `true`/`false`. Fixed: `hybrid_context_analyzer.py` now sets `agreement=None` on pattern-only fallback; `EvaluatePage.jsx` gates the comparison section on `agreement !== null && agreement !== undefined`. |
@@ -25,6 +25,7 @@
 | 13 | FR-2005 | 2026-03-05 | `099b45f` | **Entity export/import (Data Management)** — New Data Management page and API for exporting and importing Rules, Triggers, Routes, and Actions between environments. Auto-includes dependencies (Trigger→Rules+Route, Route→Actions). Auto-backup before import. Name-based upsert matching. Per-record selection with checkboxes. Import order: Rules→Actions→Routes→Triggers. |
 | 14 | FR-2005 | 2026-03-05 | *pending* | **Data Management UX improvements** — 6 fixes from user testing: (1) loading spinners/overlay during export, import, and preview; (2) smart dependency auto-selection on export — clicking a trigger auto-selects its rules/route, clicking a route auto-selects its actions; (3) new Backups tab to list/restore pre-import snapshots; (4) "Available in Audit Log" changed from inactive text to a real navigation link; (5) export result now shows the downloaded filename; (6) new backend endpoints for listing and retrieving backups. |
 | 15 | ENG-008 | 2026-03-05 | `e22e29c` | **ServiceTree routing integration — backend + UI inline edit** — Integrated ServiceTree BFF API for routing enrichment. New `servicetree_service.py` with 5-tier cache, fuzzy lookup, admin overrides. PATCH `/analysis/{id}/routing` endpoint for per-record inline corrections. `AnalysisResult` extended with 7 routing fields (serviceTreeMatch, serviceTreeOffering, solutionArea, csuDri, areaPathAdo, releaseManager, devContact). 6 admin catalog management endpoints. New `ServiceTreeRouting` React component (display/edit/compact modes) wired into QueuePage blade and EvaluatePage. `servicetree-catalog` Cosmos container. ServiceTree health dashboard component. |
+| 16 | ENG-009 | 2026-03-05 | `d142975` | **Dedicated ServiceTree tab + regional_availability intent fix** — (1) Moved ServiceTree from Overview/Decision tabs into a dedicated 🗂️ ServiceTree tab with visual routing flow (horizontal chain), grouped cards (Service Match, Routing Assignment, Contacts), inline editing, empty state with "Add Routing Manually", and override audit trail. Tab bar now 5 tabs: Overview / Analysis / Decision / ServiceTree / Correct & Reanalyze. (2) Fixed "Invalid Intent: regional_availability" error by adding `regional_availability` to `VALID_INTENTS` in `llm_classifier.py` and `IntentType` enum in `intelligent_context_analyzer.py`. |
 
 ---
 
@@ -80,13 +81,15 @@
 | `triage-ui/src/components/ServiceTreeRouting.css` | Frontend (new) | Styles for routing section, edit grid, override badge, compact variant |
 | `triage-ui/src/api/triageApi.js` | Frontend | Added `patchAnalysisRouting()` API function |
 | `triage-ui/src/pages/QueuePage.jsx` | Frontend | ServiceTree routing section in analysis detail blade |
-| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Compact read-only in Overview tab, full editable in Decision tab |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | ServiceTree removed from Overview/Decision; dedicated ServiceTree tab added |
+| `triage-ui/src/components/ServiceTreeTab.jsx` | Frontend (new) | Dedicated ServiceTree tab with visual routing flow, grouped cards, inline editing, empty state, override audit |
+| `triage-ui/src/components/ServiceTreeTab.css` | Frontend (new) | Styles for routing flow, grouped cards, buttons, responsive layout |
 
 #### Behavior Summary
 
 1. **Automatic Enrichment**: During analysis, detected products/Azure services are matched against the ServiceTree catalog using exact → substring → fuzzy matching. The best match populates 7 routing fields on the `AnalysisResult`.
-2. **Inline Display**: ServiceTree routing fields are shown in a 3-column grid on the QueuePage analysis blade and as a compact card on the EvaluatePage Overview tab.
-3. **Inline Edit**: Admins can click "Edit Routing" on the Decision tab of EvaluatePage (or QueuePage blade) to correct any routing field. Changes are saved via `PATCH /analysis/{id}/routing` and stamped with `routingOverrideBy` / `routingOverrideAt`.
+2. **Inline Display**: ServiceTree routing fields are shown in a 3-column grid on the QueuePage analysis blade and in a dedicated **ServiceTree** tab on EvaluatePage with visual routing flow and grouped cards.
+3. **Inline Edit**: Admins can click "Edit Routing" on the **ServiceTree** tab of EvaluatePage (or QueuePage blade) to correct any routing field. Changes are saved via `PATCH /analysis/{id}/routing` and stamped with `routingOverrideBy` / `routingOverrideAt`.
 4. **Catalog Management**: 6 admin endpoints for searching, refreshing, and overriding the cached ServiceTree catalog. Cache refreshes from the BFF API every 7 days.
 5. **ServiceTree BFF**: Proxied through `tf-servicetree-api.azurewebsites.net` (Express.js → `F051-PRD-Automation` Function App), authenticated via corp tenant AAD.
 
@@ -358,9 +361,9 @@ All three additional entity pages now have the same UX as Rules:
 
 | File | Type | Description |
 |------|------|-------------|
-| `field-portal/ui/src/pages/AnalysisDetailPage.jsx` | Frontend | Rewrote layout with 4-tab interface (Overview, Analysis, Decision, Evaluate); added `activeTab` state |
+| `field-portal/ui/src/pages/AnalysisDetailPage.jsx` | Frontend | Rewrote layout with 5-tab interface (Overview, Analysis, Decision, ServiceTree, Correct & Reanalyze); added `activeTab` state |
 | `field-portal/ui/src/styles/global.css` | Frontend | Added ~90 lines of tab CSS (`.analysis-tabs`, `.analysis-tab`, `.tab-badge`, `.analysis-tab-panel`, `@keyframes fadeInPanel`, responsive breakpoint) |
-| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Added per-work-item 4-tab interface with `activeDetailTabs` state map; rewrote `renderAnalysisDetail` function |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Added per-work-item 5-tab interface with `activeDetailTabs` state map; rewrote `renderAnalysisDetail` function |
 | `triage-ui/src/pages/EvaluatePage.css` | Frontend | Added ~80 lines of tab CSS adapted for Triage UI CSS variables |
 | `triage-ui/src/pages/QueuePage.jsx` | Frontend | Blade sections always render with "No data" placeholder for empty fields; removed conditional hiding |
 | `triage-ui/src/pages/QueuePage.css` | Frontend | Added `.no-data` style (italic, light gray) for empty field placeholders |
@@ -368,7 +371,7 @@ All three additional entity pages now have the same UX as Rules:
 #### Behavior Summary
 
 **Field Portal AnalysisDetailPage & Triage UI EvaluatePage — Tabbed Interface:**
-1. Content organized into 4 pill-style tabs: 📋 **Overview**, 🧠 **Analysis**, 🎯 **Decision**, ✅ **Evaluate**.
+1. Content organized into 5 pill-style tabs: 📋 **Overview**, 🧠 **Analysis**, 🎯 **Decision**, 🗂️ **ServiceTree**, 🔄 **Correct & Reanalyze**.
 2. Status banner remains above tabs (always visible regardless of active tab).
 3. Decision tab displays entity count badge (e.g., "12") from domain entities.
 4. Tab panels animate in with `fadeInPanel` CSS keyframes.

@@ -376,7 +376,7 @@ Integrated the ServiceTree service catalog API to enrich triage analysis results
 - `ServiceTreeRouting.jsx` + `ServiceTreeRouting.css` — Reusable component with display/edit/compact modes
 - `patchAnalysisRouting()` API function in `triageApi.js`
 - QueuePage: Routing section in analysis detail blade (between Classification and AI Reasoning)
-- EvaluatePage: Compact read-only in Overview tab, full editable in Decision tab
+- EvaluatePage: Dedicated **ServiceTree** tab with visual routing flow, grouped cards (Service Match / Routing Assignment / Contacts), inline editing, empty state, and override audit trail
 - Override badge shown when `routingOverrideBy` is set
 
 **ServiceTree BFF:** `tf-servicetree-api.azurewebsites.net` — Express.js proxy to `F051-PRD-Automation` Function App, auth via `api://73b8d7d8-5640-4047-879f-7f0a0298905b` (corp tenant)
@@ -515,18 +515,18 @@ Added exponential backoff retry to `LLMClassifier.classify()` for transient Azur
 
 ### Tabbed Interface for Analysis Detail Pages (commits `b640e7b`, `4b06cff`)
 
-Reduced scrolling on analysis detail pages by organizing content into a 4-tab pill-style interface (Overview / Analysis / Decision / Evaluate) with entity count badges and fade-in panel animation. Applied to:
+Reduced scrolling on analysis detail pages by organizing content into a 5-tab pill-style interface (Overview / Analysis / Decision / ServiceTree / Correct & Reanalyze) with entity count badges and fade-in panel animation. Applied to:
 
 | View | UI | Approach |
 |------|----|----------|
-| **AnalysisDetailPage** | Field Portal | 4-tab layout (`activeTab` state) |
-| **EvaluatePage** | Triage UI | Per-work-item 4-tab layout (`activeDetailTabs` map) |
+| **AnalysisDetailPage** | Field Portal | 5-tab layout (`activeTab` state) |
+| **EvaluatePage** | Triage UI | Per-work-item 5-tab layout (`activeDetailTabs` map) |
 | **QueuePage blade** | Triage UI | Linear layout with "No data" placeholders (tabs tested & reverted per user feedback) |
 
 **Files changed:**
-- `field-portal/ui/src/pages/AnalysisDetailPage.jsx` — Tab state + 4-tab content split
+- `field-portal/ui/src/pages/AnalysisDetailPage.jsx` — Tab state + 5-tab content split
 - `field-portal/ui/src/styles/global.css` — Tab CSS (90 lines)
-- `triage-ui/src/pages/EvaluatePage.jsx` — Per-item tab state + `renderAnalysisDetail` rewrite
+- `triage-ui/src/pages/EvaluatePage.jsx` — Per-item tab state + `renderAnalysisDetail` rewrite + dedicated ServiceTree tab
 - `triage-ui/src/pages/EvaluatePage.css` — Tab CSS (80 lines)
 - `triage-ui/src/pages/QueuePage.jsx` — Always-render sections + "No data" spans
 - `triage-ui/src/pages/QueuePage.css` — `.no-data` style
