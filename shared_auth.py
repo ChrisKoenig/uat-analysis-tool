@@ -86,16 +86,16 @@ def _create_credential():
         try:
             import time as _t
             logger.info(f"[SharedAuth] Using Managed Identity (client_id: {managed_identity_client_id[:8]}...)")
-            print(f"[SharedAuth] 🔒 Using Managed Identity (client_id: {managed_identity_client_id[:8]}...)", flush=True)
+            print(f"[SharedAuth] Using Managed Identity (client_id: {managed_identity_client_id[:8]}...)", flush=True)
             cred = ManagedIdentityCredential(client_id=managed_identity_client_id)
             print(f"[SharedAuth] MI credential object created — requesting token for {COGNITIVE_SCOPE}...", flush=True)
             _t0 = _t.time()
             cred.get_token(COGNITIVE_SCOPE)
-            print(f"[SharedAuth] ✅ Managed Identity credential works ({_t.time()-_t0:.1f}s)", flush=True)
+            print(f"[SharedAuth] [OK] Managed Identity credential works ({_t.time()-_t0:.1f}s)", flush=True)
             return cred, "managed_identity"
         except Exception as e:
             logger.warning(f"[SharedAuth] Managed Identity failed: {e}")
-            print(f"[SharedAuth] ⚠️ Managed Identity failed ({_t.time()-_t0:.1f}s): {type(e).__name__}: {e} — trying other methods", flush=True)
+            print(f"[SharedAuth] [WARN] Managed Identity failed ({_t.time()-_t0:.1f}s): {type(e).__name__}: {e} -- trying other methods", flush=True)
 
     # 2. Local dev: Quick check if Azure CLI is logged in (~0.5s vs ~10s timeout)
     try:
@@ -110,7 +110,7 @@ def _create_credential():
             print("[SharedAuth] Azure CLI is logged in — using CLI credential", flush=True)
             cred = AzureCliCredential(tenant_id=TENANT_ID)
             cred.get_token(COGNITIVE_SCOPE)
-            print("[SharedAuth] ✅ Azure CLI credential works", flush=True)
+            print("[SharedAuth] [OK] Azure CLI credential works", flush=True)
             return cred, "cli"
         else:
             print(f"[SharedAuth] Azure CLI not logged in (rc={result.returncode})", flush=True)
@@ -130,12 +130,12 @@ def _create_credential():
             cache_persistence_options=cache_opts,
         )
         cred.get_token(COGNITIVE_SCOPE)
-        logger.info("[SharedAuth] ✅ Browser authentication successful")
-        print("[SharedAuth] ✅ Browser authentication successful")
+        logger.info("[SharedAuth] [OK] Browser authentication successful")
+        print("[SharedAuth] [OK] Browser authentication successful")
         return cred, "browser"
     except Exception as e:
-        logger.error(f"[SharedAuth] ❌ Authentication failed: {e}")
-        print(f"[SharedAuth] ❌ Authentication failed: {e}")
+        logger.error(f"[SharedAuth] Authentication failed: {e}")
+        print(f"[SharedAuth] [ERROR] Authentication failed: {e}")
         raise
 
 

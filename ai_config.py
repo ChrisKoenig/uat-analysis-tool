@@ -18,37 +18,35 @@ import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 
-# Mapping from Key Vault / env-var names → AppConfig property names
+# Mapping from config key → AppConfig property name
 _KEY_TO_APP_CONFIG = {
     "AZURE_OPENAI_ENDPOINT": "openai_endpoint",
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "embedding_deployment",
     "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": "classification_deployment",
-    "AZURE_OPENAI_API_KEY": None,
-    "AZURE_OPENAI_USE_AAD": None,
 }
 
-# Helper function to get config from Key Vault first, then environment, then AppConfig
+# True secrets that must come from Key Vault (not config)
+_TRUE_SECRETS = {"AZURE_OPENAI_API_KEY"}
+
+
 def _get_config_value(key: str, default: str = "") -> str:
-    """Get configuration value from Key Vault first, then environment variables,
-    then the centralized AppConfig (config/environments/*.json).
+    """Get a configuration value.
+
+    True secrets → Key Vault → env var.
+    Config values → AppConfig → env var.
     """
-    try:
-        from keyvault_config import get_keyvault_config
-        kv = get_keyvault_config()
-        value = kv.get_secret(key)
-        if value:
-            return value
-    except Exception as e:
-        print(f"[ai_config] Warning: Could not load from Key Vault: {e}")
-    
-    # Fall back to environment variables
-    from dotenv import load_dotenv
-    load_dotenv()
-    env_val = os.environ.get(key)
-    if env_val:
-        return env_val
-    
-    # Fall back to centralized AppConfig (single source of truth)
+    # True secrets: Key Vault first
+    if key in _TRUE_SECRETS:
+        try:
+            from keyvault_config import get_keyvault_config
+            value = get_keyvault_config().get_secret(key)
+            if value:
+                return value
+        except Exception:
+            pass
+        return os.environ.get(key, default)
+
+    # Config values: AppConfig first (single source of truth)
     attr = _KEY_TO_APP_CONFIG.get(key)
     if attr:
         try:
@@ -58,8 +56,8 @@ def _get_config_value(key: str, default: str = "") -> str:
                 return cfg_val
         except Exception:
             pass
-    
-    return default
+
+    return os.environ.get(key, default)
 
 @dataclass
 class AzureOpenAIConfig:

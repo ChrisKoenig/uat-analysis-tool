@@ -35,6 +35,10 @@
 | 23 | B0006 | 2026-03-05 | *pending* | **Bug fix — SharedAuth AZ CLI not found on Windows** — `shared_auth.py` used `subprocess.run(["az", ...])` which raises `FileNotFoundError` on Windows because `az` is a `.cmd` file. Fixed by adding `shell=True` on Windows (`sys.platform == "win32"`), allowing the CLI credential path to work and preventing fallback to blocking interactive browser auth. |
 | 24 | B0007 | 2026-03-06 | *pending* | **Bug fix — Requestor card always empty (wrong ADO field)** — `System.CreatedBy` was a service account ("Action 360 Platform") on all queue items, so the Requestor card always showed "No requestor data available". The actual human requestor is in `Custom.Requestors` (email string) and `Custom.Requestor` (identity object). Fixed by adding these fields to the ADO batch fetch, preserving raw emails in hidden `_requestorEmail`/`_createdByEmail` fields, and updating the frontend email extraction chain: `Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → display name fallback. |
 | 25 | PERF-001 | 2026-03-06 | *pending* | **Performance — Background prefetch + cache for Graph user data** — Opening the analysis blade showed a 5-second "Loading requestor info..." spinner on every click, and re-clicking the same item re-fetched. Implemented: (1) `useRef(new Map())` cache keyed by email with `{ data, loading, promise }` entries persisting across blade open/close. (2) Background prefetch IIFE fires after queue load, extracting all unique requestor emails and calling `getGraphUser()` with 80 ms stagger. (3) Cache-first blade open logic: cache hit → instant display, prefetch in-flight → await existing promise, cache miss → on-demand fetch + cache. Total API endpoints: 60. |
+| 26 | B0008 | 2026-03-06 | *pending* | **Bug fix — API hangs after idle (3 interacting bugs)** — (1) `shared_auth.py` emoji characters (🔒, ✅, ⚠️, ❌) crashed on Windows when stdout used `charmap` codec — replaced with ASCII equivalents. (2) All ~96 FastAPI route handlers were `async def` but performed synchronous Cosmos/KV I/O, blocking the single uvicorn event loop — converted to `def` so uvicorn runs them in a thread pool. (3) Failed Cosmos DB initialization retried on every request (~10s each) with no cooldown — added 60-second failure cache so repeated requests return immediately instead of blocking. |
+| 27 | ENG-012 | 2026-03-06 | *pending* | **Secrets cleanup — true secrets only in Key Vault** — Reduced `SECRET_MAPPINGS` from 7 entries to 4 true secrets (App Insights instrumentation key, App Insights connection string, OpenAI API key, Cosmos key). Moved 5 non-secret config values (endpoints, deployment names, boolean flags) to `AppConfig` lookups. Updated `keyvault_config.py`, `cosmos_config.py`, `ai_config.py`, `blob_storage_helper.py`, and `admin_service.py`. Ensures Key Vault passes company security review by storing only credentials and ingestion keys. |
+| 28 | ENG-013 | 2026-03-06 | *pending* | **Environment indicator in Diagnostics panel** — Added `environment` block (name, region, resourceGroup) to `GET /api/v1/diagnostics` response from `AppConfig`. New blue pill badge in `DiagnosticsPanel` showing the active environment name (e.g., "CHKOENIG") with region subtitle. |
+| 29 | FR-2005 | 2026-03-06 | *pending* | **Data Management — Bulk edit, bulk delete, and team filter** — Added Bulk Edit and Bulk Delete tabs to the Data Management page. Bulk Edit: select entity type, filter by search/team, check items, apply field changes in batch. Bulk Delete: select type, filter by search/team, check items, delete in batch with confirmation. Team filter dropdown on both tabs. New `bulk_update()` and `bulk_delete()` methods in `crud_service.py`, new `bulkEdit()` and `bulkDelete()` client functions in `triageApi.js`. |
 
 ---
 
@@ -67,6 +71,127 @@ Every time a user clicked an analysis blade on the Queue page, the frontend call
 | File | Type | Description |
 |------|------|-------------|
 | `triage-ui/src/pages/QueuePage.jsx` | Frontend | Replaced `useState(null)` for graphUser with `useRef(new Map())` cache; added prefetch IIFE in queue load effect; replaced `handleAnalysisClick` Graph fetch with 3-path cache-first logic |
+
+---
+
+### B0008 — API Hangs After Idle (3 Interacting Bugs)
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Bug — API became unresponsive after idle periods  
+**Status:** Fixed
+
+#### Problem
+
+After a prolonged idle period, the API became completely unresponsive. Three independent bugs interacted to cause this:
+
+1. **Emoji crash on Windows** — `shared_auth.py` printed emoji characters (🔒, ✅, ⚠️, ❌) to stdout. When uvicorn ran with stdout redirected (e.g., from `launcher.py`), Python's `charmap` codec on Windows couldn't encode them, causing `UnicodeEncodeError` crashes during credential initialization.
+
+2. **`async def` blocking the event loop** — All ~96 FastAPI route handlers were declared `async def`, but every one performed synchronous I/O (Cosmos DB queries, Key Vault lookups, HTTP calls via `requests`). In `async def`, these block the single uvicorn event loop thread, meaning one slow handler blocks *all* concurrent requests.
+
+3. **No Cosmos init failure cooldown** — When Cosmos DB initialization failed (e.g., network timeout after idle), every subsequent request re-attempted initialization (~10s each) with no caching of the failure. A burst of requests after idle would all queue up waiting for sequential 10-second timeouts.
+
+#### Fix
+
+| Bug | File | Fix |
+|-----|------|-----|
+| Emoji crash | `shared_auth.py` | Replaced emoji with ASCII: 🔒→`[LOCK]`, ✅→`[OK]`, ⚠️→`[WARN]`, ❌→`[ERROR]` |
+| async def blocking | `routes.py`, `data_management_routes.py`, `classify_routes.py`, `admin_routes.py` | Converted ~96 handlers from `async def` to `def` — uvicorn auto-runs sync handlers in a thread pool |
+| Cosmos cooldown | `triage/config/cosmos_config.py` | Added 60-second failure cooldown — after a failed init, subsequent requests return immediately instead of retrying |
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `shared_auth.py` | Backend | Replaced emoji characters with ASCII equivalents for Windows charmap compatibility |
+| `triage/api/routes.py` | Backend | Converted 33 `async def` handlers to `def` (only `get_diagnostics` remains async) |
+| `triage/api/data_management_routes.py` | Backend | Converted 7 `async def` handlers to `def` |
+| `triage/api/classify_routes.py` | Backend | Converted 4 `async def` handlers to `def` |
+| `triage/api/admin_routes.py` | Backend | Converted 20 `async def` handlers to `def` |
+| `triage/config/cosmos_config.py` | Backend | Added `_last_init_failure` timestamp and 60-second cooldown check |
+
+---
+
+### ENG-012 — Secrets Cleanup (True Secrets Only in Key Vault)
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Security review — only credentials belong in Key Vault  
+**Status:** Built, awaiting deployment
+
+#### Problem
+
+`SECRET_MAPPINGS` in `keyvault_config.py` contained 7 entries, but 5 were non-secret configuration values (Cosmos endpoint, OpenAI endpoint, OpenAI deployment name, Cosmos use-AAD flag, Cosmos tenant ID). Storing non-secrets in Key Vault adds unnecessary latency, complicates debugging, and would not pass company security review.
+
+#### Fix
+
+Reduced `SECRET_MAPPINGS` to 4 true secrets only:
+- `AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY`
+- `AZURE_APP_INSIGHTS_CONNECTION_STRING`
+- `AZURE_OPENAI_API_KEY`
+- `COSMOS_KEY`
+
+Moved non-secret values to `AppConfig` lookups (loaded from `config/environments/{APP_ENV}.json`).
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `keyvault_config.py` | Backend | `SECRET_MAPPINGS` reduced from 7 to 4; `get_config()` routes config values to AppConfig; `validate_config()` checks AppConfig for endpoints |
+| `triage/config/cosmos_config.py` | Backend | Endpoint, database name, use_aad, tenant_id now from AppConfig/env vars instead of KV |
+| `ai_config.py` | Backend | Config values from AppConfig; only `AZURE_OPENAI_API_KEY` still from KV |
+| `blob_storage_helper.py` | Backend | Storage account name from `AppConfig.storage_account` instead of KV |
+| `admin_service.py` | Backend | Imported `KEY_VAULT_URI`; health check test secret changed to App Insights key |
+
+---
+
+### ENG-013 — Environment Indicator in Diagnostics Panel
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Developer usability — know which environment is running  
+**Status:** Built, awaiting deployment
+
+#### Summary
+
+Added environment visibility so developers can immediately see which configuration profile is active.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/api/routes.py` | Backend | Added `environment` block to `/api/v1/diagnostics` response with `name`, `region`, `resourceGroup` from AppConfig |
+| `triage-ui/src/components/common/DiagnosticsPanel.jsx` | Frontend | Displays environment name as uppercase blue pill badge with region subtitle |
+| `triage-ui/src/components/common/DiagnosticsPanel.css` | Frontend | Styles for `.diag-env`, `.diag-env-badge`, `.diag-env-region` |
+
+---
+
+### FR-2005 (Bulk) — Bulk Edit, Bulk Delete, and Team Filter
+
+**Date:** 2026-03-06  
+**Build ID:** *pending*  
+**Requested By:** Operations — batch modifications to triage entities  
+**Status:** Built, awaiting deployment
+
+#### Summary
+
+Extended the Data Management page with two new tabs for bulk operations on triage entities (Rules, Triggers, Routes, Actions).
+
+**Bulk Edit:** Select entity type → filter by search text and/or team → check individual items → apply field changes to all selected items in a single batch API call.
+
+**Bulk Delete:** Select entity type → filter by search text and/or team → check individual items → confirm → delete all selected items in a single batch API call.
+
+**Team Filter:** Both tabs include a Team dropdown filter (All / No Team / specific team names) to narrow results before selection.
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `triage/services/crud_service.py` | Backend | Added `bulk_update()` and `bulk_delete()` methods |
+| `triage/api/data_management_routes.py` | Backend | New bulk edit and bulk delete endpoints |
+| `triage-ui/src/api/triageApi.js` | Frontend | Added `bulkEdit()` and `bulkDelete()` client functions |
+| `triage-ui/src/pages/DataManagementPage.jsx` | Frontend | Bulk Edit tab, Bulk Delete tab, team filter state/UI/logic, filtered entity lists |
+| `triage-ui/src/pages/DataManagementPage.css` | Frontend | Styles for bulk operations UI |
 
 ---
 

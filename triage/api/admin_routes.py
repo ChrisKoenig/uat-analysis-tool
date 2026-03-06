@@ -381,7 +381,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/corrections", response_model=CorrectionsListResponse,
             summary="List corrections")
-async def list_corrections():
+def list_corrections():
     """Return all corrective learning entries (Cosmos-backed with JSON fallback)."""
     container = _get_corrections_container()
     if container:
@@ -421,7 +421,7 @@ async def list_corrections():
 
 @router.post("/corrections", response_model=CorrectionItem, status_code=201,
              summary="Add a correction")
-async def add_correction(req: CorrectionCreate):
+def add_correction(req: CorrectionCreate):
     """
     Add a new corrective learning entry.
 
@@ -460,7 +460,7 @@ async def add_correction(req: CorrectionCreate):
 
 @router.delete("/corrections/{correction_id}", status_code=204,
                summary="Delete a correction")
-async def delete_correction(correction_id: str):
+def delete_correction(correction_id: str):
     """Remove a correction by its document ID."""
     container = _get_corrections_container()
     if container:
@@ -497,7 +497,7 @@ async def delete_correction(correction_id: str):
 
 @router.put("/corrections/{correction_id}", response_model=CorrectionItem,
             summary="Update a correction")
-async def update_correction(correction_id: str, req: CorrectionCreate):
+def update_correction(correction_id: str, req: CorrectionCreate):
     """Update an existing correction by its document ID."""
     container = _get_corrections_container()
     if container:
@@ -561,7 +561,7 @@ async def update_correction(correction_id: str, req: CorrectionCreate):
 
 @router.post("/training-signals", response_model=TrainingSignalItem, status_code=201,
              summary="Submit a training signal")
-async def submit_training_signal(req: TrainingSignalCreate):
+def submit_training_signal(req: TrainingSignalCreate):
     """
     Record a human resolution of an LLM/Pattern disagreement.
 
@@ -616,7 +616,7 @@ async def submit_training_signal(req: TrainingSignalCreate):
 
 @router.get("/training-signals", response_model=TrainingSignalListResponse,
             summary="List training signals")
-async def list_training_signals(
+def list_training_signals(
     limit: int = Query(50, ge=1, le=500, description="Max results"),
     work_item_id: Optional[str] = Query(None, description="Filter by work item ID"),
 ):
@@ -680,7 +680,7 @@ class WeightTuningResponse(BaseModel):
 @router.post("/tune-weights", response_model=WeightTuningResponse,
              summary="Run pattern weight tuning batch",
              description="Reads training signals, computes per-category weight adjustments, and stores them for the pattern engine.")
-async def tune_pattern_weights():
+def tune_pattern_weights():
     """Execute the weight tuning batch process."""
     try:
         from weight_tuner import PatternWeightTuner
@@ -712,7 +712,7 @@ async def tune_pattern_weights():
 @router.get("/pattern-weights", response_model=WeightTuningResponse,
             summary="Get current pattern weight adjustments",
             description="Returns the most recent weight adjustments computed by the tuning batch.")
-async def get_pattern_weights():
+def get_pattern_weights():
     """Return the stored weight adjustments document."""
     try:
         from weight_tuner import PatternWeightTuner
@@ -764,7 +764,7 @@ class AgreementRateResponse(BaseModel):
 
 @router.get("/agreement-rate", response_model=AgreementRateResponse,
             summary="Agreement rate between pattern engine and LLM")
-async def get_agreement_rate():
+def get_agreement_rate():
     """
     Compute the agreement rate between the pattern engine and LLM classifier
     across all stored analysis results, with breakdowns for the last 7, 30,
@@ -920,7 +920,7 @@ def _get_servicetree_container():
 
 @router.get("/servicetree/catalog", response_model=ServiceTreeCatalogResponse,
             summary="ServiceTree catalog summary")
-async def servicetree_catalog_summary():
+def servicetree_catalog_summary():
     """Return summary stats about the cached ServiceTree catalog."""
     try:
         svc = _get_servicetree_service()
@@ -955,7 +955,7 @@ async def servicetree_catalog_summary():
 
 @router.get("/servicetree/search", response_model=ServiceTreeSearchResponse,
             summary="Search ServiceTree catalog")
-async def servicetree_search(
+def servicetree_search(
     q: str = Query(..., min_length=1, description="Service or product name to search"),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -994,7 +994,7 @@ async def servicetree_search(
 
 
 @router.get("/servicetree/services", summary="List all ServiceTree services")
-async def servicetree_list_services(
+def servicetree_list_services(
     solutionArea: Optional[str] = Query(None, description="Filter by solution area"),
     offering: Optional[str] = Query(None, description="Filter by offering name"),
     skip: int = Query(0, ge=0),
@@ -1027,7 +1027,7 @@ async def servicetree_list_services(
 
 
 @router.post("/servicetree/refresh", summary="Refresh ServiceTree catalog")
-async def servicetree_refresh(force: bool = Query(False)):
+def servicetree_refresh(force: bool = Query(False)):
     """Trigger a manual refresh of the ServiceTree catalog from the API."""
     try:
         svc = _get_servicetree_service()
@@ -1047,7 +1047,7 @@ async def servicetree_refresh(force: bool = Query(False)):
 
 @router.put("/servicetree/override/{service_name}",
             summary="Apply admin override for a ServiceTree service")
-async def servicetree_apply_override(service_name: str, body: ServiceTreeOverrideRequest):
+def servicetree_apply_override(service_name: str, body: ServiceTreeOverrideRequest):
     """
     Override routing fields (csuDri, areaPathAdo, etc.) for a specific service.
     Overrides persist across catalog refreshes.
@@ -1114,7 +1114,7 @@ async def servicetree_apply_override(service_name: str, body: ServiceTreeOverrid
 
 
 @router.get("/servicetree/overrides", summary="List all ServiceTree overrides")
-async def servicetree_list_overrides():
+def servicetree_list_overrides():
     """List all admin overrides currently applied to ServiceTree services."""
     try:
         container = _get_servicetree_container()
@@ -1157,7 +1157,7 @@ async def servicetree_list_overrides():
 
 @router.delete("/servicetree/override/{service_name}",
                summary="Remove admin override for a ServiceTree service")
-async def servicetree_remove_override(service_name: str):
+def servicetree_remove_override(service_name: str):
     """Remove an admin override, reverting to original ServiceTree data."""
     try:
         container = _get_servicetree_container()
@@ -1203,7 +1203,7 @@ async def servicetree_remove_override(service_name: str):
 
 @router.get("/health", response_model=HealthDashboardResponse,
             summary="Comprehensive health dashboard")
-async def health_dashboard():
+def health_dashboard():
     """
     Check every component: Cosmos DB, Azure OpenAI, Key Vault, ADO, cache.
     Returns an aggregate status and per-component detail.
@@ -1439,7 +1439,7 @@ def _get_classification_config_container():
     response_model=ClassificationConfigListResponse,
     summary="List all classification config items",
 )
-async def list_classification_config(
+def list_classification_config(
     config_type: Optional[str] = Query(None, description="Filter by configType (category, intent, business_impact)"),
     status: Optional[str] = Query(None, description="Filter by status (official, discovered, rejected)"),
 ):
@@ -1475,7 +1475,7 @@ async def list_classification_config(
     response_model=ClassificationConfigListResponse,
     summary="List AI-discovered config items pending review",
 )
-async def list_classification_discoveries():
+def list_classification_discoveries():
     """Convenience endpoint: only items with status='discovered'."""
     container = _get_classification_config_container()
     if container is None:
@@ -1500,7 +1500,7 @@ async def list_classification_discoveries():
     response_model=ClassificationConfigItem,
     summary="Update a classification config item (accept / reject / redirect)",
 )
-async def update_classification_config(
+def update_classification_config(
     item_id: str,
     body: ClassificationConfigUpdate,
 ):

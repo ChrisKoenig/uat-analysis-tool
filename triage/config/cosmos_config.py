@@ -26,6 +26,7 @@ Configuration is loaded from Azure Key Vault with environment variable fallback.
 
 import os
 import sys
+import time as _time
 import logging
 from typing import Optional, Dict, Any
 
@@ -151,6 +152,8 @@ class CosmosDBConfig:
         self._containers: Dict[str, Any] = {}
         self._initialized = False
         self._in_memory = False
+        self._last_init_failure: float = 0  # monotonic timestamp of last failure
+        self._init_cooldown: int = 60       # seconds before retrying after a failure
         
         # Load configuration from Key Vault / environment
         self._load_config()
@@ -170,39 +173,37 @@ class CosmosDBConfig:
         except Exception:
             _app_cfg = None
         
-        # Cosmos DB endpoint (required)
+        # Config values come from AppConfig (config/environments/*.json).
+        # Only true secrets (COSMOS_KEY) come from Key Vault.
+
+        # Cosmos DB endpoint (required) — config, NOT a secret
         self.endpoint = (
-            kv_config.get_secret("COSMOS_ENDPOINT") or
             os.environ.get("COSMOS_ENDPOINT") or
             (getattr(_app_cfg, 'cosmos_endpoint', None) if _app_cfg else None) or
             DEFAULT_COSMOS_ENDPOINT
         )
-        
-        # Cosmos DB key (optional - not needed with AAD auth)
+
+        # Cosmos DB key (optional - not needed with AAD auth) — true secret
         self.key = (
             kv_config.get_secret("COSMOS_KEY") or
             os.environ.get("COSMOS_KEY") or
             DEFAULT_COSMOS_KEY
         )
-        
-        # Database name
+
+        # Database name — config, NOT a secret
         self.database_name = (
             os.environ.get("COSMOS_DATABASE") or
             (getattr(_app_cfg, 'cosmos_database', None) if _app_cfg else None) or
             DEFAULT_DATABASE_NAME
         )
-        
-        # Authentication mode
-        use_aad_str = (
-            kv_config.get_secret("COSMOS_USE_AAD") or
-            os.environ.get("COSMOS_USE_AAD", "true")
-        )
+
+        # Authentication mode — config, NOT a secret
+        use_aad_str = os.environ.get("COSMOS_USE_AAD", "true")
         self.use_aad = use_aad_str.lower() in ("true", "1", "yes")
-        
-        # Tenant ID for AAD auth (required when user's home tenant differs from Cosmos account tenant)
-        self.tenant_id = (
-            kv_config.get_secret("COSMOS_TENANT_ID") or
-            os.environ.get("COSMOS_TENANT_ID")
+
+        # Tenant ID for AAD auth
+        self.tenant_id = os.environ.get("COSMOS_TENANT_ID") or (
+            getattr(_app_cfg, 'tenant_id', None) if _app_cfg else None
         )
         
     def _get_client(self) -> CosmosClient:
@@ -326,6 +327,15 @@ class CosmosDBConfig:
         if self._initialized:
             return
         
+        # Don't retry immediately after a failure — wait for cooldown
+        if self._last_init_failure:
+            elapsed = _time.monotonic() - self._last_init_failure
+            if elapsed < self._init_cooldown:
+                raise RuntimeError(
+                    f"Cosmos DB init failed recently ({int(elapsed)}s ago). "
+                    f"Retrying in {int(self._init_cooldown - elapsed)}s."
+                )
+        
         # ── In-memory fallback when Cosmos DB is not configured ──
         if not self.endpoint:
             from .memory_store import InMemoryContainer, seed_containers
@@ -352,25 +362,30 @@ class CosmosDBConfig:
             return
         
         # ── Real Cosmos DB initialization ──
-        self._ensure_database()
-        
-        for container_name, definition in CONTAINER_DEFINITIONS.items():
-            try:
-                container = self._database.create_container_if_not_exists(
-                    id=container_name,
-                    partition_key=PartitionKey(path=definition["partition_key"])
-                )
-                self._containers[container_name] = container
-                logger.info(
-                    "  [OK] Container '%s' ready (partition: %s)",
-                    container_name, definition['partition_key'],
-                )
-            except exceptions.CosmosHttpResponseError as e:
-                logger.error("  [ERROR] Container '%s': %s", container_name, e)
-                raise
-        
-        self._initialized = True
-        logger.info("All %d containers initialized", len(CONTAINER_DEFINITIONS))
+        try:
+            self._ensure_database()
+            
+            for container_name, definition in CONTAINER_DEFINITIONS.items():
+                try:
+                    container = self._database.create_container_if_not_exists(
+                        id=container_name,
+                        partition_key=PartitionKey(path=definition["partition_key"])
+                    )
+                    self._containers[container_name] = container
+                    logger.info(
+                        "  [OK] Container '%s' ready (partition: %s)",
+                        container_name, definition['partition_key'],
+                    )
+                except exceptions.CosmosHttpResponseError as e:
+                    logger.error("  [ERROR] Container '%s': %s", container_name, e)
+                    raise
+            
+            self._initialized = True
+            self._last_init_failure = 0  # clear on success
+            logger.info("All %d containers initialized", len(CONTAINER_DEFINITIONS))
+        except Exception:
+            self._last_init_failure = _time.monotonic()
+            raise
     
     def get_container(self, container_name: str):
         """

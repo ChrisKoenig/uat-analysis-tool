@@ -69,18 +69,16 @@ def check_reachable(timeout_seconds: float = 3.0) -> tuple[bool, str]:
 
 
 # Secret name mappings (Key Vault doesn't allow underscores, using hyphens)
+# Only TRUE secrets (credentials / keys) belong here.
+# Configuration values (endpoints, deployment names, flags) live in
+# config/environments/*.json and are accessed via get_app_config().
 SECRET_MAPPINGS = {
-    # Application Insights
+    # Application Insights (contains ingestion keys)
     "AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY": "azure-app-insights-instrumentation-key",
     "AZURE_APP_INSIGHTS_CONNECTION_STRING": "azure-app-insights-connection-string",
-    # Azure OpenAI
-    "AZURE_OPENAI_ENDPOINT": "AZURE-OPENAI-ENDPOINT",
-    "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": "AZURE-OPENAI-CLASSIFICATION-DEPLOYMENT",
-    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "AZURE-OPENAI-EMBEDDING-DEPLOYMENT",
+    # Azure OpenAI (API key — only needed when NOT using AAD auth)
     "AZURE_OPENAI_API_KEY": "AZURE-OPENAI-API-KEY",
-    "AZURE_OPENAI_USE_AAD": "AZURE-OPENAI-USE-AAD",
-    # Cosmos DB
-    "COSMOS_ENDPOINT": "COSMOS-ENDPOINT",
+    # Cosmos DB (account key — only needed when NOT using AAD auth)
     "COSMOS_KEY": "COSMOS-KEY",
 }
 
@@ -167,56 +165,52 @@ class KeyVaultConfig:
     
     def get_config(self) -> dict:
         """
-        Get all configuration values for the application
-        Returns dict with all secrets populated
+        Get all configuration values for the application.
+        True secrets come from Key Vault; everything else from AppConfig.
         """
+        try:
+            from config import get_app_config
+            _cfg = get_app_config()
+        except Exception:
+            _cfg = None
+
         config = {
-            # Application Insights
+            # ── True secrets (Key Vault) ──
             "AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY": self.get_secret("AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY"),
             "AZURE_APP_INSIGHTS_CONNECTION_STRING": self.get_secret("AZURE_APP_INSIGHTS_CONNECTION_STRING"),
-            
-            # Key Vault (non-secret)
+            "AZURE_OPENAI_API_KEY": self.get_secret("AZURE_OPENAI_API_KEY"),
+
+            # ── Configuration (AppConfig / env) ──
             "AZURE_KEY_VAULT_NAME": _kv_name,
             "AZURE_KEY_VAULT_URI": KEY_VAULT_URI,
-            
-            # Log Analytics (non-secret)
             "AZURE_LOG_ANALYTICS_WORKSPACE_ID": os.environ.get("AZURE_LOG_ANALYTICS_WORKSPACE_ID"),
-            
-            # Azure OpenAI (using Azure AD, no API key needed)
-            "AZURE_OPENAI_RESOURCE_NAME": os.environ.get("AZURE_OPENAI_RESOURCE_NAME"),
-            "AZURE_OPENAI_ENDPOINT": self.get_secret("AZURE_OPENAI_ENDPOINT"),
-            "AZURE_OPENAI_USE_AAD": self.get_secret("AZURE_OPENAI_USE_AAD") or "true",
-            "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": self.get_secret("AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT"),
-            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": self.get_secret("AZURE_OPENAI_EMBEDDING_DEPLOYMENT"),
-            "AZURE_OPENAI_API_KEY": self.get_secret("AZURE_OPENAI_API_KEY"),
-            "AZURE_OPENAI_DEPLOYMENT_NAME": os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME"),
-            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME": os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-            
-            # Cosmos DB
-            "COSMOS_ENDPOINT": self.get_secret("COSMOS_ENDPOINT"),
-            
-            # Azure DevOps (using Azure CLI authentication)
-            "ADO_ORGANIZATION": os.environ.get("ADO_ORGANIZATION"),
-            "ADO_PROJECT": os.environ.get("ADO_PROJECT"),
+            "AZURE_OPENAI_ENDPOINT": getattr(_cfg, 'openai_endpoint', None) if _cfg else os.environ.get("AZURE_OPENAI_ENDPOINT"),
+            "AZURE_OPENAI_USE_AAD": "true",
+            "AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT": getattr(_cfg, 'classification_deployment', None) if _cfg else os.environ.get("AZURE_OPENAI_CLASSIFICATION_DEPLOYMENT"),
+            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": getattr(_cfg, 'embedding_deployment', None) if _cfg else os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT"),
+            "COSMOS_ENDPOINT": getattr(_cfg, 'cosmos_endpoint', None) if _cfg else os.environ.get("COSMOS_ENDPOINT"),
+            "ADO_ORGANIZATION": getattr(_cfg, 'ado_organization', None) if _cfg else os.environ.get("ADO_ORGANIZATION"),
+            "ADO_PROJECT": getattr(_cfg, 'ado_project', None) if _cfg else os.environ.get("ADO_PROJECT"),
         }
-        
+
         return config
     
     def validate_config(self) -> tuple[bool, list[str]]:
         """
-        Validate that all required secrets are available
-        Returns (is_valid, list_of_missing_secrets)
+        Validate that required configuration is available.
+        Checks AppConfig for config values; Key Vault only for true secrets.
         """
-        required_secrets = [
-            "COSMOS_ENDPOINT",
-            "AZURE_OPENAI_ENDPOINT",
-        ]
-        
         missing = []
-        for secret in required_secrets:
-            if not self.get_secret(secret):
-                missing.append(secret)
-        
+        try:
+            from config import get_app_config
+            cfg = get_app_config()
+            if not getattr(cfg, 'cosmos_endpoint', None):
+                missing.append("cosmos_account (in config JSON)")
+            if not getattr(cfg, 'openai_endpoint', None):
+                missing.append("openai_account (in config JSON)")
+        except Exception:
+            missing.append("AppConfig unavailable (check APP_ENV)")
+
         return len(missing) == 0, missing
 
 

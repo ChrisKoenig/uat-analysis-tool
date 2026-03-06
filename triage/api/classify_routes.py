@@ -170,7 +170,7 @@ def _result_to_response(result, include_pattern: bool, elapsed_ms: int) -> Class
 # ---------------------------------------------------------------------------
 
 @router.post("", response_model=ClassifyResult, summary="Classify a single item")
-async def classify_item(req: ClassifyRequest):
+def classify_item(req: ClassifyRequest):
     """
     Classify raw text using the hybrid AI + pattern matching engine.
 
@@ -198,7 +198,7 @@ async def classify_item(req: ClassifyRequest):
 
 
 @router.post("/batch", response_model=ClassifyBatchResponse, summary="Batch classify")
-async def classify_batch(req: ClassifyBatchRequest):
+def classify_batch(req: ClassifyBatchRequest):
     """
     Classify up to 20 items in a single request.
 
@@ -243,7 +243,7 @@ async def classify_batch(req: ClassifyBatchRequest):
 
 
 @router.get("/status", response_model=ClassifyStatusResponse, summary="AI engine status")
-async def classify_status():
+def classify_status():
     """Check whether the AI classification engine is available."""
     try:
         analyzer = _get_analyzer()
@@ -264,7 +264,7 @@ async def classify_status():
 
 
 @router.get("/categories", response_model=List[CategoryInfo], summary="List categories")
-async def list_categories():
+def list_categories():
     """Return all known issue categories with display names and descriptions."""
     # These map to IssueCategory enum values in intelligent_context_analyzer.py
     categories = [

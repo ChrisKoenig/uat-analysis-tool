@@ -37,6 +37,13 @@ from pydantic import BaseModel
 logger = logging.getLogger("triage.api")
 
 # ---------------------------------------------------------------------------
+# Centralized logging setup — ensures Azure SDK noise is suppressed
+# even when running via uvicorn (which doesn't go through triage_service.py)
+# ---------------------------------------------------------------------------
+from ..config.logging_config import setup_logging
+setup_logging()
+
+# ---------------------------------------------------------------------------
 # Application Insights telemetry (opt-in via APPLICATIONINSIGHTS_CONNECTION_STRING)
 # ---------------------------------------------------------------------------
 try:
@@ -187,7 +194,7 @@ def get_webhook() -> WebhookProcessor:
 # =============================================================================
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
-async def health_check():
+def health_check():
     """
     Service health check.
     
@@ -234,7 +241,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- LIST ---
     @app.get(f"/api/v1/{plural}", tags=[tag])
-    async def list_entities(
+    def list_entities(
         status: Optional[str] = Query(None, description="Filter by status"),
         triage_team_id: Optional[str] = Query(None, description="Filter by triage team ID (or 'all' for shared)"),
     ):
@@ -273,7 +280,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- GET ---
     @app.get(f"/api/v1/{plural}/{{entity_id}}", tags=[tag])
-    async def get_entity(entity_id: str):
+    def get_entity(entity_id: str):
         """Get a single entity by ID"""
         crud = get_crud()
         item = crud.get(entity_type, entity_id)
@@ -289,7 +296,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- CREATE ---
     @app.post(f"/api/v1/{plural}", status_code=201, tags=[tag])
-    async def create_entity(body: create_model):
+    def create_entity(body: create_model):
         """Create a new entity"""
         try:
             crud = get_crud()
@@ -306,7 +313,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- UPDATE ---
     @app.put(f"/api/v1/{plural}/{{entity_id}}", tags=[tag])
-    async def update_entity(entity_id: str, body: update_model):
+    def update_entity(entity_id: str, body: update_model):
         """Update an existing entity (requires version for optimistic locking)"""
         try:
             crud = get_crud()
@@ -325,7 +332,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- DELETE ---
     @app.delete(f"/api/v1/{plural}/{{entity_id}}", tags=[tag])
-    async def delete_entity(
+    def delete_entity(
         entity_id: str,
         hard: bool = Query(False, description="Permanently delete"),
         version: Optional[int] = Query(
@@ -354,7 +361,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- COPY ---
     @app.post(f"/api/v1/{plural}/{{entity_id}}/copy", status_code=201, tags=[tag])
-    async def copy_entity(entity_id: str, body: CopyRequest = CopyRequest()):
+    def copy_entity(entity_id: str, body: CopyRequest = CopyRequest()):
         """Clone an entity with a new ID"""
         try:
             crud = get_crud()
@@ -374,7 +381,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- STATUS ---
     @app.put(f"/api/v1/{plural}/{{entity_id}}/status", tags=[tag])
-    async def update_status(entity_id: str, body: StatusUpdate):
+    def update_status(entity_id: str, body: StatusUpdate):
         """Change entity status (active/disabled/staged).\n        Requires version for optimistic locking."""
         try:
             crud = get_crud()
@@ -395,7 +402,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- REFERENCES ---
     @app.get(f"/api/v1/{plural}/{{entity_id}}/references", tags=[tag])
-    async def get_references(entity_id: str):
+    def get_references(entity_id: str):
         """Get cross-references (which entities use this one).
         Returns empty refs when Cosmos DB is unavailable.
         Includes referenceNames map for friendly display."""
@@ -450,7 +457,7 @@ _create_crud_endpoints("triage-team", TriageTeamCreate, TriageTeamUpdate)
 # =============================================================================
 
 @app.post("/api/v1/evaluate", tags=["Evaluation"])
-async def evaluate(body: EvaluateRequest):
+def evaluate(body: EvaluateRequest):
     """
     Evaluate one or more work items through the triage pipeline.
     
@@ -590,17 +597,17 @@ async def evaluate(body: EvaluateRequest):
 
 
 @app.post("/api/v1/evaluate/test", tags=["Evaluation"])
-async def evaluate_test(body: EvaluateRequest):
+def evaluate_test(body: EvaluateRequest):
     """
     Dry run evaluation - computes results without writing to ADO.
     Equivalent to evaluate with dryRun=True.
     """
     body.dryRun = True
-    return await evaluate(body)
+    return evaluate(body)
 
 
 @app.post("/api/v1/evaluate/apply", tags=["Evaluation"])
-async def apply_evaluation(body: ApplyChangesRequest):
+def apply_evaluation(body: ApplyChangesRequest):
     """
     Apply evaluation results to ADO.
     
@@ -722,7 +729,7 @@ async def apply_evaluation(body: ApplyChangesRequest):
 
 
 @app.get("/api/v1/evaluations/{work_item_id}", tags=["Evaluation"])
-async def get_evaluations(work_item_id: int, limit: int = 20):
+def get_evaluations(work_item_id: int, limit: int = 20):
     """Get evaluation history for a specific work item"""
     try:
         eval_service = get_eval()
@@ -739,7 +746,7 @@ async def get_evaluations(work_item_id: int, limit: int = 20):
 # =============================================================================
 
 @app.get("/api/v1/analysis/batch", tags=["Analysis"])
-async def get_analysis_batch(
+def get_analysis_batch(
     ids: str = Query(..., description="Comma-separated work item IDs"),
 ):
     """
@@ -797,7 +804,7 @@ async def get_analysis_batch(
 
 
 @app.get("/api/v1/analysis/{work_item_id}", tags=["Analysis"])
-async def get_analysis_detail(work_item_id: int):
+def get_analysis_detail(work_item_id: int):
     """
     Get the full latest analysis result for a work item.
 
@@ -843,7 +850,7 @@ class _RoutingPatch(BaseModel):
 
 
 @app.patch("/api/v1/analysis/{work_item_id}/routing", tags=["Analysis"])
-async def patch_analysis_routing(work_item_id: int, patch: _RoutingPatch):
+def patch_analysis_routing(work_item_id: int, patch: _RoutingPatch):
     """
     Update ServiceTree routing fields on the latest analysis record.
     Only non-null fields in the request body are applied.
@@ -1010,7 +1017,7 @@ def _map_hybrid_to_analysis_result(
 
 
 @app.get("/api/v1/analyze/status", tags=["Analysis"])
-async def get_analysis_engine_status():
+def get_analysis_engine_status():
     """Check whether the analysis engine and AI services are available."""
     try:
         analyzer = get_analyzer()
@@ -1031,7 +1038,7 @@ async def get_analysis_engine_status():
 # ── Graph User Lookup (FR-1998) ──────────────────────────────────────────
 
 @app.get("/api/v1/graph/user", tags=["Graph"])
-async def get_graph_user(email: str):
+def get_graph_user(email: str):
     """
     Look up user info from Microsoft Graph by email/UPN.
 
@@ -1075,8 +1082,21 @@ async def get_diagnostics():
     CHECK_TIMEOUT = 5          # seconds per subsystem
     AI_INIT_TIMEOUT = 15       # first-time analyzer init can be slow
 
+    # Environment info (non-secret)
+    try:
+        from config import get_app_config, APP_ENV
+        _cfg = get_app_config()
+        _env_info = {
+            "name": APP_ENV,
+            "region": getattr(_cfg, 'azure_location', None),
+            "resourceGroup": getattr(_cfg, 'resource_group', None),
+        }
+    except Exception:
+        _env_info = {"name": os.environ.get("APP_ENV", "unknown")}
+
     diag = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "environment": _env_info,
         "api": {"status": "healthy"},
         "cosmos": {},
         "ai": {},
@@ -1176,7 +1196,7 @@ def _mask_url(url: str) -> str:
 
 
 @app.post("/api/v1/analyze", tags=["Analysis"])
-async def run_analysis(body: AnalyzeRequest):
+def run_analysis(body: AnalyzeRequest):
     """
     Run the hybrid analysis engine on one or more work items.
 
@@ -1266,7 +1286,7 @@ async def run_analysis(body: AnalyzeRequest):
 
 
 @app.post("/api/v1/analyze/reanalyze", tags=["Analysis"])
-async def reanalyze_with_corrections(body: ReanalyzeRequest):
+def reanalyze_with_corrections(body: ReanalyzeRequest):
     """
     Re-analyze a single work item with user-supplied correction hints.
 
@@ -1332,7 +1352,7 @@ async def reanalyze_with_corrections(body: ReanalyzeRequest):
 
 
 @app.post("/api/v1/ado/analysis-state", tags=["ADO"])
-async def update_analysis_state(body: AnalysisStateRequest):
+def update_analysis_state(body: AnalysisStateRequest):
     """
     Update Custom.ROBAnalysisState on one or more ADO work items.
 
@@ -1378,7 +1398,7 @@ async def update_analysis_state(body: AnalysisStateRequest):
 # =============================================================================
 
 @app.get("/api/v1/ado/queue", tags=["ADO"])
-async def get_triage_queue(
+def get_triage_queue(
     state: Optional[str] = Query(None, description="Filter by ROBAnalysisState"),
     area_path: Optional[str] = Query(None, description="Filter by area path"),
     max_results: int = Query(100, ge=1, le=500),
@@ -1417,7 +1437,7 @@ async def get_triage_queue(
 
 
 @app.get("/api/v1/ado/queue/details", tags=["ADO"])
-async def get_triage_queue_details(
+def get_triage_queue_details(
     state: Optional[str] = Query(None, description="Filter by ROBAnalysisState"),
     area_path: Optional[str] = Query(None, description="Filter by area path"),
     max_results: int = Query(100, ge=1, le=500),
@@ -1495,7 +1515,7 @@ async def get_triage_queue_details(
 
 
 @app.get("/api/v1/ado/queue/saved", tags=["ADO"])
-async def get_saved_query_results(
+def get_saved_query_results(
     query_id: str = Query(
         "b0ad9398-4942-4d8f-829e-604a347d8ac8",
         description="GUID of the saved ADO query",
@@ -1551,7 +1571,7 @@ async def get_saved_query_results(
 
 
 @app.get("/api/v1/ado/workitem/{work_item_id}", tags=["ADO"])
-async def get_work_item(work_item_id: int):
+def get_work_item(work_item_id: int):
     """
     Fetch a single work item from ADO.
     
@@ -1582,7 +1602,7 @@ async def get_work_item(work_item_id: int):
 
 
 @app.get("/api/v1/ado/status", tags=["ADO"])
-async def ado_connection_status():
+def ado_connection_status():
     """
     Check ADO connection health.
     
@@ -1610,7 +1630,7 @@ async def ado_connection_status():
 
 
 @app.get("/api/v1/ado/fields", tags=["ADO"])
-async def get_field_definitions():
+def get_field_definitions():
     """
     Fetch field definitions from ADO for the Action work item type.
     
@@ -1645,7 +1665,7 @@ async def get_field_definitions():
 # =============================================================================
 
 @app.post("/api/v1/webhook/workitem", tags=["Webhook"])
-async def receive_webhook(payload: WebhookPayload):
+def receive_webhook(payload: WebhookPayload):
     """
     Receive ADO Service Hook webhook notifications.
     
@@ -1712,7 +1732,7 @@ async def receive_webhook(payload: WebhookPayload):
 
 
 @app.get("/api/v1/webhook/stats", tags=["Webhook"])
-async def webhook_stats():
+def webhook_stats():
     """Get webhook processing statistics"""
     processor = get_webhook()
     return processor.get_stats()
@@ -1723,7 +1743,7 @@ async def webhook_stats():
 # =============================================================================
 
 @app.get("/api/v1/audit", tags=["Audit"])
-async def list_audit(
+def list_audit(
     entity_type: Optional[str] = Query(None),
     action: Optional[str] = Query(None),
     actor: Optional[str] = Query(None),
@@ -1747,7 +1767,7 @@ async def list_audit(
 
 
 @app.get("/api/v1/audit/{entity_type}/{entity_id}", tags=["Audit"])
-async def get_entity_audit(entity_type: str, entity_id: str, limit: int = 50):
+def get_entity_audit(entity_type: str, entity_id: str, limit: int = 50):
     """Get audit history for a specific entity.
     Returns empty results when Cosmos DB is unavailable."""
     try:
@@ -1765,7 +1785,7 @@ async def get_entity_audit(entity_type: str, entity_id: str, limit: int = 50):
 # =============================================================================
 
 @app.get("/api/v1/validation/warnings", tags=["Validation"])
-async def get_validation_warnings():
+def get_validation_warnings():
     """
     Get all validation warnings across the system.
     
@@ -1902,7 +1922,7 @@ async def get_validation_warnings():
     "/api/v1/validation/references/{entity_type}/{entity_id}",
     tags=["Validation"]
 )
-async def get_references(entity_type: str, entity_id: str):
+def get_references(entity_type: str, entity_id: str):
     """Get all entities that reference the given entity"""
     crud = get_crud()
     refs = crud.find_references(entity_type, entity_id)
@@ -1918,7 +1938,7 @@ async def get_references(entity_type: str, entity_id: str):
 # =============================================================================
 
 @app.get("/api/v1/fields", tags=["Fields"])
-async def list_fields(
+def list_fields(
     source: Optional[str] = Query(None, description="Filter by source (ado, analysis, system)"),
     can_evaluate: Optional[bool] = Query(None, description="Filter to evaluable fields"),
     can_set: Optional[bool] = Query(None, description="Filter to settable fields"),

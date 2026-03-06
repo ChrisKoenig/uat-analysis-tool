@@ -130,9 +130,15 @@ class BlobStorageManager:
 # Convenience functions for backward compatibility with existing code
 
 def _get_storage_account_name() -> str:
-    """Get storage account name from Key Vault or environment"""
-    kv_config = get_keyvault_config()
-    return kv_config.get_secret('AZURE_STORAGE_ACCOUNT_NAME')
+    """Get storage account name from AppConfig or environment"""
+    try:
+        from config import get_app_config
+        name = getattr(get_app_config(), 'storage_account', None)
+        if name:
+            return name
+    except Exception:
+        pass
+    return os.environ.get('AZURE_STORAGE_ACCOUNT_NAME', '')
 
 def load_context_evaluations() -> List[Dict]:
     """Load context evaluations from blob storage, fallback to local file"""

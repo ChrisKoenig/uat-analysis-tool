@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 8, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **60 API endpoints**
+**Last Updated**: March 6, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import + bulk edit/delete (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **secrets cleanup — true secrets only in KV (ENG-012)** + **API stability fixes — async def, emoji crash, Cosmos cooldown (B0008)** + **environment indicator in diagnostics (ENG-013)** + **60 API endpoints**
 
 ---
 
@@ -129,7 +129,7 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 - **Database**: Azure Cosmos DB (`cosmos-gcs-dev`, serverless, North Central US)
 - **Analysis Engine**: Hybrid pattern matching + LLM classification
 - **Startup**: `python launcher.py` (GUI launcher) OR manual start
-- **Pages** (14): Dashboard (with health + AI discoveries count), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management, Classification Config
+- **Pages** (14): Dashboard (with health + AI discoveries count), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management (export/import + bulk edit/delete), Classification Config
 
 ### Field Portal (Built Feb 12, deployed to App Service Mar 2)
 - **Backend API**: FastAPI on port 8010 locally / port 8000 on App Service (uvicorn, `field-portal/api/main.py`)

@@ -4,6 +4,32 @@
  * Tiny icon + flyout panel in the bottom-right corner.
  */
 
+/* ── Environment badge ── */
+.diag-env {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f0f4f8;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.75rem;
+}
+
+.diag-env-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  background: #0078d4;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diag-env-region {
+  color: #888;
+}
+
 /* ── Root anchor (bottom-right) ── */
 .diag-root {
   position: fixed;
@@ -26,27 +52,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .12);
   transition: background .15s, box-shadow .15s;
 }
+
 .diag-trigger:hover {
   background: #f3f2f1;
-  box-shadow: 0 3px 10px rgba(0,0,0,.18);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .18);
 }
+
 .diag-trigger--error,
 .diag-trigger--offline {
   border-color: #d13438;
   color: #d13438;
   animation: diag-pulse 2s infinite;
 }
+
 .diag-trigger--healthy {
   border-color: #107c10;
   color: #107c10;
 }
 
 @keyframes diag-pulse {
-  0%, 100% { box-shadow: 0 2px 6px rgba(209,52,56,.2); }
-  50%      { box-shadow: 0 2px 12px rgba(209,52,56,.45); }
+
+  0%,
+  100% {
+    box-shadow: 0 2px 6px rgba(209, 52, 56, .2);
+  }
+
+  50% {
+    box-shadow: 0 2px 12px rgba(209, 52, 56, .45);
+  }
 }
 
 /* ── Flyout panel ── */
@@ -58,7 +94,7 @@
   background: #fff;
   border: 1px solid #e1dfdd;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
   overflow: hidden;
 }
 
@@ -71,6 +107,7 @@
   border-bottom: 1px solid #edebe9;
   font-size: 13px;
 }
+
 .diag-close {
   background: none;
   border: none;
@@ -80,7 +117,10 @@
   line-height: 1;
   padding: 0 4px;
 }
-.diag-close:hover { color: #d13438; }
+
+.diag-close:hover {
+  color: #d13438;
+}
 
 /* ── Content rows ── */
 .diag-section {
@@ -98,6 +138,7 @@
   align-items: center;
   padding: 6px 14px;
 }
+
 .diag-row--error {
   background: #fde7e9;
   padding: 10px 14px;
@@ -112,7 +153,10 @@
   color: #8a8886;
   word-break: break-all;
 }
-.diag-detail--error { color: #d13438; }
+
+.diag-detail--error {
+  color: #d13438;
+}
 
 .diag-tag {
   font-size: 11px;
@@ -120,12 +164,28 @@
   border-radius: 10px;
   font-weight: 600;
 }
-.diag-tag--healthy { background: #dff6dd; color: #107c10; }
-.diag-tag--degraded { background: #fff4ce; color: #8a6914; }
+
+.diag-tag--healthy {
+  background: #dff6dd;
+  color: #107c10;
+}
+
+.diag-tag--degraded {
+  background: #fff4ce;
+  color: #8a6914;
+}
+
 .diag-tag--timeout,
-.diag-tag--initializing { background: #fff4ce; color: #c47a00; }
+.diag-tag--initializing {
+  background: #fff4ce;
+  color: #c47a00;
+}
+
 .diag-tag--offline,
-.diag-tag--error { background: #fde7e9; color: #d13438; }
+.diag-tag--error {
+  background: #fde7e9;
+  color: #d13438;
+}
 
 .diag-ts {
   padding: 6px 14px;
@@ -148,6 +208,7 @@
   border-top: 1px solid #edebe9;
   background: #faf9f8;
 }
+
 .diag-copy,
 .diag-refresh {
   flex: 1;
@@ -159,7 +220,14 @@
   font-size: 12px;
   transition: background .12s;
 }
+
 .diag-copy:hover,
-.diag-refresh:hover { background: #f3f2f1; }
+.diag-refresh:hover {
+  background: #f3f2f1;
+}
+
 .diag-copy:disabled,
-.diag-refresh:disabled { opacity: .5; cursor: default; }
+.diag-refresh:disabled {
+  opacity: .5;
+  cursor: default;
+}

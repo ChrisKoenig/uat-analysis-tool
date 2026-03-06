@@ -102,7 +102,7 @@ export default function DiagnosticsPanel() {
         aria-label="System diagnostics"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm.75 10.5h-1.5v-1.5h1.5v1.5Zm0-3h-1.5V4h1.5v4.5Z"/>
+          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm.75 10.5h-1.5v-1.5h1.5v1.5Zm0-3h-1.5V4h1.5v4.5Z" />
         </svg>
       </button>
 
@@ -113,6 +113,15 @@ export default function DiagnosticsPanel() {
             <strong>System Diagnostics</strong>
             <button className="diag-close" onClick={() => setOpen(false)} aria-label="Close">×</button>
           </div>
+
+          {diag?.environment && (
+            <div className="diag-env">
+              <span className="diag-env-badge">{diag.environment.name}</span>
+              {diag.environment.region && (
+                <span className="diag-env-region">{diag.environment.region}</span>
+              )}
+            </div>
+          )}
 
           {loading && !diag && <div className="diag-loading">Loading…</div>}
 

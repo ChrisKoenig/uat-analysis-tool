@@ -812,6 +812,28 @@ export function getBackup(auditId) {
   return get(`/data-management/backups/${encodeURIComponent(auditId)}`);
 }
 
+/**
+ * Bulk-update the same fields on multiple entities.
+ * @param {string} entityType - "rule" | "action" | "trigger" | "route"
+ * @param {string[]} entityIds - IDs to update
+ * @param {Object} fieldUpdates - Fields/values to set on each entity
+ * @returns {Promise<Object>} { updated, failed, results }
+ */
+export function bulkEdit(entityType, entityIds, fieldUpdates) {
+  return post('/data-management/bulk-edit', { entityType, entityIds, fieldUpdates });
+}
+
+/**
+ * Bulk-delete multiple entities (soft or hard).
+ * @param {string} entityType - "rule" | "action" | "trigger" | "route"
+ * @param {string[]} entityIds - IDs to delete
+ * @param {boolean} [hardDelete=false] - Permanent removal if true
+ * @returns {Promise<Object>} { deleted, skipped, failed, results }
+ */
+export function bulkDelete(entityType, entityIds, hardDelete = false) {
+  return post('/data-management/bulk-delete', { entityType, entityIds, hardDelete });
+}
+
 
 // =============================================================================
 // Classification Config API (dynamic categories / intents / impacts)

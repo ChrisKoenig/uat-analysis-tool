@@ -23,7 +23,7 @@ from blob_storage_helper import (
     load_corrections,
     save_corrections
 )
-from keyvault_config import get_keyvault_config
+from keyvault_config import get_keyvault_config, KEY_VAULT_URI
 from config import get_app_config
 
 app = Flask(__name__, template_folder='templates/admin')
@@ -683,16 +683,16 @@ def get_keyvault_status():
         connection_verified = False
         if is_connected:
             try:
-                # Try to get storage account name as test
-                test_secret = kv.get_secret("AZURE_STORAGE_ACCOUNT_NAME", fallback_to_env=False)
+                # Try to get App Insights key as a lightweight test (true secret)
+                test_secret = kv.get_secret("AZURE_APP_INSIGHTS_INSTRUMENTATION_KEY", fallback_to_env=False)
                 connection_verified = test_secret is not None
             except:
                 connection_verified = False
-        
+
         return jsonify({
             'enabled': is_connected,
             'connected': connection_verified,
-            'vault_uri': kv_config._client.vault_url if kv_config._client else "https://kv-gcs-dev-gg4a6y.vault.azure.net/",
+            'vault_uri': kv_config._client.vault_url if kv_config._client else KEY_VAULT_URI,
             'auth_method': auth_method,
             'cached_secrets': cached_secrets,
             'last_checked': datetime.now().isoformat()

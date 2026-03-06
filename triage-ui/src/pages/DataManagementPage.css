@@ -558,3 +558,139 @@
 .dm-import-update {
   border-left: 3px solid #0366d6;
 }
+
+/* =========================================================================
+   Bulk Edit / Bulk Delete Styles
+   ========================================================================= */
+
+.dm-bulk-desc {
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+  margin: var(--space-xs) 0 var(--space-md) 0;
+}
+
+.dm-bulk-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+}
+
+.dm-bulk-control-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.dm-toggle-label {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.dm-toggle-label input[type="checkbox"] {
+  accent-color: var(--danger, #dc3545);
+}
+
+.dm-select {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  min-width: 150px;
+}
+
+.dm-input {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  min-width: 250px;
+}
+
+/* ---------- Bulk Entity List (taller than export) ---------- */
+
+.dm-bulk-list-card {
+  max-height: 420px;
+}
+
+/* ---------- Team Badge ---------- */
+
+.dm-team-badge {
+  font-size: var(--font-size-xs);
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #e6f0ff;
+  color: #0366d6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+/* ---------- Bulk Field Updates Form ---------- */
+
+.dm-bulk-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.dm-bulk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.dm-bulk-field > span {
+  font-weight: 500;
+  color: var(--text-light);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Delete Buttons ---------- */
+
+.dm-btn-delete {
+  background: var(--warning, #f0ad4e);
+}
+
+.dm-btn-delete:hover:not(:disabled) {
+  background: #ec971f;
+}
+
+.dm-btn-danger {
+  background: var(--danger, #dc3545);
+}
+
+.dm-btn-danger:hover:not(:disabled) {
+  background: #c82333;
+}
+
+/* ---------- Confirm Bar ---------- */
+
+.dm-confirm-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dm-confirm-text {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--danger, #dc3545);
+}
+
+.dm-delete-action-bar {
+  flex-direction: column;
+  align-items: flex-start;
+}
