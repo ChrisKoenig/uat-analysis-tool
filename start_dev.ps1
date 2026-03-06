@@ -89,23 +89,12 @@ $env:APP_ENV = $Environment
 $_configJsonPath = Join-Path $Root "config\environments\$Environment.json"
 . (Join-Path $Root "config\environments\_load-config.ps1")
 
-$env:COSMOS_ENDPOINT = "https://$COSMOS_ACCOUNT.documents.azure.com:443/"
-$env:COSMOS_USE_AAD = "true"
-$env:COSMOS_TENANT_ID = $TENANT_ID
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONPATH = $Root
 
-# Azure OpenAI (workaround while Key Vault public access is disabled)
-$env:AZURE_OPENAI_ENDPOINT = "https://$($OPENAI_ACCOUNT.ToLower()).openai.azure.com/"
-$env:AZURE_OPENAI_USE_AAD = "true"
-
-# Application Insights (telemetry for both APIs)
-$env:APPLICATIONINSIGHTS_CONNECTION_STRING = $APP_INSIGHTS_CS
-
-Write-Host "  COSMOS_ENDPOINT  = $env:COSMOS_ENDPOINT" -ForegroundColor Gray
-Write-Host "  COSMOS_USE_AAD   = $env:COSMOS_USE_AAD" -ForegroundColor Gray
-Write-Host "  AZURE_OPENAI     = $env:AZURE_OPENAI_ENDPOINT" -ForegroundColor Gray
-Write-Host "  APP_INSIGHTS     = (configured)" -ForegroundColor Gray
+Write-Host "  APP_ENV          = $Environment" -ForegroundColor Gray
+Write-Host "  Cosmos Account   = $COSMOS_ACCOUNT" -ForegroundColor Gray
+Write-Host "  OpenAI Account   = $OPENAI_ACCOUNT" -ForegroundColor Gray
 Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 
 # -- Step 3: Write local UI config -------------------------------------------------

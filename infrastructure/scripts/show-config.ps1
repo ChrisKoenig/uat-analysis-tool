@@ -9,7 +9,7 @@
     they are correct — do NOT run this script in a shared terminal session or
     pipe its output to a log file that others can read.
 
-.PARAMETER Env
+.PARAMETER Environment
     Target environment: dev | preprod | prod.
     Defaults to the APP_ENV environment variable, or "dev" if that is not set.
 
@@ -18,20 +18,19 @@
     .\infrastructure\scripts\show-config.ps1
 
     # Show preprod config explicitly
-    .\infrastructure\scripts\show-config.ps1 -Env preprod
-
-    # Set APP_ENV and run
-    $env:APP_ENV = "preprod"; .\infrastructure\scripts\show-config.ps1
+    .\infrastructure\scripts\show-config.ps1 -Environment preprod
 #>
 
 param(
-    [string]$Env
+    [Alias("Env")]
+    [string]$Environment
 )
 
 # ── Resolve which environment to show ────────────────────────────────────────
-if (-not $Env) {
-    $Env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
+if (-not $Environment) {
+    $Environment = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
 }
+$Env = $Environment
 $Env = $Env.ToLower()
 
 $configFile = Join-Path $PSScriptRoot "..\..\config\environments\$Env.ps1"
