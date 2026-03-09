@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
         # 0. Quick network check — is KeyVault reachable?
         _log("Step 0: KeyVault TCP reachability check (3s timeout)...")
         _t0 = _t.time()
-        from keyvault_config import check_reachable as _kv_check
+        from services.keyvault_config import check_reachable as _kv_check
         kv_ok, kv_msg = _kv_check(timeout_seconds=3.0)
         _log(f"Step 0 done in {_t.time()-_t0:.1f}s — reachable={kv_ok}")
         if kv_ok:
@@ -92,14 +92,14 @@ async def lifespan(app: FastAPI):
         # 1. Pre-load KeyVault secrets (triggers credential + secret reads)
         _log("Step 1: Loading AI config (KeyVault secrets)...")
         _t0 = _t.time()
-        from ai_config import get_config as get_ai_config
+        from services.ai_config import get_config as get_ai_config
         _cfg = get_ai_config()
         _log(f"Step 1 done in {_t.time()-_t0:.1f}s  (endpoint={'set' if _cfg.azure_openai.endpoint else 'MISSING'})")
 
         # 2. Pre-warm shared credential (background thread — non-blocking)
         _log("Step 2: Starting shared_auth warm_up (background thread)...")
         _t0 = _t.time()
-        from shared_auth import warm_up
+        from services.shared_auth import warm_up
         warm_up()
         _log(f"Step 2 dispatched in {_t.time()-_t0:.1f}s (thread is running in background)")
     except Exception as e:
@@ -197,7 +197,7 @@ async def root_health():
 
     # AI config
     try:
-        from ai_config import get_config as _get_ai
+        from services.ai_config import get_config as _get_ai
         cfg = _get_ai()
         components["ai"] = "ok" if cfg.azure_openai.endpoint else "degraded"
     except Exception:

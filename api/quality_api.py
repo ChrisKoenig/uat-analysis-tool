@@ -64,7 +64,7 @@ def analyze_quality():
         
         # Import AIAnalyzer
         print("[QUALITY API] Importing AIAnalyzer...")
-        from enhanced_matching import AIAnalyzer
+        from services.enhanced_matching import AIAnalyzer
         
         # Create analyzer instance
         print("[QUALITY API] Creating AIAnalyzer instance...")

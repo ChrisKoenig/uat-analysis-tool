@@ -10,9 +10,9 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-from embedding_service import EmbeddingService
-from cache_manager import CacheManager
-from ai_config import get_config
+from services.embedding_service import EmbeddingService
+from services.cache_manager import CacheManager
+from services.ai_config import get_config
 
 
 @dataclass

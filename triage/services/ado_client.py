@@ -49,7 +49,7 @@ _workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspat
 if _workspace_root not in sys.path:
     sys.path.insert(0, _workspace_root)
 
-from ado_integration import AzureDevOpsClient, AzureDevOpsConfig
+from services.ado_integration import AzureDevOpsClient, AzureDevOpsConfig
 
 
 # =============================================================================

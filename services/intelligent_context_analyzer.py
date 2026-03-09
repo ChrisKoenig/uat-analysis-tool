@@ -1384,7 +1384,7 @@ class IntelligentContextAnalyzer:
         single document in the training-signals Cosmos container.
         """
         try:
-            from weight_tuner import PatternWeightTuner
+            from services.weight_tuner import PatternWeightTuner
             tuner = PatternWeightTuner()
             multipliers = tuner.get_multipliers()
             if multipliers:

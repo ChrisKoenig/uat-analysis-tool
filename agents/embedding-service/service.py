@@ -27,7 +27,7 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Embedding Service
-from embedding_service import EmbeddingService
+from services.embedding_service import EmbeddingService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

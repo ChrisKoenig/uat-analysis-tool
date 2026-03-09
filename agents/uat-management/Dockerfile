@@ -12,9 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy service code
 COPY service.py .
 
-# Copy required source files
-COPY ../../ado_integration.py ./ado_integration.py
-COPY ../../ai_config.py ./ai_config.py
+# Copy shared services package
+COPY ../../services/ ./services/
 
 # Expose port
 EXPOSE 8004

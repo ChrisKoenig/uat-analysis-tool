@@ -26,7 +26,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Import ADO integration
-from ado_integration import AzureDevOpsClient
+from services.ado_integration import AzureDevOpsClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

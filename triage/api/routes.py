@@ -915,7 +915,7 @@ def get_analyzer():
         workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         if workspace_root not in sys.path:
             sys.path.insert(0, workspace_root)
-        from hybrid_context_analyzer import HybridContextAnalyzer
+        from services.hybrid_context_analyzer import HybridContextAnalyzer
         _analyzer = HybridContextAnalyzer(use_ai=True)
     return _analyzer
 
@@ -954,7 +954,7 @@ def _map_hybrid_to_analysis_result(
         _proj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         if _proj_root not in sys.path:
             sys.path.insert(0, _proj_root)
-        from servicetree_service import get_servicetree_service
+        from services.servicetree_service import get_servicetree_service
 
         svc = get_servicetree_service()
         # Combine detected products + azure services for best-effort lookup
@@ -1047,7 +1047,7 @@ def get_graph_user(email: str):
     identity string like "Display Name <user@domain.com>".
     """
     import re as _re
-    from graph_user_lookup import get_user_info
+    from services.graph_user_lookup import get_user_info
 
     # Normalise ADO identity strings: "Display Name <email>" → email
     clean = email.strip()

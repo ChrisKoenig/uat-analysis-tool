@@ -25,7 +25,7 @@ for f in ['retirements.json', 'corrections.json', 'issues_actions.json', 'contex
 
 # 2. search_service loads retirements from data/
 print("\n2. search_service data path:")
-from search_service import ResourceSearchService
+from services.search_service import ResourceSearchService
 s = ResourceSearchService()
 r = s._load_retirements()
 count = len(r.get('retirements', []))
@@ -90,14 +90,34 @@ for f in old_files:
     else:
         print(f"   OK   {f} removed from root")
 
-# 8. All shared Python modules still importable
-print("\n8. Shared module imports:")
+# 7b. Shared modules should NOT exist at root (moved to services/)
+print("\n7b. Shared modules moved out of root:")
+moved_modules = [
+    'ai_config.py', 'ado_integration.py', 'blob_storage_helper.py',
+    'cache_manager.py', 'embedding_service.py', 'enhanced_matching.py',
+    'graph_user_lookup.py', 'hybrid_context_analyzer.py',
+    'intelligent_context_analyzer.py', 'keyvault_config.py',
+    'llm_classifier.py', 'microservices_client.py', 'search_service.py',
+    'servicetree_service.py', 'shared_auth.py', 'vector_search.py',
+    'weight_tuner.py',
+]
+for f in moved_modules:
+    if Path(f).exists():
+        print(f"   FAIL {f} still exists at root!")
+        failures += 1
+    else:
+        print(f"   OK   {f} removed from root")
+
+# 8. All shared Python modules importable from services package
+print("\n8. Shared module imports (services.*):")
 modules = [
-    'ai_config', 'cache_manager', 'search_service', 'weight_tuner',
-    'servicetree_service', 'microservices_client', 'keyvault_config',
-    'shared_auth', 'blob_storage_helper', 'embedding_service',
-    'llm_classifier', 'vector_search', 'intelligent_context_analyzer',
-    'ado_integration', 'enhanced_matching',
+    'services.ai_config', 'services.cache_manager', 'services.search_service',
+    'services.weight_tuner', 'services.servicetree_service',
+    'services.microservices_client', 'services.keyvault_config',
+    'services.shared_auth', 'services.blob_storage_helper',
+    'services.embedding_service', 'services.llm_classifier',
+    'services.vector_search', 'services.intelligent_context_analyzer',
+    'services.ado_integration', 'services.enhanced_matching',
 ]
 for m in modules:
     try:

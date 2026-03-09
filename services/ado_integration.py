@@ -159,7 +159,7 @@ class AzureDevOpsConfig:
 
             # Share with search services so they don't prompt separately
             try:
-                from enhanced_matching import EnhancedMatchingConfig
+                from services.enhanced_matching import EnhancedMatchingConfig
                 EnhancedMatchingConfig._uat_credential = credential
                 EnhancedMatchingConfig._uat_token = token.token
                 print("[AUTH] Credential shared with UAT search services")
@@ -1189,7 +1189,7 @@ class AzureDevOpsClient:
             # Try AI semantic search first, fall back to keyword matching
             print("[TFT Search] Using AI semantic search for similarity matching...")
             try:
-                from embedding_service import EmbeddingService
+                from services.embedding_service import EmbeddingService
                 import time
                 
                 embedding_service = EmbeddingService()

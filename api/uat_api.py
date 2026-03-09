@@ -63,7 +63,7 @@ def create_uat():
         milestone_id = data.get('milestone_id', '').strip()
         
         # Import ADO integration
-        from ado_integration import AzureDevOpsClient
+        from services.ado_integration import AzureDevOpsClient
         
         # Create ADO client
         ado_client = AzureDevOpsClient()

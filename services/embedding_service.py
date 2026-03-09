@@ -9,8 +9,8 @@ from typing import List, Optional, Dict, Any
 from openai import AzureOpenAI
 import numpy as np
 
-from ai_config import get_config
-from cache_manager import CacheManager
+from services.ai_config import get_config
+from services.cache_manager import CacheManager
 
 
 class EmbeddingService:
@@ -37,7 +37,7 @@ class EmbeddingService:
         if use_aad:
             # Use shared credential (single auth for all services)
             print(f"[EmbeddingService] 🔐 Using Azure AD authentication (shared credential)...")
-            from shared_auth import get_credential, get_credential_type
+            from services.shared_auth import get_credential, get_credential_type
             from azure.identity import get_bearer_token_provider
             credential = get_credential()
             print(f"[EmbeddingService] Using shared credential (type: {get_credential_type()})")

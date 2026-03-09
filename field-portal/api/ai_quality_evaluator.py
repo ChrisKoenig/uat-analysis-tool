@@ -25,13 +25,13 @@ def _get_openai_client():
     Supports both AAD and API-key auth (same pattern as llm_classifier.py).
     """
     from openai import AzureOpenAI
-    from ai_config import get_config
+    from services.ai_config import get_config
 
     config = get_config()
     azure_cfg = config.azure_openai
 
     if azure_cfg.use_aad:
-        from shared_auth import get_credential
+        from services.shared_auth import get_credential
         from azure.identity import get_bearer_token_provider
         credential = get_credential()
         token_provider = get_bearer_token_provider(
@@ -206,7 +206,7 @@ def _format_result(ai: Dict) -> Dict[str, Any]:
 def _fallback_rules_engine(title: str, description: str, impact: str, error_msg: str) -> Dict[str, Any]:
     """Use the old regex/word-count engine if AI is unavailable."""
     try:
-        from enhanced_matching import AIAnalyzer
+        from services.enhanced_matching import AIAnalyzer
         result = AIAnalyzer.analyze_completeness(title=title, description=description, impact=impact)
         result["ai_evaluation"] = False
         result["ai_error"] = error_msg

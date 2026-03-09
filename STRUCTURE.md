@@ -25,6 +25,7 @@ uat-analysis-tool/
 ├── scripts/                    # Admin, setup & migration scripts
 ├── tests/                      # Test suites
 │
+├── services/                   # Shared Python service modules (package)
 ├── agents/                     # Microservice agent containers
 ├── containers/                 # Dockerfile definitions for deployment
 ├── gateway/                    # API Gateway routing layer
@@ -35,34 +36,33 @@ uat-analysis-tool/
 ├── triage-ui/                  # Triage frontend (Vite + React)
 │
 ├── cache/                      # Runtime cache files
-└── [shared Python modules]     # See "Shared Services" below
 ```
 
-## Shared Python Services (root level)
+## `services/` — Shared Python Services
 
-These are shared library modules imported across the codebase. They remain
-at root level because they form a tightly-coupled dependency graph imported
-by `api/`, `field-portal/`, `triage/`, and `agents/` via `sys.path`.
+A proper Python package containing all shared library modules. Imported
+across the codebase by `api/`, `field-portal/`, `triage/`, `agents/`,
+and the root entry points as `from services.<module> import ...`.
 
 | Module | Purpose |
 |--------|---------|
-| `ai_config.py` | Centralized AI/OpenAI configuration |
-| `ado_integration.py` | Azure DevOps REST API client |
-| `blob_storage_helper.py` | Azure Blob Storage read/write |
-| `cache_manager.py` | Smart cache with TTL |
-| `embedding_service.py` | Azure OpenAI text embedding generation |
-| `enhanced_matching.py` | Central orchestrator — AI + ADO matching |
-| `graph_user_lookup.py` | Microsoft Graph user lookup |
-| `hybrid_context_analyzer.py` | Hybrid pattern + LLM + vector analysis |
-| `intelligent_context_analyzer.py` | Pattern-based 10-step analysis pipeline |
-| `keyvault_config.py` | Azure Key Vault secret management |
-| `llm_classifier.py` | GPT-4 classification with reasoning |
-| `microservices_client.py` | HTTP client for microservice calls |
-| `search_service.py` | Multi-source resource search |
-| `servicetree_service.py` | ServiceTree BFF API integration |
-| `shared_auth.py` | Azure credential singleton |
-| `vector_search.py` | Semantic similarity search |
-| `weight_tuner.py` | Pattern engine weight tuner |
+| `services/ai_config.py` | Centralized AI/OpenAI configuration |
+| `services/ado_integration.py` | Azure DevOps REST API client |
+| `services/blob_storage_helper.py` | Azure Blob Storage read/write |
+| `services/cache_manager.py` | Smart cache with TTL |
+| `services/embedding_service.py` | Azure OpenAI text embedding generation |
+| `services/enhanced_matching.py` | Central orchestrator — AI + ADO matching |
+| `services/graph_user_lookup.py` | Microsoft Graph user lookup |
+| `services/hybrid_context_analyzer.py` | Hybrid pattern + LLM + vector analysis |
+| `services/intelligent_context_analyzer.py` | Pattern-based 10-step analysis pipeline |
+| `services/keyvault_config.py` | Azure Key Vault secret management |
+| `services/llm_classifier.py` | GPT-4 classification with reasoning |
+| `services/microservices_client.py` | HTTP client for microservice calls |
+| `services/search_service.py` | Multi-source resource search |
+| `services/servicetree_service.py` | ServiceTree BFF API integration |
+| `services/shared_auth.py` | Azure credential singleton |
+| `services/vector_search.py` | Semantic similarity search |
+| `services/weight_tuner.py` | Pattern engine weight tuner |
 
 ## Key Subdirectories
 

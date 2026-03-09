@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential, InteractiveBrowserCredential
-from keyvault_config import get_keyvault_config
+from services.keyvault_config import get_keyvault_config
 
 # Global credential cache to avoid repeated authentication prompts
 _cached_blob_credential = None

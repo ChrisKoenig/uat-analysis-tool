@@ -14,7 +14,7 @@ import logging
 # Add parent directory to path to import search_service
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from search_service import ResourceSearchService, ComprehensiveSearchResults, SearchResult
+from services.search_service import ResourceSearchService, ComprehensiveSearchResults, SearchResult
 
 # Initialize FastAPI app
 app = FastAPI(

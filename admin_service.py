@@ -16,14 +16,14 @@ import requests
 import threading
 import time
 from typing import List, Dict, Any, Optional
-from blob_storage_helper import (
+from services.blob_storage_helper import (
     load_context_evaluations, 
     save_context_evaluations, 
     delete_context_evaluation,
     load_corrections,
     save_corrections
 )
-from keyvault_config import get_keyvault_config, KEY_VAULT_URI
+from services.keyvault_config import get_keyvault_config, KEY_VAULT_URI
 from config import get_app_config
 
 app = Flask(__name__, template_folder='templates/admin')
@@ -298,7 +298,7 @@ def evaluation_detail_view(eval_id: str):
 @app.route('/evaluations/<eval_id>/delete', methods=['POST'])
 def delete_evaluation(eval_id):
     """Delete an evaluation"""
-    from blob_storage_helper import delete_context_evaluation
+    from services.blob_storage_helper import delete_context_evaluation
     
     success = delete_context_evaluation(eval_id)
     

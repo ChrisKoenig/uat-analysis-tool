@@ -46,7 +46,7 @@ def search_tft_features():
             }), 400
         
         # Import ADO integration
-        from ado_integration import AzureDevOpsClient
+        from services.ado_integration import AzureDevOpsClient
         
         # Create ADO client
         ado_client = AzureDevOpsClient()
@@ -109,7 +109,7 @@ def search_uats():
             }), 400
         
         # Import Azure DevOps searcher for UAT search
-        from enhanced_matching import AzureDevOpsSearcher
+        from services.enhanced_matching import AzureDevOpsSearcher
         
         # Create searcher
         searcher = AzureDevOpsSearcher()

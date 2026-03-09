@@ -120,7 +120,7 @@ def _get_analyzer():
             if project_root not in sys.path:
                 sys.path.insert(0, project_root)
 
-            from hybrid_context_analyzer import HybridContextAnalyzer
+            from services.hybrid_context_analyzer import HybridContextAnalyzer
             _analyzer = HybridContextAnalyzer(use_ai=True)
             logger.info("Hybrid analyzer initialized for classify routes")
         except Exception as e:

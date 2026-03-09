@@ -156,7 +156,7 @@ def check_keyvault_access() -> tuple[bool, str]:
     Returns (ok, message).
     """
     try:
-        from keyvault_config import get_keyvault_config
+        from services.keyvault_config import get_keyvault_config
         kv = get_keyvault_config()
         client = kv._get_client()
         # Try listing a known secret to verify access
@@ -378,7 +378,7 @@ class LauncherApp:
                 env["PYTHONIOENCODING"] = "utf-8"
                 if svc.get("needs_kv_env"):
                     try:
-                        from keyvault_config import get_keyvault_config
+                        from services.keyvault_config import get_keyvault_config
                         kv = get_keyvault_config()
                         cfg = kv.get_config()
                         for k, v in cfg.items():

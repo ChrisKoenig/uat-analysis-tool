@@ -12,18 +12,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy service code
 COPY service.py .
 
-# Copy required source files
-COPY ../../enhanced_matching.py ./enhanced_matching.py
-COPY ../../hybrid_context_analyzer.py ./hybrid_context_analyzer.py
-COPY ../../intelligent_context_analyzer.py ./intelligent_context_analyzer.py
-COPY ../../search_service.py ./search_service.py
-COPY ../../ai_config.py ./ai_config.py
+# Copy shared services package
+COPY ../../services/ ./services/
 
 # Copy data files (if needed locally)
-COPY ../../data/retirements.json ./retirements.json
-COPY ../../data/corrections.json ./corrections.json
-COPY ../../data/issues_actions.json ./issues_actions.json
-COPY ../../data/context_evaluations.json ./context_evaluations.json
+COPY ../../data/ ./data/
 
 # Expose port
 EXPOSE 8003

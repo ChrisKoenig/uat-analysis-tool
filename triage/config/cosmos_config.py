@@ -45,7 +45,7 @@ logger = logging.getLogger("triage.config.cosmos")
 
 # Add parent directory to path for keyvault_config access
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from keyvault_config import get_keyvault_config
+from services.keyvault_config import get_keyvault_config
 
 
 # =============================================================================
@@ -243,7 +243,7 @@ class CosmosDBConfig:
                         # Development: Reuse the shared credential from shared_auth
                         # so all services (OpenAI, ADO, Cosmos) share ONE auth session.
                         try:
-                            from shared_auth import get_credential
+                            from services.shared_auth import get_credential
                             credential = get_credential()
                             auth_method = "SharedAuth (shared credential)"
                             logger.info("  Using shared credential from shared_auth")

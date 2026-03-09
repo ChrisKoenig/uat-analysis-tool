@@ -24,7 +24,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Import Vector Search Service
-from vector_search import VectorSearchService, SearchResult
+from services.vector_search import VectorSearchService, SearchResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

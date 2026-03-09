@@ -38,7 +38,7 @@ def _get_config_value(key: str, default: str = "") -> str:
     # True secrets: Key Vault first
     if key in _TRUE_SECRETS:
         try:
-            from keyvault_config import get_keyvault_config
+            from services.keyvault_config import get_keyvault_config
             value = get_keyvault_config().get_secret(key)
             if value:
                 return value

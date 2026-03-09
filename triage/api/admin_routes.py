@@ -683,7 +683,7 @@ class WeightTuningResponse(BaseModel):
 def tune_pattern_weights():
     """Execute the weight tuning batch process."""
     try:
-        from weight_tuner import PatternWeightTuner
+        from services.weight_tuner import PatternWeightTuner
         tuner = PatternWeightTuner()
         doc = tuner.run()
 
@@ -715,7 +715,7 @@ def tune_pattern_weights():
 def get_pattern_weights():
     """Return the stored weight adjustments document."""
     try:
-        from weight_tuner import PatternWeightTuner
+        from services.weight_tuner import PatternWeightTuner
         tuner = PatternWeightTuner()
         doc = tuner.get_weights()
 
@@ -901,7 +901,7 @@ def _get_servicetree_service():
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
-    from servicetree_service import get_servicetree_service
+    from services.servicetree_service import get_servicetree_service
     return get_servicetree_service()
 
 
@@ -1251,7 +1251,7 @@ def health_dashboard():
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
-        from hybrid_context_analyzer import HybridContextAnalyzer
+        from services.hybrid_context_analyzer import HybridContextAnalyzer
         analyzer = HybridContextAnalyzer(use_ai=True)
         ai_status = analyzer.get_ai_status()
         latency = int((time.perf_counter() - t0) * 1000)
@@ -1275,7 +1275,7 @@ def health_dashboard():
     # --- Key Vault ---
     try:
         t0 = time.perf_counter()
-        from keyvault_config import KeyVaultConfig, KEY_VAULT_URI
+        from services.keyvault_config import KeyVaultConfig, KEY_VAULT_URI
         kv = KeyVaultConfig()
         # extract short vault name from URI (e.g. "kv-gcs-dev-gg4a6y")
         from urllib.parse import urlparse

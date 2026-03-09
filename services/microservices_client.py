@@ -212,7 +212,7 @@ class EnhancedMatcher(MicroservicesClient):
                     """
                     # Lazy-load the searcher to avoid authentication prompts at init
                     if proxy_self._searcher is None:
-                        from enhanced_matching import AzureDevOpsSearcher
+                        from services.enhanced_matching import AzureDevOpsSearcher
                         print("[ADO Proxy] Creating AzureDevOpsSearcher instance...", flush=True)
                         proxy_self._searcher = AzureDevOpsSearcher()
                         print("[ADO Proxy] AzureDevOpsSearcher created successfully!", flush=True)

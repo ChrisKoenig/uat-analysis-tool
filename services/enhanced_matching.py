@@ -77,8 +77,8 @@ from urllib.parse import quote                          # URL encoding for API c
 import time                                             # Performance timing and delays
 
 # Custom module imports for specialized functionality
-from hybrid_context_analyzer import HybridContextAnalyzer
-from intelligent_context_analyzer import IssueCategory, IntentType
+from services.hybrid_context_analyzer import HybridContextAnalyzer
+from services.intelligent_context_analyzer import IssueCategory, IntentType
 # ↑ AI-powered hybrid context analysis with LLM and pattern matching
 
 # =============================================================================
@@ -204,7 +204,7 @@ class EnhancedMatchingConfig:
 
         # 2. Try to reuse credential from the write-org client (already prompted)
         try:
-            from ado_integration import AzureDevOpsConfig
+            from services.ado_integration import AzureDevOpsConfig
             if AzureDevOpsConfig._cached_credential is not None:
                 print("[UAT Auth] Reusing credential from AzureDevOpsConfig", flush=True)
                 token = AzureDevOpsConfig._cached_credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)

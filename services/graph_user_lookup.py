@@ -23,7 +23,7 @@ from urllib.parse import quote
 
 import requests
 
-from shared_auth import get_credential
+from services.shared_auth import get_credential
 
 logger = logging.getLogger(__name__)
 

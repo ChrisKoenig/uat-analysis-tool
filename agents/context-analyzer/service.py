@@ -62,7 +62,7 @@ class AnalysisResult(BaseModel):
 # Import the analyzer (will be refactored)
 import sys
 sys.path.append('../..')
-from intelligent_context_analyzer import IntelligentContextAnalyzer
+from services.intelligent_context_analyzer import IntelligentContextAnalyzer
 
 # Initialize analyzer
 analyzer = IntelligentContextAnalyzer()

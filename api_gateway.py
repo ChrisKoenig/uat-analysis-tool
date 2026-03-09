@@ -14,7 +14,7 @@ import os
 import uuid
 import httpx
 from dotenv import load_dotenv
-from keyvault_config import get_keyvault_config
+from services.keyvault_config import get_keyvault_config
 from config import get_app_config
 
 # Load environment variables (non-secrets)

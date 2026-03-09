@@ -25,7 +25,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Import LLM Classifier
-from llm_classifier import LLMClassifier, ClassificationResult
+from services.llm_classifier import LLMClassifier, ClassificationResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -79,7 +79,7 @@ def _get_ado_client():
     """Get a cached AzureDevOpsClient singleton."""
     global _ado_client
     if _ado_client is None:
-        from ado_integration import AzureDevOpsClient
+        from services.ado_integration import AzureDevOpsClient
         _ado_client = AzureDevOpsClient()
     return _ado_client
 
@@ -87,7 +87,7 @@ def _get_ado_searcher():
     """Get a cached AzureDevOpsSearcher singleton."""
     global _ado_searcher
     if _ado_searcher is None:
-        from enhanced_matching import AzureDevOpsSearcher
+        from services.enhanced_matching import AzureDevOpsSearcher
         _ado_searcher = AzureDevOpsSearcher()
     return _ado_searcher
 
@@ -243,7 +243,7 @@ def _local_pattern_analysis(title: str, description: str, impact: str = "") -> D
     """
     # Try the full hybrid analyzer first (same engine the old system uses)
     try:
-        from hybrid_context_analyzer import HybridContextAnalyzer
+        from services.hybrid_context_analyzer import HybridContextAnalyzer
         global _hybrid_analyzer
         if _hybrid_analyzer is None:
             _hybrid_analyzer = HybridContextAnalyzer(use_ai=True)
@@ -299,7 +299,7 @@ def _local_pattern_analysis(title: str, description: str, impact: str = "") -> D
 
     # Fallback: pattern matching only
     try:
-        from intelligent_context_analyzer import IntelligentContextAnalyzer
+        from services.intelligent_context_analyzer import IntelligentContextAnalyzer
         analyzer = IntelligentContextAnalyzer()
         result = analyzer.analyze_context(title, description, impact)
 

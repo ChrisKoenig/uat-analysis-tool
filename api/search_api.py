@@ -28,7 +28,7 @@ def _generate_smart_search_query(title, description, services, technologies, key
     """
     try:
         from openai import AzureOpenAI
-        from ai_config import get_config as get_ai_config
+        from services.ai_config import get_config as get_ai_config
 
         ai_cfg = get_ai_config()
         client = AzureOpenAI(
@@ -152,7 +152,7 @@ def search_resources():
             }), 400
         
         # Import search service
-        from search_service import ResourceSearchService
+        from services.search_service import ResourceSearchService
         
         # Extract context for smart query generation
         services = domain_entities.get('services', [])
@@ -281,7 +281,7 @@ def search_resources():
         # 
         # Result: Teams Bot displays "Resource Recommendations" card with 3-4 links
         # =====================================================================
-        from search_service import SearchResult
+        from services.search_service import SearchResult
         learn_docs = []
         
         if all_services:

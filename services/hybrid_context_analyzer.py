@@ -80,13 +80,13 @@ from pathlib import Path
 from difflib import SequenceMatcher
 
 # Import existing pattern-based analyzer
-from intelligent_context_analyzer import IntelligentContextAnalyzer
+from services.intelligent_context_analyzer import IntelligentContextAnalyzer
 
 # Import AI services
-from ai_config import get_config, validate_config
-from llm_classifier import LLMClassifier, ClassificationResult
-from embedding_service import EmbeddingService
-from vector_search import VectorSearchService
+from services.ai_config import get_config, validate_config
+from services.llm_classifier import LLMClassifier, ClassificationResult
+from services.embedding_service import EmbeddingService
+from services.vector_search import VectorSearchService
 
 
 @dataclass

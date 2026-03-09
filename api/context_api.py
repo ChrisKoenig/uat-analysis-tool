@@ -70,7 +70,7 @@ def analyze_context():
         sys.stdout.flush()
         
         # Import context analyzer
-        from enhanced_matching import EnhancedMatcher, ProgressTracker
+        from services.enhanced_matching import EnhancedMatcher, ProgressTracker
         
         print("[DEBUG 1] About to create ProgressTracker...", flush=True)
         # Create tracker for progress (but we won't use it for API)

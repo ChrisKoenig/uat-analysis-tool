@@ -26,7 +26,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Import the actual enhanced matching implementation
-from enhanced_matching import EnhancedMatcher, ProgressTracker, AIAnalyzer, EnhancedMatchingConfig
+from services.enhanced_matching import EnhancedMatcher, ProgressTracker, AIAnalyzer, EnhancedMatchingConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
