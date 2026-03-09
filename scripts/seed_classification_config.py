@@ -21,8 +21,8 @@ import sys
 import os
 from datetime import datetime, timezone
 
-sys.path.insert(0, os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "triage"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps'))
 
 from triage.config.cosmos_config import CosmosDBConfig
 from azure.cosmos import exceptions as cosmos_exceptions

@@ -16,7 +16,9 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
+sys.path.insert(0, os.path.join(_project_root, 'apps'))
 
 @api_bp.route('/analyze/context', methods=['POST'])
 def analyze_context():
@@ -70,7 +72,7 @@ def analyze_context():
         sys.stdout.flush()
         
         # Import context analyzer
-        from services.enhanced_matching import EnhancedMatcher, ProgressTracker
+        from shared.enhanced_matching import EnhancedMatcher, ProgressTracker
         
         print("[DEBUG 1] About to create ProgressTracker...", flush=True)
         # Create tracker for progress (but we won't use it for API)

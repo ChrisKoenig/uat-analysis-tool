@@ -24,10 +24,11 @@ import signal
 # Configuration
 # ---------------------------------------------------------------------------
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(PROJECT_DIR, 'apps'))
 
 # Load environment-aware config (APP_ENV selects dev / preprod / prod).
 try:
-    from config import get_app_config
+    from shared.config import get_app_config
     _cfg = get_app_config()
     _COSMOS_ENDPOINT = _cfg.cosmos_endpoint
     _COSMOS_TENANT_ID = _cfg.tenant_id
@@ -156,7 +157,7 @@ def check_keyvault_access() -> tuple[bool, str]:
     Returns (ok, message).
     """
     try:
-        from services.keyvault_config import get_keyvault_config
+        from shared.keyvault_config import get_keyvault_config
         kv = get_keyvault_config()
         client = kv._get_client()
         # Try listing a known secret to verify access
@@ -378,7 +379,7 @@ class LauncherApp:
                 env["PYTHONIOENCODING"] = "utf-8"
                 if svc.get("needs_kv_env"):
                     try:
-                        from services.keyvault_config import get_keyvault_config
+                        from shared.keyvault_config import get_keyvault_config
                         kv = get_keyvault_config()
                         cfg = kv.get_config()
                         for k, v in cfg.items():

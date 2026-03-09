@@ -15,7 +15,9 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
+sys.path.insert(0, os.path.join(_project_root, 'apps'))
 
 @api_bp.route('/uat/create', methods=['POST'])
 def create_uat():
@@ -63,7 +65,7 @@ def create_uat():
         milestone_id = data.get('milestone_id', '').strip()
         
         # Import ADO integration
-        from services.ado_integration import AzureDevOpsClient
+        from shared.ado_integration import AzureDevOpsClient
         
         # Create ADO client
         ado_client = AzureDevOpsClient()

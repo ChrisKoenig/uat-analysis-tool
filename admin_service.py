@@ -11,20 +11,22 @@ Responsibilities:
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from datetime import datetime, timedelta
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'apps'))
 import json
 import requests
 import threading
 import time
 from typing import List, Dict, Any, Optional
-from services.blob_storage_helper import (
+from shared.blob_storage_helper import (
     load_context_evaluations, 
     save_context_evaluations, 
     delete_context_evaluation,
     load_corrections,
     save_corrections
 )
-from services.keyvault_config import get_keyvault_config, KEY_VAULT_URI
-from config import get_app_config
+from shared.keyvault_config import get_keyvault_config, KEY_VAULT_URI
+from shared.config import get_app_config
 
 app = Flask(__name__, template_folder='templates/admin')
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -298,7 +300,7 @@ def evaluation_detail_view(eval_id: str):
 @app.route('/evaluations/<eval_id>/delete', methods=['POST'])
 def delete_evaluation(eval_id):
     """Delete an evaluation"""
-    from services.blob_storage_helper import delete_context_evaluation
+    from shared.blob_storage_helper import delete_context_evaluation
     
     success = delete_context_evaluation(eval_id)
     

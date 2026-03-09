@@ -33,7 +33,7 @@ if (-not $Environment) {
 $Env = $Environment
 $Env = $Env.ToLower()
 
-$configFile = Join-Path $PSScriptRoot "..\..\config\environments\$Env.ps1"
+$configFile = Join-Path $PSScriptRoot "..\..\shared\config\environments\$Env.ps1"
 if (-not (Test-Path $configFile)) {
     Write-Error "Config file not found: $configFile`nValid environments: dev, preprod, prod"
     exit 1

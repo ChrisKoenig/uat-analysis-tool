@@ -11,11 +11,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime
 import logging
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'apps'))
 import uuid
 import httpx
 from dotenv import load_dotenv
-from services.keyvault_config import get_keyvault_config
-from config import get_app_config
+from shared.keyvault_config import get_keyvault_config
+from shared.config import get_app_config
 
 # Load environment variables (non-secrets)
 load_dotenv('.env.azure')

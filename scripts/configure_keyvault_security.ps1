@@ -10,7 +10,7 @@ param(
 # Apply environment-config defaults for any params not explicitly supplied.
 # param() must come first in PowerShell, so defaults are resolved here.
 $_env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
-$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+$_configFile = Join-Path $PSScriptRoot "..\shared\config\environments\$_env.ps1"
 if (Test-Path $_configFile) {
     . $_configFile
 } else {

@@ -14,7 +14,9 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
+sys.path.insert(0, os.path.join(_project_root, 'apps'))
 
 @api_bp.route('/ado/search/features', methods=['POST'])
 def search_tft_features():
@@ -46,7 +48,7 @@ def search_tft_features():
             }), 400
         
         # Import ADO integration
-        from services.ado_integration import AzureDevOpsClient
+        from shared.ado_integration import AzureDevOpsClient
         
         # Create ADO client
         ado_client = AzureDevOpsClient()
@@ -109,7 +111,7 @@ def search_uats():
             }), 400
         
         # Import Azure DevOps searcher for UAT search
-        from services.enhanced_matching import AzureDevOpsSearcher
+        from shared.enhanced_matching import AzureDevOpsSearcher
         
         # Create searcher
         searcher = AzureDevOpsSearcher()

@@ -5,7 +5,7 @@ Write-Host "`n=== Adding Azure OpenAI Configuration to Key Vault ===" -Foregroun
 
 # Load environment config (defaults to dev; set APP_ENV to override)
 $_env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
-$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+$_configFile = Join-Path $PSScriptRoot "..\shared\config\environments\$_env.ps1"
 if (Test-Path $_configFile) { . $_configFile } else {
     Write-Error "Config file not found: $_configFile"; exit 1
 }

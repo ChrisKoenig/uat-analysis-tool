@@ -16,7 +16,9 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
+sys.path.insert(0, os.path.join(_project_root, 'apps'))
 
 
 def _generate_smart_search_query(title, description, services, technologies, key_concepts, semantic_keywords, category, intent, reasoning):
@@ -28,7 +30,7 @@ def _generate_smart_search_query(title, description, services, technologies, key
     """
     try:
         from openai import AzureOpenAI
-        from services.ai_config import get_config as get_ai_config
+        from shared.ai_config import get_config as get_ai_config
 
         ai_cfg = get_ai_config()
         client = AzureOpenAI(
@@ -152,7 +154,7 @@ def search_resources():
             }), 400
         
         # Import search service
-        from services.search_service import ResourceSearchService
+        from shared.search_service import ResourceSearchService
         
         # Extract context for smart query generation
         services = domain_entities.get('services', [])
@@ -281,7 +283,7 @@ def search_resources():
         # 
         # Result: Teams Bot displays "Resource Recommendations" card with 3-4 links
         # =====================================================================
-        from services.search_service import SearchResult
+        from shared.search_service import SearchResult
         learn_docs = []
         
         if all_services:

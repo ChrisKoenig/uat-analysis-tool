@@ -3,7 +3,7 @@
 
 # Load environment config so we know which Key Vault to target
 $_env = if ($env:APP_ENV) { $env:APP_ENV } else { "dev" }
-$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+$_configFile = Join-Path $PSScriptRoot "..\shared\config\environments\$_env.ps1"
 if (Test-Path $_configFile) { . $_configFile } else { $KV_NAME = "kv-gcs-dev-gg4a6y" }
 
 Write-Host "Adding your IP to Key Vault firewall ($KV_NAME)..." -ForegroundColor Cyan

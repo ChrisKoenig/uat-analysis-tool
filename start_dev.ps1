@@ -85,11 +85,11 @@ Write-Host "`n[2/6] Loading config & setting environment variables..." -Foregrou
 
 # Load config from the shared JSON (single source of truth)
 $env:APP_ENV = $Environment
-$_configJsonPath = Join-Path $Root "config\environments\$Environment.json"
-. (Join-Path $Root "config\environments\_load-config.ps1")
+$_configJsonPath = Join-Path $Root "shared\config\environments\$Environment.json"
+. (Join-Path $Root "shared\config\environments\_load-config.ps1")
 
 $env:PYTHONIOENCODING = "utf-8"
-$env:PYTHONPATH = $Root
+$env:PYTHONPATH = "$Root;$Root\apps"
 
 Write-Host "  APP_ENV          = $Environment" -ForegroundColor Gray
 Write-Host "  Cosmos Account   = $COSMOS_ACCOUNT" -ForegroundColor Gray
@@ -102,8 +102,8 @@ Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 Write-Host "`n[3/6] Writing local UI configs (config.local.json -> config.json)..." -ForegroundColor Yellow
 
 $uiConfigs = @(
-    @{ Label = "Triage UI"; Dir = "$Root\triage-ui\public" },
-    @{ Label = "Field Portal UI"; Dir = "$Root\field-portal\ui\public" }
+    @{ Label = "Triage UI"; Dir = "$Root\apps\triage-ui\public" },
+    @{ Label = "Field Portal UI"; Dir = "$Root\apps\field-portal\ui\public" }
 )
 foreach ($ui in $uiConfigs) {
     $src = Join-Path $ui.Dir "config.local.json"
@@ -170,7 +170,7 @@ if (-not $SkipUI) {
     # Triage UI (port 3000)
     Write-Host "  Starting Triage UI on port 3000..." -ForegroundColor Cyan
     $triageUi = Start-Process -PassThru -NoNewWindow -FilePath cmd.exe -ArgumentList "/c", "npm", "run", "dev" `
-        -WorkingDirectory "$Root\triage-ui"
+        -WorkingDirectory "$Root\apps\triage-ui"
     Write-Host "    PID: $($triageUi.Id)" -ForegroundColor DarkGray
 
     Start-Sleep -Seconds 2
@@ -178,7 +178,7 @@ if (-not $SkipUI) {
     # Field Portal UI (port 3001)
     Write-Host "  Starting Field Portal UI on port 3001..." -ForegroundColor Cyan
     $fieldUi = Start-Process -PassThru -NoNewWindow -FilePath cmd.exe -ArgumentList "/c", "npm", "run", "dev" `
-        -WorkingDirectory "$Root\field-portal\ui"
+        -WorkingDirectory "$Root\apps\field-portal\ui"
     Write-Host "    PID: $($fieldUi.Id)" -ForegroundColor DarkGray
 
     Start-Sleep -Seconds 5

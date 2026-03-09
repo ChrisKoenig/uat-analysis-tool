@@ -15,7 +15,7 @@ param(
 
 # Apply environment-config defaults for any params not explicitly supplied.
 $_env = if ($env:APP_ENV) { $env:APP_ENV } else { "preprod" }
-$_configFile = Join-Path $PSScriptRoot "config\environments\$_env.ps1"
+$_configFile = Join-Path $PSScriptRoot "..\shared\config\environments\$_env.ps1"
 if (Test-Path $_configFile) {
     . $_configFile
 } else {

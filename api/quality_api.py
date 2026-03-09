@@ -16,7 +16,9 @@ import sys
 import os
 
 # Add parent directory to path to import app modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
+sys.path.insert(0, os.path.join(_project_root, 'apps'))
 
 @api_bp.route('/analyze/quality', methods=['POST'])
 def analyze_quality():
@@ -64,7 +66,7 @@ def analyze_quality():
         
         # Import AIAnalyzer
         print("[QUALITY API] Importing AIAnalyzer...")
-        from services.enhanced_matching import AIAnalyzer
+        from shared.enhanced_matching import AIAnalyzer
         
         # Create analyzer instance
         print("[QUALITY API] Creating AIAnalyzer instance...")

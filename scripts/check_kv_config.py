@@ -1,7 +1,8 @@
 """Check Key Vault OpenAI configuration"""
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from services.keyvault_config import get_keyvault_config
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps'))
+from shared.keyvault_config import get_keyvault_config
 
 kv = get_keyvault_config()
 cfg = kv.get_config()
