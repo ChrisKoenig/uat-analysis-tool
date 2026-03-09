@@ -20,10 +20,10 @@ COPY ../../search_service.py ./search_service.py
 COPY ../../ai_config.py ./ai_config.py
 
 # Copy data files (if needed locally)
-COPY ../../retirements.json ./retirements.json
-COPY ../../corrections.json ./corrections.json
-COPY ../../issues_actions.json ./issues_actions.json
-COPY ../../context_evaluations.json ./context_evaluations.json
+COPY ../../data/retirements.json ./retirements.json
+COPY ../../data/corrections.json ./corrections.json
+COPY ../../data/issues_actions.json ./issues_actions.json
+COPY ../../data/context_evaluations.json ./context_evaluations.json
 
 # Expose port
 EXPOSE 8003

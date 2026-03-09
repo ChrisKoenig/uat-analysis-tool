@@ -56,6 +56,9 @@ Thumbs.db
 *_old.*
 app_backup.py
 
+# Log files
+*.log
+
 # Azure secrets - use .env.azure.clean template instead
 .env.azure
 

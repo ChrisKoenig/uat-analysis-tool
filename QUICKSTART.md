@@ -13,7 +13,7 @@ npm --version       # npm 9+
 ### Install Dependencies
 ```powershell
 cd C:\Projects\Hack
-pip install -r requirements-gateway.txt
+pip install -r gateway/requirements.txt
 
 cd triage-ui && npm install && cd ..
 cd field-portal\ui && npm install && cd ..

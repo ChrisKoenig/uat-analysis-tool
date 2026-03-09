@@ -333,7 +333,7 @@ class HybridContextAnalyzer:
         # Fallback to JSON file
         try:
             module_dir = Path(__file__).resolve().parent
-            corrections_file = module_dir / 'corrections.json'
+            corrections_file = module_dir / 'data' / 'corrections.json'
             if corrections_file.exists():
                 with open(corrections_file, 'r') as f:
                     return json.load(f)

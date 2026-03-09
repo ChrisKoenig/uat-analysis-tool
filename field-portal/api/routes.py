@@ -821,7 +821,7 @@ def _save_correction_feedback(state: SessionState, corrections: Dict[str, str], 
     """
     try:
         import json
-        corrections_file = os.path.join(PROJECT_ROOT, "corrections.json")
+        corrections_file = os.path.join(PROJECT_ROOT, "data", "corrections.json")
         try:
             with open(corrections_file, "r") as f:
                 data = json.load(f)

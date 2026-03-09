@@ -155,7 +155,7 @@ def load_context_evaluations() -> List[Dict]:
     # Fallback to local file
     import os
     import json
-    local_file = 'context_evaluations.json'
+    local_file = os.path.join(os.path.dirname(__file__), 'data', 'context_evaluations.json')
     if os.path.exists(local_file):
         try:
             with open(local_file, 'r', encoding='utf-8') as f:

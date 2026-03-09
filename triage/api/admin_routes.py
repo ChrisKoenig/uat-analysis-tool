@@ -139,7 +139,7 @@ class TrainingSignalListResponse(BaseModel):
 
 _CORRECTIONS_FILE = Path(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)
-)))) / "corrections.json"
+)))) / "data" / "corrections.json"
 
 
 def _load_corrections() -> dict:

@@ -1346,7 +1346,7 @@ class IntelligentContextAnalyzer:
     def _load_retirements_data(self) -> Dict:
         """Load retirements data from JSON file"""
         try:
-            retirements_file = Path('retirements.json')
+            retirements_file = Path('data/retirements.json')
             if retirements_file.exists():
                 with open(retirements_file, 'r') as f:
                     data = json.load(f)
@@ -1361,7 +1361,7 @@ class IntelligentContextAnalyzer:
     def _load_corrections_data(self) -> Dict:
         """Load user corrections for learning"""
         try:
-            corrections_file = Path('corrections.json')
+            corrections_file = Path('data/corrections.json')
             if corrections_file.exists():
                 with open(corrections_file, 'r') as f:
                     data = json.load(f)

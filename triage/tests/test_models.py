@@ -256,11 +256,13 @@ class TestRule:
     
     def test_all_valid_operators(self):
         """All VALID_OPERATORS are accounted for"""
-        assert len(VALID_OPERATORS) == 15
+        assert len(VALID_OPERATORS) == 17
         assert "equals" in VALID_OPERATORS
         assert "isNull" in VALID_OPERATORS
         assert "under" in VALID_OPERATORS
         assert "matches" in VALID_OPERATORS
+        assert "containsAny" in VALID_OPERATORS
+        assert "regexMatchAny" in VALID_OPERATORS
 
 
 # =============================================================================

@@ -65,7 +65,7 @@ class ResourceSearchService:
         
     def _load_retirements(self) -> Dict:
         """Load retirement data from JSON file"""
-        retirements_file = Path(__file__).parent / "retirements.json"
+        retirements_file = Path(__file__).parent / "data" / "retirements.json"
         if retirements_file.exists():
             with open(retirements_file, 'r', encoding='utf-8') as f:
                 return json.load(f)

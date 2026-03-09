@@ -13,17 +13,17 @@ WORKDIR /app
 # (field-portal has no own requirements.txt — reuse triage base + extras)
 COPY triage/requirements.txt ./base-requirements.txt
 RUN pip install --no-cache-dir -r base-requirements.txt \
-    && pip install --no-cache-dir openai numpy scikit-learn
+  && pip install --no-cache-dir openai numpy scikit-learn
 
 # Copy root-level Python modules (shared libraries)
 COPY keyvault_config.py ai_config.py shared_auth.py \
-     ado_integration.py hybrid_context_analyzer.py \
-     intelligent_context_analyzer.py llm_classifier.py \
-     embedding_service.py vector_search.py cache_manager.py \
-     enhanced_matching.py blob_storage_helper.py ./
+  ado_integration.py hybrid_context_analyzer.py \
+  intelligent_context_analyzer.py llm_classifier.py \
+  embedding_service.py vector_search.py cache_manager.py \
+  enhanced_matching.py blob_storage_helper.py ./
 
 # Copy data files used by analyzers
-COPY corrections.json retirements.json issues_actions.json context_evaluations.json ./
+COPY data/corrections.json data/retirements.json data/issues_actions.json data/context_evaluations.json ./
 
 # Copy triage package (field-portal imports triage.config.cosmos_config)
 COPY triage/ ./triage/
