@@ -9,10 +9,10 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY apps/triage-ui/package.json apps/triage-ui/package-lock.json ./
+COPY apps/triage/ui/package.json apps/triage/ui/package-lock.json ./
 RUN npm ci --production=false
 
-COPY apps/triage-ui/ ./
+COPY apps/triage/ui/ ./
 RUN chmod +x node_modules/.bin/* && npx vite build
 
 # ── Stage 2: Serve with nginx + basic auth ──

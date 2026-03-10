@@ -2,10 +2,10 @@
 # Uses Azure Developer CLI (azd) for deployment
 
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$Location = "northcentralus",
     
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$Environment = "dev"
 )
 
@@ -64,12 +64,14 @@ try {
         $deployment.properties.outputs | ConvertTo-Json -Depth 10 | Out-File ".\infrastructure\deployment-outputs.json"
         Write-Host "Outputs saved to: .\infrastructure\deployment-outputs.json" -ForegroundColor Cyan
         
-    } else {
+    }
+    else {
         Write-Host "❌ Deployment failed!" -ForegroundColor Red
         exit 1
     }
     
-} catch {
+}
+catch {
     Write-Host "❌ Error during deployment:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     exit 1
@@ -82,6 +84,6 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Review resources in Azure Portal"
-Write-Host "  2. Run: .\infrastructure\scripts\setup-secrets.ps1"
-Write-Host "  3. Run: .\infrastructure\scripts\migrate-data.ps1"
+Write-Host "  2. Run: .\infra\scripts\setup-secrets.ps1"
+Write-Host "  3. Run: .\infra\scripts\migrate-data.ps1"
 Write-Host ""

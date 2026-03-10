@@ -102,7 +102,7 @@ Write-Host "  PYTHONPATH       = $Root" -ForegroundColor Gray
 Write-Host "`n[3/6] Writing local UI configs (config.local.json -> config.json)..." -ForegroundColor Yellow
 
 $uiConfigs = @(
-    @{ Label = "Triage UI"; Dir = "$Root\apps\triage-ui\public" },
+    @{ Label = "Triage UI"; Dir = "$Root\apps\triage\ui\public" },
     @{ Label = "Field Portal UI"; Dir = "$Root\apps\field-portal\ui\public" }
 )
 foreach ($ui in $uiConfigs) {
@@ -170,7 +170,7 @@ if (-not $SkipUI) {
     # Triage UI (port 3000)
     Write-Host "  Starting Triage UI on port 3000..." -ForegroundColor Cyan
     $triageUi = Start-Process -PassThru -NoNewWindow -FilePath cmd.exe -ArgumentList "/c", "npm", "run", "dev" `
-        -WorkingDirectory "$Root\apps\triage-ui"
+        -WorkingDirectory "$Root\apps\triage\ui"
     Write-Host "    PID: $($triageUi.Id)" -ForegroundColor DarkGray
 
     Start-Sleep -Seconds 2

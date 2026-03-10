@@ -2108,7 +2108,10 @@ class IntelligentContextAnalyzer:
         
         # Log detected terms for debugging
         try:
-            with open('C:/Projects/Hack/debug_ica.log', 'a', encoding='utf-8') as f:
+            import os as _log_os
+            _log_dir = _log_os.path.join(_log_os.path.dirname(_log_os.path.dirname(__file__)), 'logs')
+            _log_os.makedirs(_log_dir, exist_ok=True)
+            with open(_log_os.path.join(_log_dir, 'debug_ica.log'), 'a', encoding='utf-8') as f:
                 f.write(f"\n[DEBUG ICA] All detected terms from patterns: {detected_terms}\n")
                 f.flush()
         except OSError:

@@ -35,20 +35,20 @@ $ErrorActionPreference = "Stop"
 # =============================================================================
 # Configuration
 # =============================================================================
-$SUBSCRIPTION   = "a1e66643-8021-4548-8e36-f08076057b6a"
-$RG             = "rg-nonprod-aitriage"
-$TRIAGE_API     = "app-triage-api-nonprod"
-$FIELD_API      = "app-field-api-nonprod"
-$TRIAGE_UI      = "app-triage-ui-nonprod"
-$FIELD_UI       = "app-field-ui-nonprod"
+$SUBSCRIPTION = "a1e66643-8021-4548-8e36-f08076057b6a"
+$RG = "rg-nonprod-aitriage"
+$TRIAGE_API = "app-triage-api-nonprod"
+$FIELD_API = "app-field-api-nonprod"
+$TRIAGE_UI = "app-triage-ui-nonprod"
+$FIELD_UI = "app-field-ui-nonprod"
 
 $repoRoot = $PSScriptRoot | Split-Path | Split-Path
-$outDir   = Join-Path $PSScriptRoot "packages"
+$outDir = Join-Path $PSScriptRoot "packages"
 
 if (-not (Test-Path $outDir)) { New-Item -Path $outDir -ItemType Directory | Out-Null }
 
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
-function Write-Ok($msg)   { Write-Host "   [OK] $msg" -ForegroundColor Green }
+function Write-Ok($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green }
 
 # --- Resolve config template suffix from -Env flag ---
 $configSuffix = $Env  # "local" or "prod"
@@ -122,9 +122,9 @@ if ($Target -eq "all" -or $Target -eq "triage-api") {
 
     # Remove __pycache__, test files
     Get-ChildItem $staging -Recurse -Directory -Filter "__pycache__" |
-        Remove-Item -Recurse -Force
+    Remove-Item -Recurse -Force
     Get-ChildItem $staging -Recurse -Directory -Filter "tests" |
-        Remove-Item -Recurse -Force
+    Remove-Item -Recurse -Force
 
     Compress-Archive -Path "$staging\*" -DestinationPath $zipFile -Force
     Remove-Item $staging -Recurse -Force
@@ -171,7 +171,7 @@ if ($Target -eq "all" -or $Target -eq "field-api") {
 
     # Remove __pycache__
     Get-ChildItem $staging -Recurse -Directory -Filter "__pycache__" |
-        Remove-Item -Recurse -Force
+    Remove-Item -Recurse -Force
 
     Compress-Archive -Path "$staging\*" -DestinationPath $zipFile -Force
     Remove-Item $staging -Recurse -Force
@@ -186,7 +186,7 @@ if ($Target -eq "all" -or $Target -eq "field-api") {
 if ($Target -eq "all" -or $Target -eq "triage-ui") {
     Write-Step "Building Triage UI..."
 
-    Push-Location (Join-Path $repoRoot "apps" "triage-ui")
+    Push-Location (Join-Path $repoRoot "apps" "triage" "ui")
     try {
         # Copy the environment-specific config template into public/config.json
         $publicDir = "public"
@@ -212,7 +212,8 @@ if ($Target -eq "all" -or $Target -eq "triage-ui") {
 
         $size = [math]::Round((Get-Item $zipFile).Length / 1MB, 1)
         Write-Ok "triage-ui.zip ($size MB)"
-    } finally {
+    }
+    finally {
         Pop-Location
     }
 }
@@ -248,7 +249,8 @@ if ($Target -eq "all" -or $Target -eq "field-ui") {
 
         $size = [math]::Round((Get-Item $zipFile).Length / 1MB, 1)
         Write-Ok "field-ui.zip ($size MB)"
-    } finally {
+    }
+    finally {
         Pop-Location
     }
 }

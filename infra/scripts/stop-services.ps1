@@ -8,7 +8,7 @@
     shut everything down and stop authentication prompts.
 
 .EXAMPLE
-    .\infrastructure\scripts\stop-services.ps1
+    .\infra\scripts\stop-services.ps1
 #>
 
 $ErrorActionPreference = "Continue"

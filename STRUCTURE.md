@@ -10,26 +10,22 @@ uat-analysis-tool/
 ├── launcher.py                 # Desktop GUI for starting all services
 ├── api_gateway.py              # FastAPI API Gateway (central routing)
 ├── admin_service.py            # Flask admin microservice (port 8008)
-├── server.js                   # Bundled Node.js Express server
 ├── start_dev.ps1               # Start all dev services
 │
 ├── README.md                   # Project overview
 ├── QUICKSTART.md               # Get running in 5 minutes
-├── .env.template               # Environment variable template
-├── .env.azure.clean            # Azure env template (secrets removed)
 │
 ├── api/                        # Flask API endpoint definitions
-├── gateway/                    # API Gateway routing layer
 │
 ├── apps/                       # Application frontends & backends
-│   ├── field-portal/           #   Field Portal (frontend + API)
-│   ├── triage/                 #   Triage backend (models, engines, services)
-│   └── triage-ui/              #   Triage frontend (Vite + React)
+│   ├── field-portal/           #   Field Portal (api/ + ui/)
+│   └── triage/                 #   Triage system (api/ + ui/ + engines/ + models/)
 │
-├── services/                   # Microservice agent containers
+├── services/                   # Microservice containers & gateway
 │   ├── context-analyzer/       #   Context analysis agent
 │   ├── embedding-service/      #   Embedding generation agent
 │   ├── enhanced-matching/      #   Enhanced matching agent
+│   ├── gateway/                #   FastAPI API Gateway routing layer
 │   ├── llm-classifier/         #   GPT-4 classification agent
 │   ├── search-service/         #   Resource search agent
 │   ├── uat-management/         #   UAT management agent
@@ -42,13 +38,18 @@ uat-analysis-tool/
 ├── infra/                      # Infrastructure & deployment
 │   ├── bicep/                  #   Azure Bicep IaC templates
 │   ├── deploy/                 #   Step-by-step deployment scripts
-│   └── docker/                 #   Dockerfiles & nginx configs
+│   ├── docker/                 #   Dockerfiles & nginx configs
+│   └── scripts/                #   Infrastructure management utilities
+│
+├── tests/                      # Test suites
+│   ├── unit/                   #   Unit tests
+│   ├── integration/            #   Integration & end-to-end tests
+│   └── security/               #   Security compliance tests (OWASP)
 │
 ├── data/                       # JSON data fixtures & reference data
 ├── docs/                       # All project documentation
 ├── scripts/                    # Admin, setup & migration scripts
-├── tests/                      # Test suites
-├── cache/                      # Runtime cache files
+├── logs/                       # Application log files (gitignored)
 ```
 
 ## `shared/` — Shared Python Services
@@ -110,24 +111,25 @@ One-off and administrative utilities:
 - Data migration tools
 
 ### `tests/` — Test Suites
-- `test_end_to_end.py` — Integration tests across all microservices
+- `unit/` — Unit tests
+- `integration/` — Integration & end-to-end tests across all microservices
+- `security/` — Security compliance tests (OWASP Top 10)
 - Triage-specific tests live in `apps/triage/tests/`
 
-### `services/` — Microservice Agents
-Containerized microservice wrappers for individual services:
+### `services/` — Microservice Agents & Gateway
+Containerized microservice wrappers and API gateway:
+- `gateway/` — FastAPI route handlers that proxy to microservices
 - `context-analyzer/`, `embedding-service/`, `enhanced-matching/`
 - `llm-classifier/`, `search-service/`, `uat-management/`, `vector-search/`
 
 ### `infra/docker/` — Docker Build Configs
 Dockerfiles and nginx configs for production deployment.
 
-### `gateway/` — API Gateway Routes
-FastAPI route handlers that proxy to microservices via HTTP.
-
 ### `infra/` — Infrastructure as Code
 - `bicep/` — Azure Bicep templates
 - `deploy/` — Step-by-step deployment scripts & packaging
 - `docker/` — Dockerfiles, nginx configs, container deploy script
+- `scripts/` — Infrastructure management utilities (deploy, permissions, config)
 
 ### `apps/field-portal/` — Field Portal Application
 - `api/` — FastAPI backend (9-step field submission flow)
@@ -141,5 +143,8 @@ FastAPI route handlers that proxy to microservices via HTTP.
 - `config/` — Cosmos DB & logging configuration
 - `tests/` — Triage-specific test suite
 
-### `triage-ui/` — Triage Frontend
+### `apps/triage/ui/` — Triage Frontend
 Vite + React frontend for the triage management portal.
+
+### `logs/` — Application Logs
+Runtime log files (gitignored). Log paths default to `logs/` at project root.

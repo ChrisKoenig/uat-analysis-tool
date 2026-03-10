@@ -52,7 +52,9 @@ def analyze_context():
         
         # Write debug to file since terminal output isn't showing
         try:
-            with open('C:/Projects/Hack/debug_context.log', 'a', encoding='utf-8') as f:
+            _log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+            os.makedirs(_log_dir, exist_ok=True)
+            with open(os.path.join(_log_dir, 'debug_context.log'), 'a', encoding='utf-8') as f:
                 f.write("="*80 + "\n")
                 f.write(f"[DEBUG CONTEXT API] REQUEST RECEIVED\n")
                 f.write(f"[DEBUG CONTEXT API] Title: {title}\n")

@@ -90,7 +90,7 @@ SERVICES = {
             {
                 "label": "Triage UI",
                 "cmd": ["npm.cmd", "run", "dev"],
-                "cwd": os.path.join(PROJECT_DIR, "triage-ui"),
+                "cwd": os.path.join(PROJECT_DIR, "apps", "triage", "ui"),
                 "env_extra": {},
             },
         ],

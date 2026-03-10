@@ -40,8 +40,8 @@ _app_cfg = get_app_config()
 # Initialize services
 kv_config = get_keyvault_config()
 
-# Health history file path
-HEALTH_HISTORY_FILE = 'cache/health_history.json'
+# Health history file path (lives in logs/ with other runtime output)
+HEALTH_HISTORY_FILE = os.path.join('logs', 'health_history.json')
 
 def load_health_history():
     """Load health check history from file"""
@@ -55,7 +55,7 @@ def load_health_history():
 
 def save_health_history(history):
     """Save health check history to file"""
-    os.makedirs('cache', exist_ok=True)
+    os.makedirs(os.path.dirname(HEALTH_HISTORY_FILE), exist_ok=True)
     with open(HEALTH_HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=2)
 

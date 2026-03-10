@@ -1338,7 +1338,7 @@ def health_dashboard():
     # --- Local cache ---
     cache_stats = None
     try:
-        cache_dir = Path(project_root) / "cache" / "ai_cache"
+        cache_dir = Path(project_root) / "apps" / "triage" / "cache" / "ai_cache"
         if cache_dir.exists():
             files = list(cache_dir.glob("*.json"))
             total_size = sum(f.stat().st_size for f in files)

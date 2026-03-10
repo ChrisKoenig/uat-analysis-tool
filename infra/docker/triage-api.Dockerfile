@@ -27,7 +27,7 @@ COPY apps/triage/ ./apps/triage/
 ENV PYTHONPATH="/app:/app/apps"
 
 # Create writable cache directory
-RUN mkdir -p /app/cache/ai_cache
+RUN mkdir -p /app/apps/triage/cache/ai_cache
 
 EXPOSE 8009
 

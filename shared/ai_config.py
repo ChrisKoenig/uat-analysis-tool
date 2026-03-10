@@ -92,7 +92,7 @@ class AzureOpenAIConfig:
 class CachingConfig:
     """Smart caching configuration with API-first strategy"""
     enabled: bool = True
-    cache_dir: str = "cache/ai_cache"
+    cache_dir: str = os.environ.get("AI_CACHE_DIR", os.path.join("apps", "triage", "cache", "ai_cache"))
     
     # TTL strategy
     ttl_days: int = 7  # User requirement: 7-day cache refresh

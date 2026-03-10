@@ -25,8 +25,7 @@ infrastructure/
 
 # Local caches
 .cache/
-cache/
-field-portal/cache/
+**/cache/
 
 # PowerShell scripts
 *.ps1
@@ -35,8 +34,8 @@ field-portal/cache/
 *.log
 
 # Build outputs (UI rebuilt in container)
-triage-ui/dist/
-field-portal/ui/dist/
+apps/triage/ui/dist/
+apps/field-portal/ui/dist/
 
 # Migration / one-off scripts
 migrate_*.py

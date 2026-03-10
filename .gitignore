@@ -59,7 +59,7 @@ app_backup.py
 # Log files
 *.log
 
-# Azure secrets - use .env.azure.clean template instead
+# Azure secrets (config is in shared/config/environments/)
 .env.azure
 
 # Backups
@@ -69,7 +69,6 @@ backup_*/
 node_modules/
 
 # Caches
-cache/
 **/cache/
 .cache/
 servicetree_offerings.json
@@ -77,13 +76,15 @@ servicetree_offerings.json
 # Build artifacts
 build_log.txt
 *.zip
-infrastructure/deploy/packages/
+infra/deploy/packages/
 
 # Runtime config (generated from config.local.json / config.prod.json)
-triage-ui/public/config.json
-field-portal/ui/public/config.json
+apps/triage/ui/public/config.json
+apps/field-portal/ui/public/config.json
 
 # Logs
+logs/
+!logs/.gitkeep
 *.log
 flask_*.log
 debug_*.log

@@ -15,10 +15,10 @@
 
 .EXAMPLE
     # Show dev config (default)
-    .\infrastructure\scripts\show-config.ps1
+    .\infra\scripts\show-config.ps1
 
     # Show preprod config explicitly
-    .\infrastructure\scripts\show-config.ps1 -Environment preprod
+    .\infra\scripts\show-config.ps1 -Environment preprod
 #>
 
 param(

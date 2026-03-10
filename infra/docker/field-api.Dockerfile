@@ -34,7 +34,8 @@ RUN touch ./field_portal/__init__.py
 ENV PYTHONPATH="/app:/app/apps"
 
 # Create writable cache directory
-RUN mkdir -p /app/cache/ai_cache /app/field_portal/cache
+ENV AI_CACHE_DIR="/app/field_portal/cache/ai_cache"
+RUN mkdir -p /app/field_portal/cache/ai_cache
 
 EXPOSE 8010
 
