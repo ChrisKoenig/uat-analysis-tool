@@ -36,7 +36,8 @@
 | 24 | B0007 | 2026-03-06 | *pending* | **Bug fix — Requestor card always empty (wrong ADO field)** — `System.CreatedBy` was a service account ("Action 360 Platform") on all queue items, so the Requestor card always showed "No requestor data available". The actual human requestor is in `Custom.Requestors` (email string) and `Custom.Requestor` (identity object). Fixed by adding these fields to the ADO batch fetch, preserving raw emails in hidden `_requestorEmail`/`_createdByEmail` fields, and updating the frontend email extraction chain: `Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → display name fallback. |
 | 25 | PERF-001 | 2026-03-06 | *pending* | **Performance — Background prefetch + cache for Graph user data** — Opening the analysis blade showed a 5-second "Loading requestor info..." spinner on every click, and re-clicking the same item re-fetched. Implemented: (1) `useRef(new Map())` cache keyed by email with `{ data, loading, promise }` entries persisting across blade open/close. (2) Background prefetch IIFE fires after queue load, extracting all unique requestor emails and calling `getGraphUser()` with 80 ms stagger. (3) Cache-first blade open logic: cache hit → instant display, prefetch in-flight → await existing promise, cache miss → on-demand fetch + cache. Total API endpoints: 60. |
 | 26 | FR-2020 | 2026-03-10 | *pending* | **AI-powered UAT search — ADO Search API + multi-signal scoring + UX fixes** — Replaced WIQL-based UAT search with ADO Work Item Search API (`almsearch.dev.azure.com`) for relevance-ranked full-text search. AI analysis from Step 3 (azure_services, technologies, semantic_keywords, key_concepts) is now extracted from session and passed to search. 3-phase strategy: Phase 1 ADO Search with AI service names, Phase 2 ADO Search with issue title, Phase 3 WIQL broad fallback. 5-signal similarity scoring (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). UX: collapsible UAT list header (matching TFT Features pattern), checkbox readOnly fix for StrictMode, header count simplification. Dynamic `WORK_ITEM_TYPE` ("Action" for test org, "Actions" for production). False "to do" service detection fix. 180-day cutoff fix (was 240). Total API endpoints: 60. Total UI pages: 14. Total Cosmos containers: 13. |
-| 27 | FR-2020b | 2026-03-10 | *pending* | **AI-powered TFT Feature search — ADO Search API + 5-signal scoring** — Same migration as FR-2020 but for TFT Feature search (`search_tft_features()` in `ado_integration.py`). Old approach used WIQL CONTAINS which returned results by date, capping similarity at ~24%. Now uses ADO Work Item Search API for relevance-ranked results. 3-phase strategy: Phase 1 ADO Search with AI service names + ServiceTree-resolved names, Phase 2 ADO Search with issue title, Phase 3 WIQL broad fallback. Upgraded scoring from 2-signal (SequenceMatcher 60% + keyword overlap 40%) to 5-signal (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). Removed 20-item "embedding budget" cap. Batch-fetches up to 200 candidates in batches of 50. |
+| 27 | FR-2020b | 2026-03-10 | *pending* | **AI-powered TFT Feature search — ADO Search API + 5-signal scoring + quality fixes** — Same migration as FR-2020 but for TFT Feature search (`search_tft_features()` in `ado_integration.py`). Old approach used WIQL CONTAINS which returned results by date, capping similarity at ~24%. Now uses ADO Work Item Search API for relevance-ranked results. 3-phase strategy: Phase 1 ADO Search with raw AI service names only (ServiceTree-resolved names used for scoring, not search text — they add noise like "Copilot Chat" that kills relevance), Phase 2 ADO Search with title keywords (stop-word stripped, max 12 words — full title was too specific), Phase 3 WIQL broad fallback with `$top=200` and `State <> 'Removed'` filter. Post-fetch filter removes Removed/Closed features before scoring. Upgraded scoring from 2-signal (SequenceMatcher 60% + keyword overlap 40%) to 5-signal (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). Removed 20-item "embedding budget" cap. Batch-fetches up to 200 candidates in batches of 50. UI: diagnostics label changed from "WIQL matches" to "Candidates found". |
+| 28 | B0008 | 2026-03-10 | *pending* | **Bug fix — Reanalyze with Corrections showed stale display labels** — When a user corrected the AI classification (e.g., changed category from "Technical Support" to "Feature Request") and clicked "Reanalyze with Corrections", the internal slug (`category`) was correctly overridden but the display field (`category_display`) still showed the LLM's original value (e.g., "Roadmap"). Since the UI renders `category_display \|\| category`, users saw the stale LLM label instead of their correction. Fixed in both the `reanalyze` path (now generates matching display names from a slug→display map when corrections are present) and the `save_corrections` path (`_apply_corrections_to_analysis` now syncs `_display` fields). Same issue affected `intent_display` and `business_impact_display`. |
 
 ---
 
@@ -49,7 +50,7 @@
 
 ### Week of March 10, 2026
 
-**Reported entries:** #26, #27  
+**Reported entries:** #26, #27, #28  
 **Last reported:** Entries #1–25 (week of March 3)
 
 #### Summary
@@ -73,9 +74,22 @@ Applied the same ADO Search API migration to the TFT Feature search (Step 5 of t
 - **Search engine swap** — WIQL CONTAINS → ADO Work Item Search API for the TFT org (`unifiedactiontracker`/`Technical Feedback`).
 - **Scoring upgrade** — From 2-signal (SequenceMatcher 60% + keyword overlap 40%, threshold 0.15) to 5-signal (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%).
 - **Candidate pool expansion** — Removed 20-item "embedding budget" cap. Now evaluates up to 200 candidates in batches of 50.
-- **ServiceTree integration preserved** — Service name resolution (AI-detected + regex + abbreviations → ServiceTree lookup) still used for both search text and the service-overlap scoring signal.
+- **ServiceTree noise fix** — ServiceTree-resolved names (e.g. "Copilot Chat", "Microsoft Cloud for Sustainability") removed from search text — they polluted ADO Search and returned 0 results. Now used for service-overlap scoring signal only. Raw AI service names used for search.
+- **Title keyword extraction** — Phase 2 now extracts key content words from title (strips stop words, caps at 12 words) instead of sending the full title, which was too specific and returned 0 results.
+- **Removed/Closed filter** — WIQL Phase 3 excludes `State <> 'Removed'`; post-fetch filter strips Removed and Closed features before scoring. In testing, 13 of 24 candidates were Removed — these now get filtered out.
+- **WIQL overflow fix** — Added `$top=200` to WIQL URL to prevent VS402337 error (TFT org has >20,000 Features).
+- **Diagnostics label** — "WIQL matches" → "Candidates found" in SearchResultsPage.jsx.
 
-**Files changed:** 1 (`ado_integration.py`)
+**Files changed:** 3 (`ado_integration.py`, `SearchResultsPage.jsx`, `dist/`)
+
+**Correction Display Override Bug Fix (B0008)**  
+User-reported bug: correcting the AI classification and clicking "Reanalyze with Corrections" showed the LLM's original display label instead of the user's correction. Root cause traced via nonprod Cosmos DB query — the internal `category` slug was correctly overridden to `"feature_request"` but `category_display` stayed `"Roadmap"` from the LLM output. The UI renders `category_display || category`, so the stale LLM display name won.
+
+**Fix:**
+- **Reanalyze path** (`routes.py` lines ~797-855): Resolves `final_category`, `final_intent`, `final_impact` first, then generates matching display names using a comprehensive slug→display map when corrections are present. Falls back to LLM display values when no correction was applied for that field.
+- **Save corrections path** (`_apply_corrections_to_analysis`): Now syncs `category_display`, `intent_display`, and `business_impact_display` when the corresponding slug is corrected.
+
+**Files changed:** 1 (`field-portal/api/routes.py`)
 
 ---
 

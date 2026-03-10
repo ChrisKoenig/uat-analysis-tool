@@ -794,14 +794,64 @@ async def correct_classification(req: CorrectionRequest):
         ctx_raw = raw.get("context_analysis", raw)
         de_raw = ctx_raw.get("domain_entities", {})
 
+        # Resolve final values, applying user corrections on top of LLM output
+        final_category = corrections.get("category", ctx_raw.get("category", "general"))
+        final_intent = corrections.get("intent", ctx_raw.get("intent", "general"))
+        final_impact = corrections.get("business_impact", ctx_raw.get("business_impact", ""))
+
+        # Build display names that match the corrected values
+        _cat_display_map = {
+            "technical_support": "Technical Support",
+            "feature_request": "Feature Request",
+            "cost_billing": "Cost & Billing",
+            "compliance_security": "Compliance & Security",
+            "compliance_regulatory": "Compliance/Regulatory",
+            "security_governance": "Security/Governance",
+            "training_enablement": "Training & Enablement",
+            "service_health": "Service Health",
+            "service_availability": "Service Availability",
+            "service_retirement": "Service Retirement",
+            "retirements": "Retirements",
+            "migration": "Migration",
+            "migration_modernization": "Migration/Modernization",
+            "performance": "Performance",
+            "performance_optimization": "Performance Issue",
+            "capacity": "Capacity",
+            "aoai_capacity": "AOAI Capacity",
+            "business_desk": "Business Desk",
+            "roadmap": "Roadmap",
+            "product_roadmap": "Product Roadmap",
+            "support": "Support",
+            "support_escalation": "Support Escalation",
+            "data_sovereignty": "Data Sovereignty",
+            "sustainability": "Sustainability",
+            "integration_connectivity": "Integration Issue",
+            "training_documentation": "Training/Documentation",
+            "general": "General",
+            "other": "Other",
+        }
+        final_cat_display = (
+            _cat_display_map.get(final_category, final_category.replace("_", " ").title())
+            if "category" in corrections
+            else ctx_raw.get("category_display", final_category.replace("_", " ").title())
+        )
+        final_intent_display = (
+            final_intent.replace("_", " ").title()
+            if "intent" in corrections
+            else ctx_raw.get("intent_display", final_intent.replace("_", " ").title())
+        )
+        final_impact_display = (
+            final_impact.replace("_", " ").title() if final_impact else ""
+        ) if "business_impact" in corrections else ctx_raw.get("business_impact_display", "")
+
         updated = ContextAnalysis(
-            category=corrections.get("category", ctx_raw.get("category", "general")),
-            category_display=ctx_raw.get("category_display", ""),
-            intent=corrections.get("intent", ctx_raw.get("intent", "general")),
-            intent_display=ctx_raw.get("intent_display", ""),
+            category=final_category,
+            category_display=final_cat_display,
+            intent=final_intent,
+            intent_display=final_intent_display,
             confidence=ctx_raw.get("confidence", 0.0),
-            business_impact=corrections.get("business_impact", ctx_raw.get("business_impact", "")),
-            business_impact_display=ctx_raw.get("business_impact_display", ""),
+            business_impact=final_impact,
+            business_impact_display=final_impact_display,
             technical_complexity=corrections.get("technical_complexity", ctx_raw.get("technical_complexity", "")),
             urgency_level=corrections.get("urgency_level", ctx_raw.get("urgency_level", "")),
             key_concepts=ctx_raw.get("key_concepts", []),
@@ -842,6 +892,13 @@ def _apply_corrections_to_analysis(state: SessionState, corrections: Dict[str, s
     for key, val in corrections.items():
         if key in data:
             data[key] = val
+    # Sync display fields to match corrected slug values
+    if "category" in corrections:
+        data["category_display"] = corrections["category"].replace("_", " ").title()
+    if "intent" in corrections:
+        data["intent_display"] = corrections["intent"].replace("_", " ").title()
+    if "business_impact" in corrections:
+        data["business_impact_display"] = corrections["business_impact"].replace("_", " ").title() if corrections["business_impact"] else ""
     return ContextAnalysis(**data)
 
 

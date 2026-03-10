@@ -158,8 +158,8 @@ Then choose:
 
 | Button | What it does |
 |--------|-------------|
-| **"Reanalyze with Corrections"** | Re-runs AI analysis with your hints. The page refreshes with new results. |
-| **"Save Corrections & Continue"** | Saves your feedback for model learning and moves to the next step. |
+| **"Reanalyze with Corrections"** | Re-runs AI analysis with your hints. Your corrections are guaranteed to override the AI's labels — both the internal value and the display name will reflect your choice. The page refreshes with new results. |
+| **"Save Corrections & Continue"** | Saves your feedback for model learning and moves to the next step. Your corrected values are applied immediately. |
 | **"Cancel Edits"** | Collapses the correction form without saving. |
 
 > **Your corrections matter.** Every correction is stored and used to improve
@@ -207,9 +207,12 @@ For feature requests, a collapsible section shows related TFT features
 ranked by similarity. The search uses the **ADO Work Item Search API**
 (same engine as UAT search) with a 3-phase strategy:
 
-1. **Phase 1** — Search by AI-detected service names + ServiceTree-resolved names
-2. **Phase 2** — Search by the full issue title
-3. **Phase 3** — WIQL broad fallback (newest features, no keyword filter)
+1. **Phase 1** — Search by raw AI-detected service names (ServiceTree names used for scoring only)
+2. **Phase 2** — Search by title keywords (stop-word stripped, max 12 words)
+3. **Phase 3** — WIQL broad fallback (excludes Removed features)
+
+Features with a state of **Removed** or **Closed** are automatically filtered
+out before scoring.
 
 Results are scored using 5 signals: service-name overlap (30%),
 title similarity (25%), token overlap (20%), description match (15%),

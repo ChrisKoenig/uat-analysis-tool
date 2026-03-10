@@ -355,7 +355,7 @@ export default function SearchResultsPage() {
             <div><strong>Services detected:</strong> {(data.search_metadata.tft_diagnostics.azure_services || []).join(', ') || 'none'}</div>
             <div><strong>Similarity threshold:</strong> {data.search_metadata.tft_diagnostics.threshold ?? '—'}</div>
             {data.search_metadata.tft_diagnostics.raw_count != null && (
-              <div><strong>WIQL matches:</strong> {data.search_metadata.tft_diagnostics.raw_count}</div>
+              <div><strong>Candidates found:</strong> {data.search_metadata.tft_diagnostics.raw_count}</div>
             )}
             {data.search_metadata.tft_diagnostics.returned_count != null && (
               <div><strong>Above threshold:</strong> {data.search_metadata.tft_diagnostics.returned_count}</div>

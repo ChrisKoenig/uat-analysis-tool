@@ -1131,8 +1131,10 @@ class AzureDevOpsClient:
                     service_phrases.append(cand)
             print(f"{_D} Step 6: service_phrases for scoring: {service_phrases}")
 
-            # Build search-text for Phase 1: join all service-related terms
-            svc_search_text = " ".join(service_phrases) if service_phrases else ""
+            # Build search-text for Phase 1: use RAW AI-detected names only.
+            # ServiceTree-resolved names (e.g. "Microsoft Cloud for Sustainability")
+            # add noise that kills Search API relevance.  service_phrases is for SCORING.
+            svc_search_text = " ".join(candidate_names) if candidate_names else ""
             print(f"{_D} Step 6: svc_search_text={repr(svc_search_text)}")
 
             # ── Helper: ADO Work Item Search API ──
@@ -1190,12 +1192,14 @@ class AzureDevOpsClient:
                 wiql_url = (
                     f"{tft_base_url}/{quote(tft_project)}/"
                     f"_apis/wit/wiql?api-version={self.config.API_VERSION}"
+                    f"&$top={MAX_CANDIDATES}"
                 )
                 query = (
                     f"SELECT [System.Id] FROM workitems"
                     f" WHERE [System.TeamProject] = '{tft_project}'"
                     f" AND [System.WorkItemType] = 'Feature'"
                     f" AND [System.State] <> 'Closed'"
+                    f" AND [System.State] <> 'Removed'"
                     f" AND [System.ChangedDate] >= '{cutoff_date}'"
                     f" ORDER BY [System.ChangedDate] DESC"
                 )
@@ -1234,10 +1238,21 @@ class AzureDevOpsClient:
                 svc_items = _run_search(svc_search_text, "Phase1-SearchSvc", top=MAX_CANDIDATES)
                 _merge(svc_items, "Phase1-SearchSvc")
 
-            # ── Phase 2: Search API with full issue title ──
-            if len(work_items) < MAX_CANDIDATES and title.strip():
-                print(f"{_D} Step 8: Phase 2 — ADO Search API with full title")
-                title_items = _run_search(title.strip(), "Phase2-SearchTitle", top=MAX_CANDIDATES)
+            # ── Phase 2: Search API with key content words from title ──
+            # Full title is often too specific (stop words + verbs dilute relevance).
+            # Extract meaningful content words to improve recall.
+            _p2_stop = {'the','and','for','with','from','that','this','where','when',
+                        'what','how','are','was','were','been','being','have','has',
+                        'had','does','did','will','would','could','should','may',
+                        'not','but','its','also','can','than','into','our','your',
+                        'using','use','used','to','of','in','on','at','by','is',
+                        'it','an','a','or','do','all'}
+            title_kw = [w for w in re.sub(r'[^a-zA-Z0-9\s]', '', title).split()
+                        if len(w) >= 2 and w.lower() not in _p2_stop]
+            title_search_text = " ".join(title_kw[:12])
+            if len(work_items) < MAX_CANDIDATES and title_search_text:
+                print(f"{_D} Step 8: Phase 2 — ADO Search API with title keywords")
+                title_items = _run_search(title_search_text, "Phase2-SearchTitle", top=MAX_CANDIDATES)
                 _merge(title_items, "Phase2-SearchTitle")
 
             # ── Phase 3: WIQL broad fallback ──
@@ -1286,6 +1301,17 @@ class AzureDevOpsClient:
 
             if not all_items:
                 print(f"{_D} ===== search_tft_features() END (batch error) =====")
+                return []
+
+            # ── Filter out Removed / Closed features ──
+            EXCLUDED_STATES = {'Removed', 'Closed'}
+            before_filter = len(all_items)
+            all_items = [it for it in all_items
+                         if it and it.get('fields', {}).get('System.State', '') not in EXCLUDED_STATES]
+            print(f"{_D} Step 12b: Filtered out {before_filter - len(all_items)} Removed/Closed — {len(all_items)} remain")
+
+            if not all_items:
+                print(f"{_D} ===== search_tft_features() END (all filtered) =====")
                 return []
 
             # ── 5-signal similarity scoring (same as UAT search) ──
