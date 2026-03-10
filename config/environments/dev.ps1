@@ -36,6 +36,6 @@ $ENV_NAME = "cae-gcs-dev"
 # Azure DevOps
 $ADO_ORG = "unifiedactiontrackertest"
 $ADO_PROJECT = "Unified Action Tracker Test"
-$ADO_TFT_ORG = "acrblockers"
+$ADO_TFT_ORG = "unifiedactiontracker"
 
 Write-Host "[config] Loaded dev environment (sub: $SUBSCRIPTION, rg: $RG)" -ForegroundColor Cyan

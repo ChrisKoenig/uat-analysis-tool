@@ -80,7 +80,7 @@ class TriageAdoConfig:
 
     # --- Shared settings (from existing config, single source of truth) ---
     API_VERSION = AzureDevOpsConfig.API_VERSION                # "7.0"
-    WORK_ITEM_TYPE = AzureDevOpsConfig.WORK_ITEM_TYPE          # "Action"
+    WORK_ITEM_TYPE = AzureDevOpsConfig.WORK_ITEM_TYPE          # "Actions"
     ADO_SCOPE = AzureDevOpsConfig.ADO_SCOPE
 
     # --- Backward compatibility aliases (point to WRITE org) ---

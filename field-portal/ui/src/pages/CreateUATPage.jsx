@@ -17,7 +17,7 @@
  *   - "View in Azure DevOps" → opens ADO work item in new tab
  *   - "Done"                 → resetWizard() + navigate to /
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProgressStepper from '../components/ProgressStepper';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -32,6 +32,7 @@ export default function CreateUATPage() {
 
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const hasRun = useRef(false);
 
   // Cache for wizard tracking
   useEffect(() => {
@@ -40,19 +41,17 @@ export default function CreateUATPage() {
 
   useEffect(() => {
     if (!sessionId) { navigate('/'); return; }
-
-    let cancelled = false;
+    if (hasRun.current) return;
+    hasRun.current = true;
 
     (async () => {
       try {
         const data = await createUAT(sessionId);
-        if (!cancelled) setResult(data);
+        setResult(data);
       } catch (err) {
-        if (!cancelled) setError(err.message);
+        setError(err.message);
       }
     })();
-
-    return () => { cancelled = true; };
   }, [sessionId, navigate]);
 
   if (!sessionId) return null;

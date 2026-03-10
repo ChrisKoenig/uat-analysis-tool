@@ -47,30 +47,47 @@ export function setTokenGetter(fn) {
 }
 
 async function request(endpoint, options = {}) {
+  const t0 = performance.now();
+  console.log(`[fieldApi] >> ${options.method || 'GET'} ${endpoint} — start @${new Date().toISOString()}`);
+
   const base = await getApiBaseUrl();
   const url = `${base}${API_PATH}${endpoint}`;
+  console.log(`[fieldApi]    resolved URL: ${url} (baseUrl took ${(performance.now()-t0).toFixed(0)}ms)`);
+
   const headers = { 'Content-Type': 'application/json', ...options.headers };
 
   // Attach bearer token if available
   if (_getToken) {
+    const tTok = performance.now();
     try {
       const token = await _getToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
+      console.log(`[fieldApi]    token acquired in ${(performance.now()-tTok).toFixed(0)}ms`);
     } catch (e) {
-      console.warn('[fieldApi] token acquisition skipped', e);
+      console.warn('[fieldApi]    token acquisition skipped', e, `(${(performance.now()-tTok).toFixed(0)}ms)`);
     }
+  } else {
+    console.log('[fieldApi]    no token getter registered');
   }
 
   const config = { ...options, headers };
 
+  console.log(`[fieldApi]    calling fetch()...`);
+  const tFetch = performance.now();
   const resp = await fetch(url, config);
+  const fetchMs = (performance.now() - tFetch).toFixed(0);
+  console.log(`[fieldApi]    fetch complete: status=${resp.status} in ${fetchMs}ms`);
 
   if (!resp.ok) {
     const body = await resp.text();
+    console.error(`[fieldApi] << ${endpoint} FAILED ${resp.status} — total ${(performance.now()-t0).toFixed(0)}ms`, body.slice(0, 300));
     throw new Error(`API ${resp.status}: ${body}`);
   }
 
-  return resp.json();
+  const tParse = performance.now();
+  const json = await resp.json();
+  console.log(`[fieldApi] << ${endpoint} OK — fetch=${fetchMs}ms, parse=${(performance.now()-tParse).toFixed(0)}ms, total=${(performance.now()-t0).toFixed(0)}ms`);
+  return json;
 }
 
 // ── Step 1-2: Submit + Quality Review ──
@@ -138,6 +155,11 @@ export async function toggleUAT(sessionId, uatId) {
   });
 }
 
+// ── Guided Override (deflection bypass) ──
+export async function markGuidedOverride(sessionId) {
+  return request(`/guided-override/${sessionId}`, { method: 'POST' });
+}
+
 // ── Step 9: Create UAT ──
 export async function createUAT(sessionId) {
   return request('/create-uat', {
@@ -154,4 +176,9 @@ export async function getSession(sessionId) {
 // ── Health ──
 export async function checkHealth() {
   return request('/health');
+}
+
+// ── Diagnostics ──
+export async function getDiagnostics() {
+  return request('/diagnostics');
 }

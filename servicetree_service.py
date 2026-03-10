@@ -130,9 +130,33 @@ class ServiceTreeService:
         if name_lower in self._index:
             return self._index[name_lower]
 
-        # 2) Substring match (prefer shorter key that contains or is contained)
+        # 2) Parenthesized abbreviation match
+        #    e.g. "APIM" should match "API Management (APIM)"
+        import re as _re
+        for _key, entry in self._index.items():
+            parens = _re.findall(r'\(([^)]+)\)', _key)
+            for p in parens:
+                if p.strip().lower() == name_lower:
+                    return entry
+
+        # 3) Substring match — search term is a whole word in catalog key
+        #    e.g. "cosmos" in "cosmos db", "apim" in "api management (apim)"
+        #    Requires word-boundary match to avoid "entra" matching "central"
+        _word_pat = _re.compile(r'(?<![a-z])' + _re.escape(name_lower) + r'(?![a-z])')
+        best_sub = None
+        best_sub_len = 999999  # prefer shortest containing key
         for key, entry in self._index.items():
-            if name_lower in key or key in name_lower:
+            if _word_pat.search(key):
+                if len(key) < best_sub_len:
+                    best_sub = entry
+                    best_sub_len = len(key)
+        if best_sub:
+            return best_sub
+
+        # 4) Reverse substring — catalog key contained in search term
+        #    Only if key covers ≥80% of search term (avoids "pim" matching "apim")
+        for key, entry in self._index.items():
+            if key in name_lower and len(key) >= len(name_lower) * 0.8:
                 return entry
 
         # 3) Fuzzy match

@@ -14,7 +14,7 @@
  *
  * Navigates → /uat-input (Step 6) on "Continue".
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProgressStepper from '../components/ProgressStepper';
 import { toggleFeature } from '../api/fieldApi';
@@ -30,6 +30,10 @@ export default function SearchResultsPage() {
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [showAllDocs, setShowAllDocs] = useState(false);
   const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const [toggleError, setToggleError] = useState('');
+  const [toggling, setToggling] = useState(null); // feature ID currently being toggled
+  const togglingRef = useRef(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Cache for backward navigation
   useEffect(() => {
@@ -41,19 +45,36 @@ export default function SearchResultsPage() {
   const {
     learn_docs = [], tft_features = [],
     retirement_info, capacity_guidance,
+    category_guidance, flow_path = 'create_uat',
   } = data;
 
   const handleToggleFeature = async (featureId) => {
+    if (togglingRef.current) return; // synchronous guard prevents double-fires
+    togglingRef.current = true;
+    setToggling(featureId);
+    setToggleError('');
     try {
       const result = await toggleFeature(sessionId, featureId);
       setSelectedFeatures(result.selected_features || []);
     } catch (err) {
       console.error('Toggle feature error:', err);
+      if (err.message && err.message.includes('404')) {
+        setSessionExpired(true);
+      } else {
+        setToggleError(`Failed to toggle feature #${featureId}: ${err.message}`);
+      }
+    } finally {
+      togglingRef.current = false;
+      setToggling(null);
     }
   };
 
   const handleContinue = () => {
-    navigate('/uat-input', { state: { sessionId } });
+    if (flow_path === 'deflect') {
+      navigate('/done', { state: { sessionId, searchData: data } });
+    } else {
+      navigate('/uat-input', { state: { sessionId } });
+    }
   };
 
   // Learn docs: show top 3 unless expanded
@@ -156,6 +177,31 @@ export default function SearchResultsPage() {
               <p style={{ fontSize: 13, color: '#605e5c', marginBottom: 16 }}>
                 Select features to link to your UAT (optional). Sorted by relevance — highest first.
               </p>
+
+              {sessionExpired && (
+                <div style={{
+                  padding: '12px 16px', marginBottom: 12, borderRadius: 4,
+                  background: '#fff4ce', color: '#854d0e', fontSize: 13, border: '1px solid #fbbf24',
+                }}>
+                  <strong>Session expired.</strong> The server was restarted and your session was lost.
+                  Please go back and re-run the search.
+                  <div style={{ marginTop: 8 }}>
+                    <button onClick={() => navigate('/')} style={{
+                      background: '#0078d4', color: '#fff', border: 'none', borderRadius: 4,
+                      padding: '6px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                    }}>Start Over</button>
+                  </div>
+                </div>
+              )}
+
+              {toggleError && !sessionExpired && (
+                <div style={{
+                  padding: '8px 12px', marginBottom: 12, borderRadius: 4,
+                  background: '#fde7e9', color: '#d13438', fontSize: 13,
+                }}>
+                  {toggleError}
+                </div>
+              )}
 
               {tft_features.slice(0, 10).map((feat) => {
                 const pct = Math.round((feat.similarity || 0) * 100);
@@ -277,18 +323,56 @@ export default function SearchResultsPage() {
             </div>
           )}
         </div>
-      ) : data.category_guidance?.title?.includes('Feature') ? (
+      ) : (
         <div className="card" style={{ color: '#605e5c' }}>
           <div className="card-header">Related TFT Features</div>
           <p style={{ fontSize: 13, fontStyle: 'italic' }}>
-            No matching TFT Features found.
+            {data.search_metadata?.tft_error
+              ? `Search failed: ${data.search_metadata.tft_error.slice(0, 120)}`
+              : 'No matching TFT Features found.'}
           </p>
         </div>
-      ) : null}
+      )}
+
+      {/* TFT Search Diagnostics — always show when metadata available */}
+      {data.search_metadata?.tft_diagnostics && (
+        <details style={{ margin: '0 0 16px', fontSize: 12, color: '#605e5c' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, padding: '4px 0' }}>
+            TFT Search Diagnostics
+            {data.search_metadata.tft_diagnostics.error && (
+              <span style={{ color: '#d13438', marginLeft: 8, fontWeight: 400 }}>
+                — Error: {data.search_metadata.tft_diagnostics.error.slice(0, 100)}
+              </span>
+            )}
+          </summary>
+          <div style={{
+            background: '#f3f2f1', borderRadius: 4, padding: '10px 14px',
+            marginTop: 6, fontFamily: 'Consolas, monospace', lineHeight: 1.7,
+          }}>
+            <div><strong>Category:</strong> {data.search_metadata.tft_diagnostics.category || '?'}</div>
+            <div><strong>Searched:</strong> {data.search_metadata.tft_diagnostics.searched ? 'Yes' : 'No (skipped)'}</div>
+            <div><strong>Title used:</strong> {data.search_metadata.tft_diagnostics.title_used || '—'}</div>
+            <div><strong>Services detected:</strong> {(data.search_metadata.tft_diagnostics.azure_services || []).join(', ') || 'none'}</div>
+            <div><strong>Similarity threshold:</strong> {data.search_metadata.tft_diagnostics.threshold ?? '—'}</div>
+            {data.search_metadata.tft_diagnostics.raw_count != null && (
+              <div><strong>WIQL matches:</strong> {data.search_metadata.tft_diagnostics.raw_count}</div>
+            )}
+            {data.search_metadata.tft_diagnostics.returned_count != null && (
+              <div><strong>Above threshold:</strong> {data.search_metadata.tft_diagnostics.returned_count}</div>
+            )}
+            {data.search_metadata.tft_diagnostics.elapsed_ms != null && (
+              <div><strong>Elapsed:</strong> {data.search_metadata.tft_diagnostics.elapsed_ms}ms</div>
+            )}
+            {data.search_metadata.tft_diagnostics.error && (
+              <div style={{ color: '#d13438', marginTop: 4 }}><strong>Error:</strong> {data.search_metadata.tft_diagnostics.error}</div>
+            )}
+          </div>
+        </details>
+      )}
 
       <div className="btn-group">
         <button className="btn btn-primary" onClick={handleContinue}>
-          Continue →
+          {flow_path === 'deflect' ? 'Review Guidance →' : 'Continue →'}
         </button>
       </div>
     </>

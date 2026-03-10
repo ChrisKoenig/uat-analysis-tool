@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 8, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **60 API endpoints**
+**Last Updated**: March 10, 2026
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **AI-powered UAT search via ADO Search API (FR-2020)** + **60 API endpoints**
 
 ---
 
@@ -65,8 +65,9 @@ Step 6: UAT Input (/uat_input)
   └─ Template: uat_input.html
 
 Step 7: Similar UAT Search (/select_related_uats)
-  └─ Searches ADO for similar UATs from last 180 days
-  └─ Sorted by similarity score (highest first)
+  └─ AI-powered search via ADO Work Item Search API (relevance-ranked)
+  └─ 3-phase: Search API with AI service names → Search API with title → WIQL broad fallback
+  └─ 5-signal similarity scoring (service-overlap, title-seq, jaccard, description, exact-boost)
   └─ Template: select_related_uats.html
 
 Step 8: UAT Selection
@@ -357,7 +358,152 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 
 ---
 
-## Recent Changes (Mar 5, 2026) — Bug Fixes: B0004, B0005 + Dashboard UI (ENG-011)
+## Recent Changes (Mar 8-9, 2026) — Field Portal Bug Fixes, Performance Root Cause, Design Audit
+
+### Context
+The triage portal was deployed to prod for a demo (Mar 8). After the demo, focus shifted to the field portal where Step 5 (Resource Search) was taking 116+ seconds. Investigation uncovered both immediate bugs and a fundamental design gap.
+
+### Bug Fixes Completed (Mar 8)
+
+#### UAT Search AND→OR Fix (enhanced_matching.py)
+**Problem**: UAT search returned 0 results because WIQL key terms were joined with `AND` — requiring ALL keywords to appear in a single work item title.
+**Fix**: Changed `" AND ".join(...)` to `" OR ".join(...)` in `search_uat_items()` in `enhanced_matching.py`.
+**Debug logging added**: `[UAT-DEBUG]` prefix throughout `search_uat_items()`.
+
+#### Duplicate API Call Prevention (3 UI pages)
+**Problem**: React `useEffect` hooks fired twice (StrictMode + missing guards), causing duplicate search/create API calls.
+**Fix**: Added `useRef` guards (`hasStarted.current`) in:
+- `field-portal/ui/src/pages/SearchingPage.jsx` (Step 5 search)
+- `field-portal/ui/src/pages/SearchingUATsPage.jsx` (Step 7 UAT search)
+- `field-portal/ui/src/pages/CreateUATPage.jsx` (Step 9 UAT creation)
+
+#### TFT Feature Search — Removed Embedding Dependency (ado_integration.py)
+**Problem**: `search_tft_features()` in `ado_integration.py` used `embedding_service.py` (Azure OpenAI text-embedding-3-large) for similarity scoring. This added latency and an extra Azure dependency.
+**Fix**: Replaced embedding-based scoring with keyword overlap + `difflib.SequenceMatcher`:
+- Score formula: `score = (seq_sim * 0.6) + (overlap * 0.4)`, threshold >= 0.15
+- WIQL cap=50, item limit=20, timeout=30s on all HTTP requests
+- No more dependency on embedding_service.py for TFT search
+- **Debug logging added**: `[TFT-DEBUG]` prefix in `ado_integration.py`, `[TFT-ROUTE-DEBUG]` prefix in `routes.py`
+
+#### DiagnosticsPanel Removed from Both UIs
+- Removed `<DiagnosticsPanel />` import and render from `field-portal/ui/src/App.jsx`
+- Removed `<DiagnosticsPanel />` import and render from `triage-ui/src/components/layout/AppLayout.jsx`
+- **Note**: The component files still exist (`field-portal/ui/src/components/DiagnosticsPanel.jsx` and `.css`) — they are just not imported/rendered anywhere. Can be deleted as cleanup.
+
+#### SearchingPage Phase Messages Updated
+- Removed references to embeddings and diagnostics from the progress messages in `SearchingPage.jsx`
+
+### Performance Root Cause — IDENTIFIED, NOT YET FIXED
+
+**Symptom**: Step 5 (Resource Search) takes 60-120 seconds for most categories.
+
+**Root Cause**: The API Gateway (port 8000) is NOT running. In `field-portal/api/routes.py` (line ~992), there is a `skip_categories` list:
+```python
+skip_categories = ["technical_support", "feature_request", "cost_billing", "aoai_capacity", "capacity"]
+```
+
+For these 5 categories, the gateway call is skipped. For ALL OTHER categories (~17 of the 22 IssueCategory values), the code calls `gw.search_resources()` which POSTs to `http://localhost:8000/api/search/` via `field-portal/api/gateway_client.py`. This has a **60-second timeout** (`SEARCH_TIMEOUT = 60.0` at line 20 of gateway_client.py). Since the gateway isn't running, the request hangs for 60s before a `GatewayError` is caught and the code continues with empty results.
+
+**The field portal was designed to work WITHOUT the gateway** (per this doc: "Calls analysis engines DIRECTLY (no gateway/microservice dependency). Gateway is fallback only."). The quality scoring and context analysis already call engines directly. But the search route still has the gateway dependency for non-skip categories.
+
+**Fix needed**: Either expand `skip_categories` to include ALL categories (making the gateway call dead code), or remove the gateway call entirely from the search route. The `_generate_learn_docs()` function already generates Learn docs locally when the gateway doesn't return any.
+
+### Design Audit — CRITICAL GAP IDENTIFIED
+
+A full design discussion was held about **what the application is supposed to do**. The core purpose is:
+
+> **Subvert the need to create a UAT (Unified Action Tracker) work item** by providing AI-guided deflection, self-service links, and feature matching — only creating a UAT as a last resort when no other path is appropriate.
+
+#### Intended Flow Branching (NOT YET IMPLEMENTED)
+
+Based on the AI-classified category, the wizard should branch into 3 paths after Step 4 (Analysis Review):
+
+| Path | Categories | Behavior |
+|------|-----------|----------|
+| **Deflect** | `capacity`, `aoai_capacity`, `cost_billing`, `technical_support`, `support`, `support_escalation` | Show guidance + self-service links + "I still want to create a UAT" override button (with reiteration that it's not the best path). If no override → "Done" page. |
+| **Feature/Service Search** | `feature_request`, `service_availability`, plus `requesting_service` intent | Search TFT Features in ADO, show similar items, then proceed to Steps 6-9 (UAT creation) |
+| **Create UAT** | Everything else | Show Learn docs → proceed to Steps 6-9 (UAT creation) |
+
+#### Current State (What's Missing)
+1. **No flow branching exists** — The wizard always follows all 9 steps regardless of category. `SearchResultsPage.jsx` `handleContinue` always navigates to `/uat-input`.
+2. **No "Done/Exit" page** — There's no way for deflect categories to exit the wizard without creating a UAT.
+3. **No override mechanism** — Users who get deflected can't say "I still want to create a UAT anyway."
+4. **TFT search only for `feature_request`** — The `if category == "feature_request":` gate at line ~1053 of `routes.py` needs to also include `service_availability` and check for `requesting_service` intent.
+5. **guidance.py only has 5 entries** — `technical_support`, `cost_billing`, `aoai_capacity`, `capacity`, `feature_request`. Missing guidance for: `support`, `support_escalation`, `sustainability`, `retirements`, `service_availability`, and many others.
+6. **Performance must be 5-10 seconds** — User emphasized the old system was fast (5-10 seconds for search). Current: 60-120 seconds due to dead gateway.
+
+### IssueCategory Enum Values (22 total — intelligent_context_analyzer.py line 93)
+```
+compliance_regulatory, technical_support, feature_request, migration_modernization,
+security_governance, performance_optimization, integration_connectivity, cost_billing,
+training_documentation, service_retirement, service_availability, data_sovereignty,
+product_roadmap, aoai_capacity, business_desk, capacity, retirements, roadmap,
+support, support_escalation, sustainability
+```
+
+### IntentType Enum Values (16 total — intelligent_context_analyzer.py line 118)
+```
+seeking_guidance, reporting_issue, requesting_feature, need_migration_help,
+compliance_support, troubleshooting, configuration_help, best_practices,
+requesting_service, sovereignty_concern, roadmap_inquiry, capacity_request,
+escalation_request, business_engagement, sustainability_inquiry, regional_availability
+```
+
+### Guidance Categories Currently Defined (guidance.py — 5 total)
+| Category | Title | Variant | Key Links |
+|----------|-------|---------|-----------|
+| `technical_support` | Technical Support Issue Detected | warning | CSS Compass, Reactive Escalation, GetHelp |
+| `cost_billing` | Billing Issue - Out of Scope | danger | GetHelp Portal |
+| `aoai_capacity` | Azure OpenAI Capacity Request | info | AI Capacity Hub |
+| `capacity` | Capacity Request Guidelines | info | AI Capacity Hub, SharePoint guidelines |
+| `feature_request` | Feature Request - TFT System | info | TFT Feature tracking info |
+
+### Key Files for Next Session
+
+| File | Lines | What's There | What Needs to Change |
+|------|-------|-------------|---------------------|
+| `field-portal/api/routes.py` | ~1536 | `skip_categories` at L990, gateway call at L1002, TFT gate at L1053, guidance at L1092 | Remove/bypass gateway call; expand TFT gate; add flow branching logic to search response |
+| `field-portal/api/gateway_client.py` | ~178 | `SEARCH_TIMEOUT = 60.0` at L20, `search_resources()` at L161 | May become dead code if gateway call is removed |
+| `field-portal/api/guidance.py` | ~80 | 5 category guidance entries | Add guidance for `support`, `support_escalation`, and other deflect categories |
+| `field-portal/ui/src/pages/SearchResultsPage.jsx` | ~400 | `handleContinue` always → `/uat-input` | Branch based on category: deflect → Done page, feature → continue, other → continue |
+| `field-portal/ui/src/App.jsx` | ~100 | 10 routes, all always available | May need new `/done` route for deflect exit |
+| `enhanced_matching.py` | ~2646 | UAT search with `[UAT-DEBUG]` logging, AND→OR fix | Working correctly now |
+| `ado_integration.py` | ~1088 | TFT search with keyword+SequenceMatcher, `[TFT-DEBUG]` logging | Working correctly now |
+| `intelligent_context_analyzer.py` | ~1800 | IssueCategory (22) and IntentType (16) enums | Reference only — no changes needed |
+
+### Server Configuration (Local Dev)
+- **Field Portal API**: Port 8010, started with `python -m uvicorn api.main:app --host 0.0.0.0 --port 8010 --reload` from `C:\Projects\Hack` (NOT from `field-portal/` — the `--reload` watcher needs the root dir to pick up changes to shared modules like `ado_integration.py` and `enhanced_matching.py`)
+- **Field Portal UI**: Port 3001, `npm run dev` from `field-portal/ui/`
+- **API Gateway**: Port 8000 — **NOT RUNNING and NOT NEEDED** for field portal (quality + analysis work without it; search should too)
+- **Triage API**: Port 8009
+- **Triage UI**: Port 3000
+
+---
+
+### THREE-PHASE IMPLEMENTATION PLAN (Approved in Discussion, Not Yet Started)
+
+**User explicitly said "Do nothing till I sign off"** — all code changes below are pending approval.
+
+#### Phase 1: Performance Fix — Remove Gateway Dependency from Search
+- Make ALL categories skip the gateway call (or remove it entirely)
+- The `_generate_learn_docs()` function already handles Learn doc generation locally
+- `similar_products`, `regional_options` from gateway are not displayed in the current UI anyway
+- Expected result: Step 5 goes from 60-120s → 5-10s for non-feature categories
+
+#### Phase 2: Flow Branching — Deflect vs Feature Search vs Create UAT
+- **Backend** (`routes.py`): Add a `flow_path` field to the `SearchResponse` model (values: `deflect`, `feature_search`, `create_uat`) based on category/intent
+- **UI** (`SearchResultsPage.jsx`): Branch `handleContinue` based on `flow_path`:
+  - `deflect` → new `/done` page (guidance + links + "I still want to create a UAT" override button)
+  - `feature_search` / `create_uat` → existing `/uat-input` flow
+- **New page**: `DonePage.jsx` — shows category guidance, reiteration message, self-service links, and override button ("Continue to UAT Creation Anyway")
+- **TFT gate expansion**: Add `service_availability` category and `requesting_service` intent to the TFT search condition
+
+#### Phase 3: Guidance Completeness
+- Add `guidance.py` entries for all deflect categories that don't have them yet (`support`, `support_escalation`)
+- Review and potentially add guidance for other categories like `sustainability`, `retirements`, `service_availability`
+- Ensure every deflect category has meaningful links and actionable text
+
+---
 
 ### B0004 — ServiceTree Stats Key Mismatch
 `servicetree_service.py` `get_catalog_stats()` returned camelCase keys (`totalServices`, `totalOfferings`) but all 7 consumers in `admin_routes.py` expected snake_case (`total_services`, `total_offerings`). Dashboard showed 0 services despite 1439 loaded. **Fixed** by changing return keys to snake_case.
@@ -945,7 +1091,9 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ✅ Batch ADO fetch with errorPolicy=Omit (resilient to invalid IDs)
 ✅ Diagnostics endpoint (`GET /api/v1/diagnostics`) + inline UI in AI Unavailable banner
 ✅ Web UI with Quick ICA analysis (port 5003)
-✅ TFT Feature search for feature_request category
+✅ TFT Feature search for feature_request category (keyword+SequenceMatcher — no embedding dependency)
+✅ UAT search with OR-joined keywords (fixed Mar 8)
+✅ Duplicate API call prevention (useRef guards in SearchingPage, SearchingUATsPage, CreateUATPage)
 ✅ Dual organization authentication (main + TFT)
 ✅ Admin portal on port 8008
 ✅ Centralized config package (`config/`) — `AppConfig` dataclass, per-env configs (dev/preprod/prod), `get_app_config()`
@@ -966,12 +1114,24 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 
 ## Known Issues
 
-⚠️ **Field Portal: MSAL re-prompts for login during quality submission AND UAT search** (HIGH PRIORITY)
+⚠️ **Field Portal Step 5: 60-120s delay for non-skip categories** (HIGH PRIORITY — root cause found)
+- Gateway (port 8000) is NOT running. Non-skip categories call `gw.search_resources()` which hangs for 60s timeout.
+- `skip_categories` = `["technical_support", "feature_request", "cost_billing", "aoai_capacity", "capacity"]` — only 5 of 22 categories skip the gateway
+- **Fix**: Remove/bypass gateway call entirely (Phase 1 of implementation plan). See Mar 8-9 section above.
+
+⚠️ **Field Portal: No flow branching by category** (HIGH PRIORITY — design gap)
+- Wizard always follows all 9 steps regardless of category. Deflect categories (capacity, billing, support) should exit early with guidance links.
+- No "Done" page, no override mechanism, no exit ramp.
+- **Fix**: Phase 2 of implementation plan. See Mar 8-9 section above.
+
+⚠️ **Field Portal: MSAL re-prompts for login during quality submission AND UAT search** (MEDIUM)
 - After initial login, the user is re-prompted to authenticate when submitting for quality review **and** when searching for matching UATs
-- Multiple fixes attempted: removed `useMsalAuthentication(Silent)` hook, removed `acquireTokenPopup` fallback, disabled `acquireTokenSilent` entirely, added `inProgress` guard — none resolved the issue
-- Root cause suspected: MSAL redirect-based login flow may be interfering with the SPA navigation to `/quality` — the redirect back from AAD lands on the app without the `location.state` that carries quality data, causing a blank page or re-auth loop
 - `getToken()` currently returns `null` (token acquisition fully disabled) — backend does not validate tokens
-- **TODO**: Investigate MSAL `handleRedirectPromise()` timing, consider switching to popup-based login (not token acquisition) or using `ssoSilent()` to restore sessions after redirect. May need to persist quality submission data to sessionStorage before the redirect.
+- **TODO**: Investigate MSAL `handleRedirectPromise()` timing, consider switching to popup-based login
+
+⚠️ **Field Portal: DiagnosticsPanel files still exist but are unused**
+- `field-portal/ui/src/components/DiagnosticsPanel.jsx` and `.css` — component removed from App.jsx but files remain
+- Safe to delete as cleanup
 
 ✅ ~~**Field API may need same fixes as Triage API**~~ — **RESOLVED Mar 2**: All 12 issues identified and fixed in commit `b7cb0fd`. Field API deployed and healthy.
 
@@ -987,6 +1147,11 @@ Connected Triage Management System to real Azure Cosmos DB (was in-memory).
 ⚠️ **DEBUG print statements in hybrid_context_analyzer.py** (CLEANUP)
 - Lines 248-297 contain 17 `[DEBUG HYBRID N]` print statements from deployment troubleshooting
 - Should be removed or converted to proper logging before next release
+
+⚠️ **Debug logging in 3 files** (CLEANUP — added Mar 8 for investigation, can remove after fixes confirmed)
+- `enhanced_matching.py`: `[UAT-DEBUG]` prefix in `search_uat_items()`
+- `ado_integration.py`: `[TFT-DEBUG]` prefix in `search_tft_features()`
+- `field-portal/api/routes.py`: `[UAT-ROUTE-DEBUG]` and `[TFT-ROUTE-DEBUG]` prefixes
 
 ---
 
@@ -1128,25 +1293,27 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ## Next Steps / TODO
 
-### Decision Needed (Discuss with Brad)
-- [ ] **Field Submission Portal**: Keep Flask or rebuild as new React SPA? Either way, it must be a separate URL from the triage UI
-- [ ] **Priority**: Build the new field submission React SPA first? Or focus on completing triage features?
+### IMMEDIATE — Field Portal Flow Overhaul (Mar 9 Plan — Pending Sign-Off)
+- [ ] **Phase 1**: Remove gateway dependency from search route — make Step 5 fast (5-10s target)
+- [ ] **Phase 2**: Flow branching by category — deflect/feature-search/create-UAT paths
+- [ ] **Phase 3**: Add missing guidance entries for all deflect categories
+- [ ] Delete unused DiagnosticsPanel files from field-portal
+- [ ] Remove debug logging (`[UAT-DEBUG]`, `[TFT-DEBUG]`, `[UAT-ROUTE-DEBUG]`, `[TFT-ROUTE-DEBUG]`) after fixes confirmed
 
-### Field Submission Portal ✅ (Built Feb 12, Independent Feb 19, Cosmos Feb 20)
-- [x] Build new React SPA for field personnel (separate project/port from triage-ui) — `field-portal/ui/` on :3001
-- [x] Replicate complete 9-step field flow (submit → quality → analysis → correction → search → UAT)
-- [x] Inline correction UI integrated into the flow (not a separate page)
-- [x] Category-specific guidance display (tech support, cost/billing, capacity, etc.)
+### Field Submission Portal (Completed Items)
+- [x] Build new React SPA for field personnel — `field-portal/ui/` on :3001
+- [x] Replicate complete 9-step field flow
+- [x] Category-specific guidance display
 - [x] TFT Feature search + selection for feature_request category
 - [x] Similar UAT search + selection (last 180 days)
-- [x] UAT creation with all context (features, related UATs, opportunity/milestone IDs)
-- [x] Quality scoring works independently (direct AIAnalyzer call, no gateway needed)
-- [x] Context analysis works independently (direct HybridContextAnalyzer call, no gateway needed)
-- [x] Auth reduced from 6 prompts to 1 (AzureCliCredential-first, cached singletons)
-- [x] UI bug fixes (blank detail page, visual hierarchy, capitalization)
-- [x] Cosmos DB integration — evaluations stored at Step 9, corrections stored at Step 4
-- [x] ADO ChallengeDetails field — evaluation summary HTML written to work items
-- [x] Corrections container for fine-tuning engine consumption
+- [x] UAT creation with all context
+- [x] Quality scoring works independently (direct AIAnalyzer call)
+- [x] Context analysis works independently (direct HybridContextAnalyzer call)
+- [x] Auth reduced from 6 prompts to 1
+- [x] Cosmos DB integration — evaluations + corrections
+- [x] TFT search migrated from embeddings to keyword+SequenceMatcher (Mar 8)
+- [x] UAT WIQL AND→OR fix (Mar 8)
+- [x] Duplicate API call prevention with useRef guards (Mar 8)
 - [ ] End-to-end live testing of full 9-step flow (submit through UAT creation)
 - [ ] Add FastAPI bearer-token validation middleware and restore MSAL token flow (redirect-based, not popup)
 - [ ] Retire legacy Flask UI (`:5003`) once field portal is fully validated

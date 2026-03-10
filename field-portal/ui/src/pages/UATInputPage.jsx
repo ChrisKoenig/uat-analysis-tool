@@ -20,6 +20,7 @@ export default function UATInputPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const sessionId = state?.sessionId;
+  const isOverride = state?.override === true;
   const { cacheStep } = useWizard();
 
   const [opportunityId, setOpportunityId] = useState('');
@@ -44,7 +45,12 @@ export default function UATInputPage() {
     setSubmitting(true);
     try {
       await saveUATInput(sessionId, opportunityId.trim(), milestoneId.trim());
-      navigate('/searching-uats', { state: { sessionId } });
+      if (isOverride) {
+        // Deflect overrides skip related-UAT search — go straight to creation
+        navigate('/create-uat', { state: { sessionId } });
+      } else {
+        navigate('/searching-uats', { state: { sessionId } });
+      }
     } catch (err) {
       console.error(err);
     } finally {

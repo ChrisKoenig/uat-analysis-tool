@@ -1779,12 +1779,25 @@ class IntelligentContextAnalyzer:
         # Action verbs to exclude from azure_services list (not real services when standalone)
         excluded_verbs = {'migrate', 'import', 'export', 'recovery', 'backup'}
         
+        # Common English phrases that collide with product names —
+        # only match when preceded by "microsoft" or hyphenated ("to-do")
+        ambiguous_products = {'to do'}
+        
         for category, services in self.azure_services.items():
             for service in services:
                 service_lower = service.lower()
                 
                 # Skip if it's a single-word action verb (not a real service name)
                 if service_lower in excluded_verbs:
+                    continue
+                
+                # For ambiguous product names, require "microsoft" prefix or hyphenated form
+                if service_lower in ambiguous_products:
+                    qualified = r'\bmicrosoft\s+' + re.escape(service_lower) + r'\b'
+                    hyphenated = r'\bto[\-\u2010\u2011]do\b'
+                    if re.search(qualified, text_lower) or re.search(hyphenated, text_lower):
+                        entities["azure_services"].append(service)
+                        entities["technical_areas"].append(category)
                     continue
                 
                 # Use word boundary regex for exact matching

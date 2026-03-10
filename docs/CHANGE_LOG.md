@@ -35,6 +35,7 @@
 | 23 | B0006 | 2026-03-05 | *pending* | **Bug fix — SharedAuth AZ CLI not found on Windows** — `shared_auth.py` used `subprocess.run(["az", ...])` which raises `FileNotFoundError` on Windows because `az` is a `.cmd` file. Fixed by adding `shell=True` on Windows (`sys.platform == "win32"`), allowing the CLI credential path to work and preventing fallback to blocking interactive browser auth. |
 | 24 | B0007 | 2026-03-06 | *pending* | **Bug fix — Requestor card always empty (wrong ADO field)** — `System.CreatedBy` was a service account ("Action 360 Platform") on all queue items, so the Requestor card always showed "No requestor data available". The actual human requestor is in `Custom.Requestors` (email string) and `Custom.Requestor` (identity object). Fixed by adding these fields to the ADO batch fetch, preserving raw emails in hidden `_requestorEmail`/`_createdByEmail` fields, and updating the frontend email extraction chain: `Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → display name fallback. |
 | 25 | PERF-001 | 2026-03-06 | *pending* | **Performance — Background prefetch + cache for Graph user data** — Opening the analysis blade showed a 5-second "Loading requestor info..." spinner on every click, and re-clicking the same item re-fetched. Implemented: (1) `useRef(new Map())` cache keyed by email with `{ data, loading, promise }` entries persisting across blade open/close. (2) Background prefetch IIFE fires after queue load, extracting all unique requestor emails and calling `getGraphUser()` with 80 ms stagger. (3) Cache-first blade open logic: cache hit → instant display, prefetch in-flight → await existing promise, cache miss → on-demand fetch + cache. Total API endpoints: 60. |
+| 26 | FR-2020 | 2026-03-10 | *pending* | **AI-powered UAT search — ADO Search API + multi-signal scoring + UX fixes** — Replaced WIQL-based UAT search with ADO Work Item Search API (`almsearch.dev.azure.com`) for relevance-ranked full-text search. AI analysis from Step 3 (azure_services, technologies, semantic_keywords, key_concepts) is now extracted from session and passed to search. 3-phase strategy: Phase 1 ADO Search with AI service names, Phase 2 ADO Search with issue title, Phase 3 WIQL broad fallback. 5-signal similarity scoring (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). UX: collapsible UAT list header (matching TFT Features pattern), checkbox readOnly fix for StrictMode, header count simplification. Dynamic `WORK_ITEM_TYPE` ("Action" for test org, "Actions" for production). False "to do" service detection fix. 180-day cutoff fix (was 240). Total API endpoints: 60. Total UI pages: 14. Total Cosmos containers: 13. |
 
 ---
 
@@ -987,3 +988,64 @@ Batch `[713010, 731001, 712931, 712918]`:
 | File | Description |
 |------|-------------|
 | `triage/services/ado_client.py` | `_read_batch_url()`: Added `&errorPolicy=Omit` to batch URL. `get_work_items_batch()`: Added null filtering, `fetched_ids` tracking set, per-ID omission detection. |
+
+---
+
+### FR-2020 — AI-Powered UAT Search — ADO Search API + Multi-Signal Scoring + UX Fixes
+
+**Date:** 2026-03-10  
+**Build ID:** *pending*  
+**Requested By:** User — UAT search returning irrelevant results or missing known matches  
+**Status:** Built, awaiting deployment
+
+#### Problem
+
+The UAT search (Steps 7-8) used WIQL `CONTAINS` queries to find similar work items. WIQL `CONTAINS` is a **filter operator**, not a search engine — it performs literal substring matching and returns results ordered by date, not relevance. When searching for service names like "Copilot" via WIQL, thousands of items matched, only the newest 200 were fetched, and truly relevant items (e.g. #698498 "Display AI Disclaimer to users when using SharePoint agents built from Copilot Studio") were buried or excluded entirely.
+
+Additionally, the AI analysis from Step 3 (detected Azure services, technologies, keywords) was not being passed to the search — it used only simple word extraction from the title.
+
+#### Solution — 5 Changes
+
+**1. ADO Work Item Search API (replaces WIQL for candidate retrieval)**  
+Replaced WIQL `CONTAINS` with the ADO Work Item Search API (`POST https://almsearch.dev.azure.com/{org}/{project}/_apis/search/workitemsearchresults?api-version=7.0`). This API provides full-text relevance-ranked search — identical to what the ADO web UI uses — returning the best matches first instead of the newest.
+
+**2. AI analysis extraction and pass-through**  
+`routes.py` now extracts `azure_services`, `technologies`, `semantic_keywords`, and `key_concepts` from the Step 3 analysis stored in session state, and passes them to `search_uat_items()` as `ai_services`, `ai_keywords`, `ai_concepts`.
+
+**3. 3-phase search strategy**  
+- Phase 1: ADO Search API with AI service names joined as search text (best signal)
+- Phase 2: ADO Search API with the full issue title (broadens if Phase 1 < 200)
+- Phase 3: WIQL broad fallback — no keyword filter, newest 200 items (only if < 10 candidates)
+- Results de-duped across all phases via `seen_ids` set
+
+**4. 5-signal similarity scoring**  
+When AI services are available: service-overlap 30%, title-sequence 25%, token-jaccard 20%, description 15%, exact-boost 10%. Falls back to 4-signal scoring without service overlap.
+
+**5. UX fixes**  
+- Collapsible UAT list header (starts collapsed, click to expand) — matches TFT Features pattern on SearchResultsPage
+- Checkbox `readOnly` + `pointerEvents: 'none'` — prevents StrictMode double-toggle (parent div handles click)
+- Header simplified from "Showing X of Y" to just "(X)" count
+- Empty-state UX with helpful message when no UATs found
+
+**6. Dynamic WORK_ITEM_TYPE for test/prod orgs**  
+Test org (`unifiedactiontrackertest`) has work item type "Action" (singular), production (`unifiedactiontracker`) has "Actions" (plural). `WORK_ITEM_TYPE` is now set dynamically based on `ORGANIZATION`.
+
+**7. Analyzer bug fixes**  
+- Fixed false "to do" service detection in `intelligent_context_analyzer.py` (regex matched common English words)
+- Fixed 240-day cutoff → 180 days
+
+#### Verified Result
+
+Test case: "Display AI Disclaimer to users when using the SharePoint agents built from Copilot Studio"  
+- Before: UAT #698498 not found (buried in 4,363 WIQL matches)
+- After: UAT #698498 appears at position #1 with 100% similarity score ✅
+
+#### Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `enhanced_matching.py` | Backend | Rewrote `search_uat_items()`: replaced WIQL with ADO Search API + WIQL broad fallback. New `_run_search()` and `_run_wiql_broad()` helpers. 3-phase strategy with `_merge()` dedup. |
+| `field-portal/api/routes.py` | Backend | `search_related_uats()`: Extract AI analysis (azure_services, technologies, semantic_keywords, key_concepts) from session state and pass to `search_uat_items()`. |
+| `field-portal/ui/src/pages/RelatedUATsPage.jsx` | Frontend | Collapsible header with `expanded` state + chevron. Checkbox `readOnly` + `pointerEvents: 'none'`. Header count simplification. Empty-state UX. |
+| `ado_integration.py` | Backend | Dynamic `WORK_ITEM_TYPE`: "Action" for test org, "Actions" for production. |
+| `intelligent_context_analyzer.py` | Backend | Fixed false "to do" service detection regex. Fixed 240→180 day cutoff. |

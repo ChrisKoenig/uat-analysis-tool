@@ -79,7 +79,8 @@ class AzureDevOpsConfig:
     PROJECT = _cfg_ado_project()
     BASE_URL = f"https://dev.azure.com/{ORGANIZATION}"
     API_VERSION = "7.0"
-    WORK_ITEM_TYPE = "Action"  # Custom work item type
+    # Test org uses "Action" (singular), production uses "Actions" (plural)
+    WORK_ITEM_TYPE = "Action" if ORGANIZATION == "unifiedactiontrackertest" else "Actions"
     
     # Azure DevOps scope for authentication
     ADO_SCOPE = "499b84ac-1321-427f-aa17-267ca6975798/.default"  # Azure DevOps scope
@@ -144,7 +145,31 @@ class AzureDevOpsConfig:
             except Exception as mi_error:
                 print(f"[AUTH] Managed Identity failed: {mi_error}")
 
-        # 2. Interactive Browser with persistent disk cache
+        # 2. Try shared_auth credential — but VERIFY with a real API call.
+        #    AzureCliCredential may get a valid AAD token but the identity
+        #    may not be materialized in the ADO org (returns 403).
+        try:
+            from shared_auth import get_credential as get_shared_credential
+            shared_cred = get_shared_credential()
+            if shared_cred is not None:
+                print("[AUTH] Trying shared auth credential for ADO (verifying with API call)...")
+                if AzureDevOpsConfig._verify_org_access(shared_cred, AzureDevOpsConfig.ORGANIZATION):
+                    token = shared_cred.get_token(AzureDevOpsConfig.ADO_SCOPE)
+                    print("[AUTH] Shared auth credential verified for ADO — reusing")
+                    AzureDevOpsConfig._cached_credential = shared_cred
+                    try:
+                        from enhanced_matching import EnhancedMatchingConfig
+                        EnhancedMatchingConfig._uat_credential = shared_cred
+                        EnhancedMatchingConfig._uat_token = token.token
+                    except Exception:
+                        pass
+                    return shared_cred
+                else:
+                    print("[AUTH] Shared auth credential not materialized in ADO org")
+        except Exception as e:
+            print(f"[AUTH] Shared auth credential not available for ADO: {e}")
+
+        # 3. Interactive Browser with persistent disk cache
         #    No tenant_id → user's home tenant (required for unifiedactiontrackertest).
         #    Persistent cache survives server restarts / uvicorn --reload.
         cache_opts = TokenCachePersistenceOptions(name=ADO_CACHE_NAME)
@@ -176,29 +201,76 @@ class AzureDevOpsConfig:
             )
     
     @staticmethod
+    def _verify_org_access(credential, org: str) -> bool:
+        """
+        Verify a credential can actually call an ADO org's API.
+
+        get_token() alone is NOT sufficient — AAD happily issues a token for
+        any credential, but the ADO org may reject it with 403 if the
+        identity hasn't been "materialized" (never logged in interactively).
+        """
+        import requests as _req
+        token = credential.get_token(AzureDevOpsConfig.ADO_SCOPE).token
+        url = f"https://dev.azure.com/{org}/_apis/projects?api-version=7.0&$top=1"
+        r = _req.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        if r.status_code == 200:
+            return True
+        print(f"[AUTH] {org} API returned {r.status_code} — credential not materialized")
+        return False
+
+    @staticmethod
+    def _verify_tft_access(credential) -> bool:
+        """Verify a credential can access the TFT ADO org."""
+        try:
+            from config import get_app_config as _gcfg
+            tft_org = _gcfg().ado_tft_organization
+        except Exception:
+            tft_org = "unifiedactiontracker"
+        return AzureDevOpsConfig._verify_org_access(credential, tft_org)
+
+    @staticmethod
     def get_tft_credential():
         """
         Get Azure credential for Technical Feedback organization access.
-        The TFT org (unifiedactiontracker) lives in the Microsoft tenant,
-        so we need a credential scoped to that tenant — NOT the shared
-        credential which targets the OpenAI tenant.
+        The TFT org (unifiedactiontracker) lives in the Microsoft tenant.
 
         Auth chain (in order):
-        1. ManagedIdentityCredential — if ADO_MANAGED_IDENTITY_CLIENT_ID is set
-           (same identity works for both orgs once registered in ADO)
-        2. AzureCliCredential — if logged into Microsoft tenant
-        3. InteractiveBrowserCredential with Microsoft tenant_id
+        1. Return cached TFT credential (already verified)
+        2. Reuse main-org credential — but VERIFY with a real TFT API call
+           (get_token alone is not enough — the org may reject unmaterialized identities)
+        3. ManagedIdentityCredential — fail-fast if MI is set but fails
+        4. Shared auth credential — verified with real API call
+        5. SharedTokenCacheCredential with Microsoft tenant (local, picks up prior login)
+        6. InteractiveBrowserCredential with Microsoft tenant (local last resort,
+           materializes the identity in the TFT org)
 
         Returns:
             Azure credential object configured for TFT org access
         """
-        # Return cached credential if available
+        MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+        TFT_CACHE_NAME = "gcs-ado-tft-auth"
+
+        # 1. Return cached credential if available (already verified on first use)
         if AzureDevOpsConfig._cached_tft_credential is not None:
             print("[AUTH] Reusing cached TFT credential...")
             return AzureDevOpsConfig._cached_tft_credential
 
-        # 1. Managed Identity — for container/cloud deployment
-        # Falls back to AZURE_CLIENT_ID (same reasoning as get_credential above)
+        # 2. Reuse main-org credential — but verify it actually works against TFT org.
+        #    AzureCliCredential may get a token from the wrong tenant whose identity
+        #    isn't materialized in the TFT ADO org, so get_token() alone is NOT enough.
+        if AzureDevOpsConfig._cached_credential is not None:
+            try:
+                print("[AUTH] Trying main org credential for TFT org (verifying with API call)...")
+                if AzureDevOpsConfig._verify_tft_access(AzureDevOpsConfig._cached_credential):
+                    AzureDevOpsConfig._cached_tft_credential = AzureDevOpsConfig._cached_credential
+                    print("[AUTH] Main org credential reused for TFT — verified with API call")
+                    return AzureDevOpsConfig._cached_tft_credential
+                else:
+                    print("[AUTH] Main org credential token works but identity not materialized in TFT org")
+            except Exception as e:
+                print(f"[AUTH] Main org credential doesn't work for TFT: {e}")
+
+        # 3. Managed Identity — for container / cloud deployment
         ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID") or os.environ.get("AZURE_CLIENT_ID")
         if ado_mi_client_id:
             print(f"[AUTH] Trying Managed Identity credential for TFT (client_id={ado_mi_client_id[:8]}...)...")
@@ -207,37 +279,34 @@ class AzureDevOpsConfig:
                 credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
                 credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
                 AzureDevOpsConfig._cached_tft_credential = credential
-                print("[SUCCESS] Managed Identity authentication successful for TFT")
+                print("[AUTH] Managed Identity authentication successful for TFT")
                 return credential
             except Exception as mi_error:
-                print(f"[WARNING] Managed Identity TFT credential failed: {mi_error}")
-                print("[INFO] Falling back to other auth methods...")
+                # In production with MI, do NOT fall through to interactive methods
+                # that would hang forever on a headless App Service.
+                print(f"[ERROR] Managed Identity TFT credential failed: {mi_error}")
+                raise Exception(
+                    f"TFT authentication failed via Managed Identity: {mi_error}. "
+                    "Ensure the Managed Identity (TechRoB-Automation-DEV) has been "
+                    "added to the TFT ADO org (unifiedactiontracker)."
+                )
 
-        # 2. Try Azure CLI (if logged into Microsoft tenant)
-        import subprocess
-        MICROSOFT_TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-
+        # 4. Try shared_auth credential — verified with real API call
         try:
-            result = subprocess.run(
-                ["az", "account", "show", "--query", "tenantId", "-o", "tsv"],
-                capture_output=True, text=True, timeout=2,
-            )
-            if result.returncode == 0:
-                cli_tenant = result.stdout.strip()
-                if cli_tenant == MICROSOFT_TENANT:
-                    from azure.identity import AzureCliCredential
-                    credential = AzureCliCredential()
-                    credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
-                    AzureDevOpsConfig._cached_tft_credential = credential
-                    print("[AUTH] Using Azure CLI credential for TFT (Microsoft tenant)")
-                    return credential
+            from shared_auth import get_credential as get_shared_credential
+            shared_cred = get_shared_credential()
+            if shared_cred is not None:
+                print("[AUTH] Trying shared auth credential for TFT (verifying with API call)...")
+                if AzureDevOpsConfig._verify_tft_access(shared_cred):
+                    AzureDevOpsConfig._cached_tft_credential = shared_cred
+                    print("[AUTH] Shared auth credential verified for TFT — reusing")
+                    return shared_cred
                 else:
-                    print(f"[AUTH] CLI tenant {cli_tenant} != Microsoft tenant, using browser")
-        except Exception:
-            pass
+                    print("[AUTH] Shared auth credential not materialized in TFT org")
+        except Exception as e:
+            print(f"[AUTH] Shared auth credential not available for TFT: {e}")
 
-        # 2b. Try SharedTokenCache — picks up a previous browser login
-        TFT_CACHE_NAME = "gcs-ado-tft-auth"
+        # 5. SharedTokenCache — picks up a previous browser login (local only)
         try:
             from azure.identity import SharedTokenCacheCredential, TokenCachePersistenceOptions
             cache_opts = TokenCachePersistenceOptions(name=TFT_CACHE_NAME)
@@ -246,18 +315,21 @@ class AzureDevOpsConfig:
                 tenant_id=MICROSOFT_TENANT,
                 cache_persistence_options=cache_opts,
             )
-            shared_cred.get_token(AzureDevOpsConfig.ADO_SCOPE)
-            AzureDevOpsConfig._cached_tft_credential = shared_cred
-            print("[AUTH] TFT persistent cache hit — no browser prompt needed")
-            return shared_cred
+            if AzureDevOpsConfig._verify_tft_access(shared_cred):
+                AzureDevOpsConfig._cached_tft_credential = shared_cred
+                print("[AUTH] TFT persistent cache hit — verified with API call")
+                return shared_cred
+            else:
+                print("[AUTH] Cached TFT token not materialized in org")
         except Exception as cache_err:
             print(f"[AUTH] No usable cached TFT token ({cache_err})")
 
-        # 3. Interactive Browser with Microsoft tenant ID
-        # Persistent cache: token survives server restarts / uvicorn --reload
+        # 6. Interactive Browser with Microsoft tenant (local last resort)
+        #    This materializes the identity in the TFT ADO org.
         from azure.identity import InteractiveBrowserCredential, TokenCachePersistenceOptions
         cache_opts = TokenCachePersistenceOptions(name=TFT_CACHE_NAME)
         print("[AUTH] Creating TFT credential via browser (Microsoft tenant, persistent cache)...")
+        print("[AUTH] A browser window will open — this materializes your identity in the TFT org.")
         credential = InteractiveBrowserCredential(
             tenant_id=MICROSOFT_TENANT,
             cache_persistence_options=cache_opts,
@@ -265,7 +337,6 @@ class AzureDevOpsConfig:
         credential.get_token(AzureDevOpsConfig.ADO_SCOPE)
         AzureDevOpsConfig._cached_tft_credential = credential
         print("[AUTH] TFT credential cached for reuse (Microsoft tenant)")
-        
         return credential
 
 
@@ -355,7 +426,7 @@ class AzureDevOpsClient:
             # Test with projects endpoint
             url = f"{self.config.BASE_URL}/_apis/projects?api-version={self.config.API_VERSION}"
             
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 projects_data = response.json()
@@ -434,7 +505,7 @@ class AzureDevOpsClient:
             url = f"{self.config.BASE_URL}/{quote(self.config.PROJECT)}/_apis/wit/workitems/${self.config.WORK_ITEM_TYPE}?api-version={self.config.API_VERSION}"
             
             # Make the API call
-            response = requests.post(url, json=operations, headers=self.headers)
+            response = requests.post(url, json=operations, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 work_item = response.json()
@@ -588,7 +659,7 @@ class AzureDevOpsClient:
                 feature_links = []
                 for feature_id in selected_features:
                     # Create ADO link format: <a href="URL">ID</a>
-                    feature_url = f"https://dev.azure.com/acrblockers/b47dfa86-3c5d-4fc9-8ab9-e4e10ec93dc4/_workitems/edit/{feature_id}"
+                    feature_url = f"https://dev.azure.com/unifiedactiontracker/Technical%20Feedback/_workitems/edit/{feature_id}"
                     feature_links.append(f'<a href="{feature_url}" target="_blank">#{feature_id}</a>')
                 feature_html = ', '.join(feature_links)
                 scenario_data_parts.append(f"<strong>Associated Features:</strong> {feature_html}")
@@ -706,7 +777,7 @@ class AzureDevOpsClient:
             print(f"[ADO]   Headers: Content-Type={headers.get('Content-Type')}, Auth=Bearer ***")
             
             # Make the API call
-            response = requests.post(url, json=operations, headers=headers)
+            response = requests.post(url, json=operations, headers=headers, timeout=30)
             
             print(f"[ADO] STEP 6: Response received")
             print(f"[ADO]   Status Code: {response.status_code}")
@@ -801,7 +872,7 @@ class AzureDevOpsClient:
         try:
             url = f"{self.config.BASE_URL}/{quote(self.config.PROJECT)}/_apis/wit/workitems/{work_item_id}?api-version={self.config.API_VERSION}"
             
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 return response.json()
@@ -842,7 +913,7 @@ class AzureDevOpsClient:
             
             # Execute WIQL query
             wiql_url = f"{self.config.BASE_URL}/{quote(self.config.PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-            wiql_response = requests.post(wiql_url, json={"query": query}, headers=self.headers)
+            wiql_response = requests.post(wiql_url, json={"query": query}, headers=self.headers, timeout=30)
             
             if wiql_response.status_code != 200:
                 return []
@@ -856,7 +927,7 @@ class AzureDevOpsClient:
             # Get full work item details
             ids_param = ",".join(str(id) for id in work_item_ids)
             details_url = f"{self.config.BASE_URL}/{quote(self.config.PROJECT)}/_apis/wit/workitems?ids={ids_param}&api-version={self.config.API_VERSION}"
-            details_response = requests.get(details_url, headers=self.headers)
+            details_response = requests.get(details_url, headers=self.headers, timeout=30)
             
             if details_response.status_code == 200:
                 return details_response.json().get('value', [])
@@ -927,7 +998,7 @@ class AzureDevOpsClient:
         try:
             url = f"{self.config.BASE_URL}/{quote(self.config.PROJECT)}/_apis/wit/workitemtypes/{self.config.WORK_ITEM_TYPE}?api-version={self.config.API_VERSION}"
             
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 work_item_type = response.json()
@@ -950,23 +1021,18 @@ class AzureDevOpsClient:
     def search_tft_features(self, title: str, description: str, threshold: float = 0.7, azure_services: list = None) -> List[Dict]:
         """
         Search Technical Feedback ADO for similar Features.
-        
-        Searches the Technical Feedback project for existing Feature work items
-        that match the provided title and description.
-        
-        Args:
-            title: Issue title to search for
-            description: Issue description for matching
-            threshold: Similarity threshold (0.0-1.0), default 0.7
-            azure_services: List of Azure service names from AI analysis (preferred over regex)
-            
-        Returns:
-            List of matching features with metadata and similarity scores
         """
+        _D = "[TFT-DEBUG]"  # prefix for easy grep
+        print(f"\n{'='*80}")
+        print(f"{_D} ===== search_tft_features() START =====")
+        print(f"{_D} Title:          {repr(title[:120])}")
+        print(f"{_D} Desc len:       {len(description) if description else 0}")
+        print(f"{_D} Threshold:      {threshold}")
+        print(f"{_D} azure_services: {azure_services}")
+        print(f"{'='*80}")
         try:
             from datetime import datetime, timedelta
             
-            # Search Technical Feedback organization
             # Search Technical Feedback organization — read from config
             try:
                 from config import get_app_config as _gcfg
@@ -977,129 +1043,107 @@ class AzureDevOpsClient:
                 tft_org = "unifiedactiontracker"
                 tft_project = "Technical Feedback"
             tft_base_url = f"https://dev.azure.com/{tft_org}"
+            print(f"{_D} Step 1: org={tft_org}, project={tft_project}, base_url={tft_base_url}")
             
             # Get token for TFT org using InteractiveBrowserCredential
-            # This will open a browser window for authentication on first use
             credential = self.config.get_tft_credential()
             token = credential.get_token(self.config.ADO_SCOPE).token
             tft_headers = {
                 'Authorization': f'Bearer {token}',
                 'Content-Type': 'application/json'
             }
+            print(f"{_D} Step 2: Auth token obtained (len={len(token)})")
             
-            # Search last 24 months (expanded from 12 to capture older features)
+            # Search last 24 months
             cutoff_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
+            print(f"{_D} Step 3: Cutoff date = {cutoff_date} (730 days)")
             
-            # SMART SERVICE NAME EXTRACTION & PROGRESSIVE SEARCH
-            # Step 1: Prefer AI-detected azure_services from domain_entities
+            # ── SERVICE NAME RESOLUTION VIA SERVICETREE ──
             import re
             import json
             import os
-            
-            base_service_name = None
-            
-            # Priority 1: Use azure_services from AI analysis (most reliable)
-            if azure_services:
-                # Use the first detected Azure service name
-                base_service_name = azure_services[0].strip()
-                print(f"[TFT Search] Using AI-detected service name: {base_service_name}")
-            
-            # Priority 2: Try to extract "Azure ServiceName" or "Microsoft ServiceName"
-            if not base_service_name:
-                azure_service_pattern = r'(?:Azure|Microsoft)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'
-                azure_match = re.search(azure_service_pattern, title)
-                
-                if azure_match:
-                    base_service_name = azure_match.group(1).strip()
-                    print(f"[TFT Search] Extracted service name (with Azure prefix): {base_service_name}")
-            
-            # Priority 3: Find 2-word capitalized phrases (use FIRST, not last)
-            if not base_service_name:
-                service_pattern = r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b'
-                # Filter out common non-service phrases
-                noise_words = {'Blocked Sale', 'Kelly Services', 'Session Windows',
-                               'New Feature', 'Feature Request', 'Support Request',
-                               'Please Help', 'Need Help', 'High Priority'}
-                potential_services = [
-                    m for m in re.findall(service_pattern, title)
-                    if m not in noise_words
-                ]
-                
-                if potential_services:
-                    # Use the FIRST found service name (most likely to be the actual service)
-                    base_service_name = potential_services[0].strip()
-                    print(f"[TFT Search] Extracted service name: {base_service_name}")
-            
-            # Priority 4: Look for known TFT product keywords in title
-            if not base_service_name:
-                _known_tft_products = {
-                    'cycle cloud': 'Cycle Cloud', 'cyclecloud': 'CycleCloud',
-                    'redhat': 'Redhat', 'red hat': 'Red Hat',
-                    'openshift': 'OpenShift', 'rhel': 'RHEL',
-                    'kubernetes': 'Kubernetes', 'aks': 'AKS',
-                    'databricks': 'Databricks', 'fabric': 'Fabric',
-                    'synapse': 'Synapse', 'purview': 'Purview',
-                    'sentinel': 'Sentinel', 'defender': 'Defender',
-                    'intune': 'Intune', 'autopilot': 'Autopilot',
-                    'devops': 'DevOps', 'cosmos': 'Cosmos',
-                    'postgresql': 'PostgreSQL', 'mysql': 'MySQL',
-                    'sql server': 'SQL Server', 'sql managed': 'SQL Managed',
-                    'virtual desktop': 'Virtual Desktop', 'avd': 'AVD',
-                    'private access': 'Private Access',
-                    'global secure access': 'Global Secure Access',
-                    'entra': 'Entra', 'active directory': 'Active Directory',
-                    'key vault': 'Key Vault', 'keyvault': 'KeyVault',
-                    'storage account': 'Storage', 'blob storage': 'Blob',
-                    'app service': 'App Service', 'functions': 'Functions',
-                    'logic apps': 'Logic Apps', 'event grid': 'Event Grid',
-                    'service bus': 'Service Bus', 'iot hub': 'IoT Hub',
-                    'iot edge': 'IoT Edge', 'iot central': 'IoT Central',
-                    'machine learning': 'Machine Learning',
-                    'cognitive': 'Cognitive', 'openai': 'OpenAI',
-                    'power bi': 'Power BI', 'power automate': 'Power Automate',
-                    'sharepoint': 'SharePoint', 'teams': 'Teams',
-                    'copilot': 'Copilot', 'windows 365': 'Windows 365',
-                    'hpc': 'HPC', 'batch': 'Batch',
-                    'marketplace': 'Marketplace', 'monitor': 'Monitor',
-                    'load balancer': 'Load Balancer', 'firewall': 'Firewall',
-                    'front door': 'Front Door', 'cdn': 'CDN',
-                    'route server': 'Route Server', 'expressroute': 'ExpressRoute',
-                    'vpn gateway': 'VPN Gateway', 'bastion': 'Bastion',
-                    'arc': 'Arc', 'stack hci': 'Stack HCI',
-                    'vmware': 'VMware', 'sap': 'SAP', 'oracle': 'Oracle',
-                }
-                title_lower = title.lower()
-                for keyword, display_name in sorted(_known_tft_products.items(), key=lambda x: len(x[0]), reverse=True):
-                    if keyword in title_lower:
-                        base_service_name = display_name
-                        print(f"[TFT Search] Matched known product: {base_service_name}")
-                        break
 
-            if not base_service_name:
-                print("[TFT Search] No service name found, using broad keyword search from title")
-                # Use the most meaningful words from the title as a search filter
-                import re as _re2
-                title_words = _re2.findall(r'\b[A-Za-z]{4,}\b', title)
+            candidate_names: list = []
+
+            # Source A: AI-detected azure_services (most reliable)
+            if azure_services:
+                candidate_names.extend(s.strip() for s in azure_services if s.strip())
+                print(f"{_D} Step 4a: AI-detected service names: {candidate_names}")
+            else:
+                print(f"{_D} Step 4a: No AI-detected azure_services provided")
+
+            # Source B: Extract "Azure/Microsoft <Service>" patterns from title
+            azure_pattern = re.compile(
+                r'(?:Azure|Microsoft)\s+((?:[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*))', re.IGNORECASE
+            )
+            regex_matches = []
+            for m in azure_pattern.finditer(title):
+                name = m.group(1).strip()
+                if name and name not in candidate_names:
+                    candidate_names.append(name)
+                    regex_matches.append(name)
+            print(f"{_D} Step 4b: Regex-extracted from title: {regex_matches}")
+
+            # Source C: Parenthesised abbreviations like "(APIM)", "(AKS)"
+            abbr_matches = []
+            for abbr in re.findall(r'\(([A-Z]{2,8})\)', title):
+                if abbr not in candidate_names:
+                    candidate_names.append(abbr)
+                    abbr_matches.append(abbr)
+            print(f"{_D} Step 4c: Abbreviations from title: {abbr_matches}")
+            print(f"{_D} Step 4 TOTAL candidate_names: {candidate_names}")
+
+            # ── Resolve candidates via ServiceTree ──
+            from servicetree_service import get_servicetree_service
+            svc_tree = get_servicetree_service()
+
+            resolved_services = svc_tree.lookup_services(candidate_names) if candidate_names else []
+            print(f"{_D} Step 5: ServiceTree resolved {len(resolved_services)} services:")
+            for i, svc in enumerate(resolved_services):
+                print(f"{_D}   [{i}] name={repr(svc.get('name',''))} offering={repr(svc.get('offering',''))}")
+
+            # ── Build WIQL search terms from ServiceTree results ──
+            search_terms: list = []
+            for svc in resolved_services:
+                svc_name = svc.get("name", "")
+                offering = svc.get("offering", "")
+                if svc_name and svc_name not in search_terms:
+                    search_terms.append(svc_name)
+                if offering and offering != svc_name and offering not in search_terms:
+                    search_terms.append(offering)
+                inner = re.findall(r'\(([A-Z][A-Za-z0-9 ]+)\)', svc_name)
+                for abbr in inner:
+                    if abbr not in search_terms:
+                        search_terms.append(abbr)
+                for cand in candidate_names:
+                    if cand not in search_terms and cand.lower() in svc_name.lower():
+                        search_terms.append(cand)
+
+            # Fallback: if ServiceTree had no matches, use title keywords
+            if not search_terms:
+                print(f"{_D} Step 6: No ServiceTree matches — falling back to title keywords")
+                title_words = re.findall(r'\b[A-Za-z]{4,}\b', title)
                 noise = {'support', 'request', 'feature', 'provide', 'need', 'customer',
                          'blocked', 'sale', 'seats', 'services', 'service', 'azure',
                          'microsoft', 'please', 'help', 'want', 'would', 'could',
                          'should', 'with', 'from', 'that', 'this', 'have', 'been'}
                 meaningful = [w for w in title_words if w.lower() not in noise]
+                print(f"{_D} Step 6: title_words={title_words}, meaningful={meaningful}")
                 if meaningful:
-                    # Use first two meaningful words as keyword filter
-                    search_term = meaningful[0]
-                    print(f"[TFT Search] Using title keyword filter: CONTAINS '{search_term}'")
-                    product_filter = f"AND [System.Title] CONTAINS '{search_term}'"
-                else:
-                    product_filter = ""
+                    search_terms.append(meaningful[0])
             else:
-                # Step 2: Use the base service name directly - CONTAINS will match all variations
-                # "Route Server" matches: "Route Server", "Azure Route Server", "Route Server - IPv6", etc.
-                print(f"[TFT Search] Using service filter: CONTAINS '{base_service_name}'")
-                product_filter = f"AND [System.Title] CONTAINS '{base_service_name}'"
+                print(f"{_D} Step 6: search_terms from ServiceTree: {search_terms}")
 
-            
-            # WIQL query to find Features (exclude Closed state)
+            # Build WIQL product filter (OR across all terms)
+            if search_terms:
+                clauses = " OR ".join(
+                    f"[System.Title] CONTAINS '{term}'" for term in search_terms
+                )
+                product_filter = f"AND ({clauses})"
+                print(f"{_D} Step 7: Multi-term WIQL filter ({len(search_terms)} terms): {product_filter}")
+            else:
+                product_filter = ""
+                print(f"{_D} Step 7: No filter terms — running broad WIQL query")
             wiql_query = f"""
             SELECT [System.Id], [System.Title], [System.Description], [System.ChangedDate], [System.State]
             FROM workitems
@@ -1111,55 +1155,66 @@ class AzureDevOpsClient:
             ORDER BY [System.ChangedDate] DESC
             """
             
-            print(f"[TFT Search] WIQL Query:\n{wiql_query}")
+            print(f"{_D} Step 8: WIQL Query:\n{wiql_query.strip()}")
             
-            wiql_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/wiql?api-version={self.config.API_VERSION}&$top=200"
+            wiql_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/wiql?api-version={self.config.API_VERSION}&$top=50"
+            print(f"{_D} Step 9: POST {wiql_url}")
             wiql_response = requests.post(
                 wiql_url,
                 headers=tft_headers,
-                json={'query': wiql_query}
+                json={'query': wiql_query},
+                timeout=30
             )
             
+            print(f"{_D} Step 10: WIQL response status={wiql_response.status_code}")
             if wiql_response.status_code != 200:
                 try:
                     err_body = wiql_response.json()
                 except Exception:
                     err_body = wiql_response.text[:500]
-                print(f"[TFT Search] WIQL query failed: {wiql_response.status_code} — {err_body}")
+                print(f"{_D} Step 10: ERROR body: {err_body}")
+                print(f"{_D} ===== search_tft_features() END (WIQL error) =====")
                 return []
             
             work_items = wiql_response.json().get('workItems', [])
             if not work_items:
-                print("[TFT Search] No Features found in last 12 months")
+                print(f"{_D} Step 10: No Features found — returning []")
+                print(f"{_D} ===== search_tft_features() END (0 WIQL results) =====")
                 return []
             
-            print(f"[TFT Search] Found {len(work_items)} Features, calculating similarity...")
+            print(f"{_D} Step 10: WIQL returned {len(work_items)} Feature IDs")
+            print(f"{_D} Step 10: First 5 IDs: {[wi.get('id') for wi in work_items[:5]]}")
             
             # Get detailed work item info (limit to 200 since we have product-filtered results)
-            work_item_ids = [str(wi['id']) for wi in work_items[:200]]
+            work_item_ids = [str(wi['id']) for wi in work_items[:50]]
             batch_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/workitemsbatch?api-version={self.config.API_VERSION}"
             
+            print(f"{_D} Step 11: Batch-fetching {len(work_item_ids)} items from {batch_url}")
             batch_response = requests.post(
                 batch_url,
                 headers=tft_headers,
                 json={
                     'ids': work_item_ids,
                     'fields': ['System.Id', 'System.Title', 'System.Description', 'System.State', 'System.CreatedDate']
-                }
+                },
+                timeout=30
             )
             
+            print(f"{_D} Step 12: Batch response status={batch_response.status_code}")
             if batch_response.status_code != 200:
-                print(f"[TFT Search] Batch request failed: {batch_response.status_code}")
+                print(f"{_D} Step 12: Batch request FAILED")
+                print(f"{_D} ===== search_tft_features() END (batch error) =====")
                 return []
             
             # Parse all items first (shared by both AI and fallback paths)
             all_items = batch_response.json().get('value', [])
-            print(f"[TFT Search] Processing {len(all_items)} product-filtered features...")
+            print(f"{_D} Step 13: Batch returned {len(all_items)} items")
             
-            # Limit to 100 items max
-            if len(all_items) > 100:
-                print(f"[TFT Search] Limiting from {len(all_items)} to 100 features")
-                all_items = all_items[:100]
+            # Limit items for embedding comparison — each item requires
+            # an individual Azure OpenAI embedding call, so keep this small.
+            if len(all_items) > 20:
+                print(f"{_D} Step 13: Limiting from {len(all_items)} to 20 features (embedding budget)")
+                all_items = all_items[:20]
             
             parsed_items = []
             for item in all_items:
@@ -1186,96 +1241,64 @@ class AzureDevOpsClient:
                     'source': 'Technical Feedback'
                 })
             
-            # Try AI semantic search first, fall back to keyword matching
-            print("[TFT Search] Using AI semantic search for similarity matching...")
-            try:
-                from embedding_service import EmbeddingService
-                import time
-                
-                embedding_service = EmbeddingService()
-                
-                # Generate embedding for search query
-                search_text = f"{title} {description}"
-                search_embedding = embedding_service.embed(search_text)
-                
-                print(f"[TFT Search] Running AI embeddings on {len(parsed_items)} features")
-                
-                matches = []
-                
-                # Process in smaller batches to avoid rate limits
-                batch_size = 10
-                for i in range(0, len(parsed_items), batch_size):
-                    batch_items = parsed_items[i:i+batch_size]
-                    
-                    for p_item in batch_items:
-                        try:
-                            feature_text = f"{p_item['title']} {p_item['description']}" if p_item['description'] else p_item['title']
-                            feature_embedding = embedding_service.embed(feature_text)
-                            
-                            similarity = embedding_service.cosine_similarity(search_embedding, feature_embedding)
-                            
-                            if similarity >= threshold:
-                                matches.append({
-                                    **p_item,
-                                    'similarity': round(similarity, 2),
-                                })
-                        except Exception as e:
-                            if '429' in str(e) or 'RateLimitReached' in str(e):
-                                print(f"[TFT Search] Rate limit hit, stopping AI search early")
-                                raise
-                            continue
-                    
-                    if i + batch_size < len(parsed_items):
-                        time.sleep(0.5)
-                
-                matches.sort(key=lambda x: x['similarity'], reverse=True)
-                
-                print(f"[TFT Search] AI semantic search found {len(matches)} Features above threshold {threshold}")
-                return matches[:10]
-                
-            except Exception as e:
-                print(f"[TFT Search] AI semantic search failed: {e}")
-                print(f"[TFT Search] Falling back to keyword matching for {len(parsed_items)} features...")
-                
-                # FALLBACK: Simple keyword matching
-                # WIQL already filtered by service name, so these features are relevant.
-                # Score by word overlap with the search query.
-                import re as _re
-                
-                search_words = set(_re.findall(r'\b[a-z]{3,}\b', f"{title} {description}".lower()))
-                stop_words = {'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was',
-                              'will', 'has', 'have', 'been', 'not', 'but', 'they', 'their',
-                              'them', 'which', 'when', 'what', 'where', 'who', 'how', 'all',
-                              'can', 'would', 'could', 'should', 'into', 'also', 'than',
-                              'customer', 'services', 'service', 'support', 'request', 'feature',
-                              'new', 'need', 'sale', 'seats', 'blocked', 'related', 'requires'}
-                search_words -= stop_words
-                
-                matches = []
-                for p_item in parsed_items:
-                    feature_words = set(_re.findall(r'\b[a-z]{3,}\b',
-                                                     f"{p_item['title']} {p_item['description']}".lower()))
-                    feature_words -= stop_words
-                    
-                    if not search_words or not feature_words:
-                        overlap = 0.0
-                    else:
-                        common = search_words & feature_words
-                        overlap = len(common) / min(len(search_words), len(feature_words))
-                    
-                    # Low threshold since WIQL already pre-filtered by service name
-                    if overlap >= 0.15 or len(parsed_items) <= 10:
-                        matches.append({
-                            **p_item,
-                            'similarity': round(min(overlap + 0.1, 0.99), 2),
-                        })
-                
-                matches.sort(key=lambda x: x['similarity'], reverse=True)
-                print(f"[TFT Search] Keyword fallback found {len(matches)} Features")
-                return matches[:10]
+            # Score features using keyword overlap + SequenceMatcher (no embeddings — too slow / rate-limited)
+            print(f"{_D} Step 14: Scoring {len(parsed_items)} features via keyword + SequenceMatcher...")
+            import re as _re
+            from difflib import SequenceMatcher
+
+            search_text = f"{title} {description}".lower()
+            search_words = set(_re.findall(r'\b[a-z]{3,}\b', search_text))
+            stop_words = {'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was',
+                          'will', 'has', 'have', 'been', 'not', 'but', 'they', 'their',
+                          'them', 'which', 'when', 'what', 'where', 'who', 'how', 'all',
+                          'can', 'would', 'could', 'should', 'into', 'also', 'than',
+                          'customer', 'services', 'service', 'support', 'request', 'feature',
+                          'new', 'need', 'sale', 'seats', 'blocked', 'related', 'requires'}
+            search_words -= stop_words
+            search_title_lower = title.lower()
+            print(f"{_D} Step 14: search_words ({len(search_words)}): {sorted(list(search_words))[:15]}")
+
+            matches = []
+            for p_item in parsed_items:
+                feature_text = f"{p_item['title']} {p_item['description']}".lower()
+                feature_words = set(_re.findall(r'\b[a-z]{3,}\b', feature_text))
+                feature_words -= stop_words
+
+                # Keyword overlap score
+                if search_words and feature_words:
+                    common = search_words & feature_words
+                    overlap = len(common) / min(len(search_words), len(feature_words))
+                else:
+                    overlap = 0.0
+
+                # SequenceMatcher on titles (more precise)
+                seq_sim = SequenceMatcher(None, search_title_lower, p_item['title'].lower()).ratio()
+
+                # Combined score: weight title similarity higher
+                score = (seq_sim * 0.6) + (overlap * 0.4)
+
+                passed = score >= 0.15 or len(parsed_items) <= 10
+                print(f"{_D}   id={p_item['id']} score={score:.3f} (seq={seq_sim:.3f} ovl={overlap:.3f}) {'✓' if passed else '✗'} title={repr(p_item['title'][:60])}")
+
+                if passed:
+                    matches.append({
+                        **p_item,
+                        'similarity': round(min(score, 0.99), 2),
+                    })
+
+            matches.sort(key=lambda x: x['similarity'], reverse=True)
+            print(f"{_D} Step 15: Found {len(matches)} features above threshold")
+            if matches:
+                for i, m in enumerate(matches[:5]):
+                    print(f"{_D}   match[{i}] id={m['id']} sim={m['similarity']} title={repr(m['title'][:60])}")
+            print(f"{_D} ===== search_tft_features() END — {len(matches[:10])} results =====")
+            return matches[:10]
             
         except Exception as e:
-            print(f"[TFT Search] Error: {e}")
+            print(f"{_D} CRITICAL ERROR: {e}")
+            import traceback
+            print(f"{_D} Traceback:\n{traceback.format_exc()}")
+            print(f"{_D} ===== search_tft_features() END (exception) =====")
             return []
 
 

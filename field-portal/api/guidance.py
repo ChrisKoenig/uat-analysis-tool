@@ -14,7 +14,7 @@ def get_category_guidance(category: str) -> CategoryGuidance | None:
     guidance_map = {
         "technical_support": CategoryGuidance(
             title="Technical Support Issue Detected",
-            variant="warning",
+            variant="info",
             items=[
                 "This appears to be a technical support issue that may require a support case.",
                 "Consider opening a support case via CSS Compass for direct technical assistance.",
@@ -28,15 +28,40 @@ def get_category_guidance(category: str) -> CategoryGuidance | None:
             },
         ),
         "cost_billing": CategoryGuidance(
-            title="Billing Issue - Out of Scope",
-            variant="danger",
+            title="Billing & Cost Inquiry",
+            variant="info",
             items=[
-                "Billing and cost issues are out of scope for this forum.",
+                "Billing and cost inquiries are typically handled through the GetHelp portal.",
                 "Please submit billing inquiries through the GetHelp portal.",
                 "Your CSAM can assist with escalating billing concerns if needed.",
             ],
             links={
                 "GetHelp Portal": "https://aka.ms/GetHelp",
+            },
+        ),
+        "support": CategoryGuidance(
+            title="General Support Request",
+            variant="info",
+            items=[
+                "General support requests are best handled through existing support channels.",
+                "Submit a GetHelp request for direct assistance from the support team.",
+                "Your CSAM can help route the request to the right team.",
+            ],
+            links={
+                "GetHelp": "https://aka.ms/GetHelp",
+            },
+        ),
+        "support_escalation": CategoryGuidance(
+            title="Support Escalation",
+            variant="info",
+            items=[
+                "For escalations on existing support cases, work with your CSAM.",
+                "Use the Reactive Escalation process for urgent production issues.",
+                "For new issues, consider opening a support case via CSS Compass first.",
+            ],
+            links={
+                "Reactive Escalation": "https://aka.ms/reactiveescalation",
+                "CSS Compass": "https://aka.ms/csscompass",
             },
         ),
         "aoai_capacity": CategoryGuidance(
@@ -70,6 +95,18 @@ def get_category_guidance(category: str) -> CategoryGuidance | None:
                 "Feature requests are tracked in the Technical Feedback (TFT) system.",
                 "If a matching TFT Feature is found below, select it to link your UAT.",
                 "Include specific customer impact and business justification for faster triage.",
+            ],
+            links={
+                "TFT Dashboard": "https://aka.ms/tft",
+            },
+        ),
+        "service_availability": CategoryGuidance(
+            title="Service Availability Request",
+            variant="info",
+            items=[
+                "Service availability requests are tracked in the Technical Feedback (TFT) system.",
+                "If a matching TFT Feature is found below, select it to link your UAT.",
+                "Include the target region and customer business justification for faster triage.",
             ],
             links={
                 "TFT Dashboard": "https://aka.ms/tft",

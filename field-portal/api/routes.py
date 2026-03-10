@@ -65,6 +65,13 @@ logger = logging.getLogger("field-portal.routes")
 
 router = APIRouter(prefix="/api/field", tags=["Field Submission Flow"])
 
+# ── Flow-path routing sets ──
+DEFLECT_CATEGORIES = {
+    "technical_support", "cost_billing", "aoai_capacity",
+    "capacity", "support", "support_escalation",
+}
+FEATURE_SEARCH_CATEGORIES = {"feature_request", "service_availability"}
+
 
 # ============================================================================
 # Helpers
@@ -74,6 +81,7 @@ router = APIRouter(prefix="/api/field", tags=["Field Submission Flow"])
 _ado_client = None
 _ado_searcher = None
 _hybrid_analyzer = None
+_fallback_ica = None
 
 def _get_ado_client():
     """Get a cached AzureDevOpsClient singleton."""
@@ -300,7 +308,10 @@ def _local_pattern_analysis(title: str, description: str, impact: str = "") -> D
     # Fallback: pattern matching only
     try:
         from intelligent_context_analyzer import IntelligentContextAnalyzer
-        analyzer = IntelligentContextAnalyzer()
+        global _fallback_ica
+        if _fallback_ica is None:
+            _fallback_ica = IntelligentContextAnalyzer()
+        analyzer = _fallback_ica
         result = analyzer.analyze_context(title, description, impact)
 
         # Convert enum values to strings
@@ -382,13 +393,20 @@ async def submit_issue(submission: IssueSubmission):
     and returns scoring results with dimension breakdowns.
     Falls back to the old rules engine if the AI call fails.
     """
+    import time as _t
+    _SUB = "[SUBMIT-DEBUG]"
+    _t_total = _t.monotonic()
+    logger.info(f"{_SUB} ===== submit_issue START =====")
     from .ai_quality_evaluator import evaluate_quality
 
+    logger.info(f"{_SUB} Step 1: evaluate_quality...")
+    _t1 = _t.monotonic()
     quality = await evaluate_quality(
         title=submission.title,
         description=submission.description,
         impact=submission.impact,
     )
+    logger.info(f"{_SUB} Step 1 done in {(_t.monotonic()-_t1)*1000:.0f}ms — score={quality.get('completeness_score')}")
     logger.info(
         f"Quality evaluation: score={quality.get('completeness_score')} "
         f"ai={quality.get('ai_evaluation', False)}"
@@ -423,6 +441,7 @@ async def submit_issue(submission: IssueSubmission):
             actionability=DimensionScore(**dims.get("actionability", {})),
         )
 
+    logger.info(f"{_SUB} ===== submit_issue END — total {(_t.monotonic()-_t_total)*1000:.0f}ms =====")
     return QualityReviewResponse(
         session_id=state.session_id,
         score=score,
@@ -451,6 +470,11 @@ async def analyze_context(session_id: str):
     Falls back to gateway if direct analysis fails.
     Stores full results in session for later steps.
     """
+    import time as _t
+    _ANL = "[ANALYZE-DEBUG]"
+    _t_total = _t.monotonic()
+    logger.info(f"{_ANL} ===== analyze_context START session={session_id} =====")
+
     state = _get_state(session_id)
     if state.original_input is None:
         raise HTTPException(400, "No submission data in session — call /submit first")
@@ -458,11 +482,16 @@ async def analyze_context(session_id: str):
     inp = state.original_input
 
     # Primary path: run analysis engine directly (no gateway/microservice needed)
+    logger.info(f"{_ANL} Step 1: _local_pattern_analysis...")
+    _t1 = _t.monotonic()
     raw = _local_pattern_analysis(inp.title, inp.description, inp.impact)
+    logger.info(f"{_ANL} Step 1 done in {(_t.monotonic()-_t1)*1000:.0f}ms")
     source = raw.get("context_analysis", {}).get("source", "")
 
     # If direct analysis gave only a minimal fallback, try gateway as backup
     if source == "fallback_minimal":
+        logger.info(f"{_ANL} Step 2: source=fallback_minimal — trying gateway backup...")
+        _t2 = _t.monotonic()
         try:
             gw = get_gateway()
             raw = await gw.analyze_context(
@@ -470,10 +499,12 @@ async def analyze_context(session_id: str):
                 description=inp.description,
                 impact=inp.impact,
             )
-            logger.info("Context analysis succeeded via gateway fallback")
+            logger.info(f"{_ANL} Step 2 done in {(_t.monotonic()-_t2)*1000:.0f}ms — gateway fallback succeeded")
         except GatewayError as e:
-            logger.warning(f"Gateway also unavailable: {e}")
+            logger.warning(f"{_ANL} Step 2 failed in {(_t.monotonic()-_t2)*1000:.0f}ms — Gateway unavailable: {e}")
             # raw already has the minimal fallback, keep it
+    else:
+        logger.info(f"{_ANL} Step 2: source={source} — no gateway fallback needed")
 
     # Extract context_analysis from response
     ctx_raw = raw.get("context_analysis", raw)
@@ -512,6 +543,8 @@ async def analyze_context(session_id: str):
                     analysis=analysis.model_dump(),
                     current_step=FlowStep.analysis)
     sm.set_extra(session_id, "raw_analysis", raw)
+
+    logger.info(f"{_ANL} ===== analyze_context END — total {(_t.monotonic()-_t_total)*1000:.0f}ms, category={analysis.category} =====")
 
     return AnalysisResponse(
         session_id=session_id,
@@ -925,6 +958,14 @@ def _build_evaluation_summary_html(
         </table>
         """)
 
+    # Guided override note
+    if state.guided_override:
+        category_label = analysis.get("category", "unknown").replace("_", " ").title()
+        sections.append(f"""
+        <h3>Deflection Override</h3>
+        <p>The submitter was shown guidance for <b>{category_label}</b> and chose to create a UAT anyway.</p>
+        """)
+
     # Metadata
     sections.append(f"""
     <h3>Evaluation Metadata</h3>
@@ -954,19 +995,37 @@ async def search_resources(session_id: str, deep_search: bool = False):
     Also checks for TFT features (if feature_request category) and
     returns category-specific guidance.
     """
+    import time as _t
+    _SRCH = "[SEARCH-DEBUG]"
+    _t_total = _t.monotonic()
+    logger.info(f"{_SRCH} ===== search_resources START session={session_id} =====")
+
+    logger.info(f"{_SRCH} Step A: _get_state...")
+    _ta = _t.monotonic()
     state = _get_state(session_id)
+    logger.info(f"{_SRCH} Step A done in {(_t.monotonic()-_ta)*1000:.0f}ms")
     sm = get_session_manager()
-    gw = get_gateway()
 
     if state.analysis is None:
         raise HTTPException(400, "No analysis in session — call /analyze first")
     if state.original_input is None:
         raise HTTPException(400, "No submission data in session")
 
+    logger.info(f"{_SRCH} Step B: extract analysis fields...")
+    _tb = _t.monotonic()
     analysis = state.analysis if isinstance(state.analysis, dict) else state.analysis
-    category = analysis.get("category", "general") if isinstance(analysis, dict) else analysis.category
-    intent = analysis.get("intent", "general") if isinstance(analysis, dict) else analysis.intent
-    de = analysis.get("domain_entities", {}) if isinstance(analysis, dict) else {}
+    category = analysis.get("category", "general") if isinstance(analysis, dict) else getattr(analysis, "category", "general")
+    intent = analysis.get("intent", "general") if isinstance(analysis, dict) else getattr(analysis, "intent", "general")
+
+    if isinstance(analysis, dict):
+        de = analysis.get("domain_entities", {})
+    else:
+        # ContextAnalysis model — extract domain_entities properly
+        de_obj = getattr(analysis, "domain_entities", None)
+        if de_obj is not None:
+            de = de_obj.model_dump() if hasattr(de_obj, "model_dump") else (de_obj if isinstance(de_obj, dict) else {})
+        else:
+            de = {}
 
     inp = state.original_input if isinstance(state.original_input, dict) else state.original_input
     title = inp.get("title", "") if isinstance(inp, dict) else inp.title
@@ -977,57 +1036,58 @@ async def search_resources(session_id: str, deep_search: bool = False):
         "technologies": de.technologies if hasattr(de, "technologies") else [],
         "regions": de.regions if hasattr(de, "regions") else [],
     }
+    logger.info(f"{_SRCH} Step B done in {(_t.monotonic()-_tb)*1000:.0f}ms — category={category}, intent={intent}")
 
-    # Special categories skip the gateway search (similar products, regional, capacity)
-    skip_categories = ["technical_support", "feature_request", "cost_billing", "aoai_capacity", "capacity"]
-
-    learn_docs = []
-    similar_products = []
-    regional_options = []
-    capacity_guidance = None
-    retirement_info = None
+    logger.info(f"{_SRCH} Step C: _generate_learn_docs...")
+    _tc = _t.monotonic()
+    learn_docs = _generate_learn_docs(title, description, domain_entities, category)
+    logger.info(f"{_SRCH} Step C done in {(_t.monotonic()-_tc)*1000:.0f}ms — {len(learn_docs)} docs")
     search_metadata = {}
 
-    if category not in skip_categories:
-        try:
-            raw_search = await gw.search_resources(
-                title=title,
-                description=description,
-                category=category,
-                intent=intent,
-                domain_entities=domain_entities,
-                deep_search=deep_search,
-            )
-            learn_docs = [LearnDoc(**d) for d in raw_search.get("learn_docs", [])]
-            similar_products = raw_search.get("similar_products", [])
-            regional_options = raw_search.get("regional_options", [])
-            capacity_guidance = raw_search.get("capacity_guidance")
-            retirement_info = raw_search.get("retirement_info")
-            search_metadata = raw_search.get("search_metadata", {})
-            sm.set_extra(session_id, "raw_search_results", raw_search)
-        except GatewayError as e:
-            logger.warning(f"Search failed, continuing without results: {e}")
-            search_metadata = {"error": str(e)}
+    # ── Determine flow path ──
+    logger.info(f"{_SRCH} Step D: determine flow_path — category={category}")
+    if category in DEFLECT_CATEGORIES:
+        flow_path = "deflect"
+    elif category in FEATURE_SEARCH_CATEGORIES:
+        flow_path = "feature_search"
+    else:
+        flow_path = "create_uat"
+    logger.info(f"{_SRCH} Step D done — flow_path={flow_path}")
 
-    # ── Generate curated Microsoft Learn URLs (like old system) ──
-    # The old system always produced Learn links from domain entities,
-    # even for special categories. Replicate that here so the UI is
-    # never completely empty.
-    if not learn_docs:
-        learn_docs = _generate_learn_docs(title, description, domain_entities, category)
-
-    # TFT Feature search (feature_request category only)
+    # ── TFT Feature search (feature_request only) ──
     tft_features: List[TFTFeature] = []
-    if category == "feature_request":
+    tft_diag: Dict[str, Any] = {
+        "searched": False,
+        "category": category,
+        "threshold": TFT_SIMILARITY_THRESHOLD,
+        "azure_services": domain_entities.get("azure_services", []),
+        "title_used": title,
+    }
+    _TFT = "[TFT-ROUTE-DEBUG]"
+    logger.info(f"{_TFT} ===== TFT Feature Search START =====")
+    logger.info(f"{_TFT} category={repr(category)}, threshold={TFT_SIMILARITY_THRESHOLD}")
+    logger.info(f"{_TFT} domain_entities={domain_entities}")
+    logger.info(f"{_TFT} title={repr(title[:100])}")
+    if category in FEATURE_SEARCH_CATEGORIES:
         try:
-            logger.info("[TFT Search] Starting TFT feature search for feature_request...")
+            import time as _t
+            t0 = _t.monotonic()
+            logger.info(f"{_TFT} Step 1: Getting ADO client...")
             ado_client = _get_ado_client()
+            tft_diag["searched"] = True
+            logger.info(f"{_TFT} Step 2: Calling search_tft_features(title={repr(title[:60])}, threshold={TFT_SIMILARITY_THRESHOLD}, azure_services={domain_entities.get('azure_services', [])})")
             raw_features = ado_client.search_tft_features(
                 title, description, threshold=TFT_SIMILARITY_THRESHOLD,
                 azure_services=domain_entities.get("azure_services", [])
             )
+            elapsed = round((_t.monotonic() - t0) * 1000)
+            tft_diag["elapsed_ms"] = elapsed
+            logger.info(f"{_TFT} Step 3: search_tft_features returned type={type(raw_features).__name__}, len={len(raw_features) if isinstance(raw_features, list) else 'N/A'}, elapsed={elapsed}ms")
             if isinstance(raw_features, list):
-                logger.info(f"[TFT Search] Got {len(raw_features)} raw matches")
+                tft_diag["raw_count"] = len(raw_features)
+                if raw_features:
+                    for i, f in enumerate(raw_features[:5]):
+                        logger.info(f"{_TFT}   raw[{i}] id={f.get('id')} sim={f.get('similarity')} title={repr(f.get('title','')[:60])}")
                 for f in raw_features:
                     tft_features.append(TFTFeature(
                         id=f.get("id", 0),
@@ -1037,34 +1097,54 @@ async def search_resources(session_id: str, deep_search: bool = False):
                         state=f.get("state", ""),
                         area_path=f.get("area_path", ""),
                     ))
+                tft_diag["returned_count"] = len(tft_features)
+                logger.info(f"{_TFT} Step 4: Converted {len(tft_features)} TFTFeature objects")
             elif isinstance(raw_features, dict) and "error" in raw_features:
-                logger.warning(f"[TFT Search] Search returned error: {raw_features}")
-                search_metadata["tft_error"] = raw_features.get("message", str(raw_features))
+                logger.warning(f"{_TFT} Step 3: Search returned error dict: {raw_features}")
+                tft_diag["error"] = raw_features.get("message", str(raw_features))
+                search_metadata["tft_error"] = tft_diag["error"]
             else:
-                logger.warning(f"[TFT Search] Unexpected result type: {type(raw_features)}")
+                logger.warning(f"{_TFT} Step 3: Unexpected result type: {type(raw_features)}")
+                tft_diag["error"] = f"Unexpected result type: {type(raw_features).__name__}"
             sm.set_extra(session_id, "tft_features_detail", [f.model_dump() for f in tft_features])
         except Exception as e:
-            logger.error(f"[TFT Search] Feature search failed: {e}", exc_info=True)
+            logger.error(f"{_TFT} EXCEPTION: {e}", exc_info=True)
+            tft_diag["error"] = str(e)
             search_metadata["tft_error"] = str(e)
+    else:
+        tft_diag["skipped"] = f"category is '{category}', not in FEATURE_SEARCH_CATEGORIES"
+        logger.info(f"{_TFT} Skipped: category={repr(category)} not in FEATURE_SEARCH_CATEGORIES")
+    logger.info(f"{_TFT} ===== TFT Feature Search END — tft_diag={tft_diag} =====")
+    search_metadata["tft_diagnostics"] = tft_diag
 
     # Category guidance
+    logger.info(f"{_SRCH} Step F: get_category_guidance...")
+    _tf = _t.monotonic()
     cat_guidance = get_category_guidance(category)
+    logger.info(f"{_SRCH} Step F done in {(_t.monotonic()-_tf)*1000:.0f}ms — guidance={'present' if cat_guidance else 'none'}")
 
     # Update session
+    logger.info(f"{_SRCH} Step G: update session state...")
+    _tg = _t.monotonic()
     sm.update_state(session_id,
                     search_results=search_metadata,
                     current_step=FlowStep.search)
+    logger.info(f"{_SRCH} Step G done in {(_t.monotonic()-_tg)*1000:.0f}ms")
+
+    total_ms = (_t.monotonic() - _t_total) * 1000
+    logger.info(f"{_SRCH} ===== search_resources END — total {total_ms:.0f}ms, flow_path={flow_path} =====")
 
     return SearchResponse(
         session_id=session_id,
         learn_docs=learn_docs,
-        similar_products=similar_products,
-        regional_options=regional_options,
-        capacity_guidance=capacity_guidance,
-        retirement_info=retirement_info,
+        similar_products=[],
+        regional_options=[],
+        capacity_guidance=None,
+        retirement_info=None,
         tft_features=tft_features,
         category_guidance=cat_guidance,
         search_metadata=search_metadata,
+        flow_path=flow_path,
     )
 
 
@@ -1132,25 +1212,66 @@ async def search_related_uats(session_id: str):
     title = inp.get("title", "") if isinstance(inp, dict) else inp.title
     description = inp.get("description", "") if isinstance(inp, dict) else inp.description
 
+    # ── FR-2020: Extract AI analysis from session (Step 3 / Step 4 corrections) ──
+    # WHY: The AI analysis from Step 3 detects specific Azure services,
+    # technologies, and semantic keywords. Passing these to the search produces
+    # far better ADO Search API results than using the raw issue title alone,
+    # because the search text matches the vocabulary actually used in UAT titles.
+    ai_services: List[str] = []
+    ai_keywords: List[str] = []
+    ai_concepts: List[str] = []
+    if state.analysis:
+        a = state.analysis if isinstance(state.analysis, dict) else state.analysis.model_dump()
+        de = a.get("domain_entities", {})
+        if isinstance(de, dict):
+            ai_services = de.get("azure_services", []) + de.get("technologies", [])
+        else:
+            ai_services = getattr(de, "azure_services", []) + getattr(de, "technologies", [])
+        ai_keywords = a.get("semantic_keywords", [])
+        ai_concepts = a.get("key_concepts", [])
+
     # Search via ADO directly (the gateway route proxies to enhanced-matching
     # but the Flask app actually calls ADO directly via ado_searcher)
     related_uats: List[RelatedUAT] = []
     search_error: str | None = None
+    total_found: int = 0
+    _D = "[UAT-ROUTE-DEBUG]"
+    logger.info(f"{_D} ===== search_related_uats() START =====")
+    logger.info(f"{_D} session_id={session_id}")
+    logger.info(f"{_D} title={repr(title[:100])}")
+    logger.info(f"{_D} description={repr(description[:100]) if description else '(empty)'}")
+    logger.info(f"{_D} ai_services={ai_services}")
+    logger.info(f"{_D} ai_keywords={ai_keywords[:10]}")
+    logger.info(f"{_D} ai_concepts={ai_concepts[:10]}")
     try:
+        logger.info(f"{_D} Step 1: Getting ADO searcher...")
         searcher = _get_ado_searcher()
-        raw_results = searcher.search_uat_items(title=title, description=description)
+        logger.info(f"{_D} Step 2: Calling searcher.search_uat_items() with AI context...")
+        raw_results = searcher.search_uat_items(
+            title=title, description=description,
+            ai_services=ai_services, ai_keywords=ai_keywords,
+            ai_concepts=ai_concepts,
+        )
+        logger.info(f"{_D} Step 3: search_uat_items returned {len(raw_results) if raw_results else 0} raw results")
+        if raw_results:
+            for i, r in enumerate(raw_results[:3]):
+                logger.info(f"{_D}   raw[{i}] id={r.get('id')} sim={r.get('similarity')} state={r.get('state')} title={repr(r.get('title','')[:60])}")
 
         # Filter to last N days
         cutoff = datetime.utcnow() - timedelta(days=UAT_SEARCH_DAYS)
+        logger.info(f"{_D} Step 4: Filtering to last {UAT_SEARCH_DAYS} days (cutoff={cutoff.isoformat()})")
+        skipped_date = 0
+        skipped_parse = 0
         for item in (raw_results or []):
             created = item.get("created_date", "")
             if created:
                 try:
                     dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
                     if dt.replace(tzinfo=None) < cutoff:
+                        skipped_date += 1
                         continue
                 except (ValueError, TypeError):
-                    pass
+                    skipped_parse += 1
 
             related_uats.append(RelatedUAT(
                 id=item.get("id", 0),
@@ -1162,20 +1283,42 @@ async def search_related_uats(session_id: str):
                 assigned_to=item.get("assigned_to", ""),
             ))
 
+        logger.info(f"{_D} Step 5: After date filter: {len(related_uats)} kept, {skipped_date} skipped (too old), {skipped_parse} date-parse errors")
+
         # Sort by similarity descending
         related_uats.sort(key=lambda u: u.similarity, reverse=True)
 
+        # Drop anything below 25 % — too noisy to display
+        MIN_SIMILARITY = 0.25
+        related_uats = [u for u in related_uats if u.similarity >= MIN_SIMILARITY]
+
+        # total_found = how many passed similarity filter (before top-10 trim)
+        total_found = len(related_uats)
+
+        # Keep only the top 10 most relevant
+        MAX_RELATED = 10
+        related_uats = related_uats[:MAX_RELATED]
+
+        if related_uats:
+            logger.info(f"{_D} Step 6: Top 3 after sort:")
+            for i, u in enumerate(related_uats[:3]):
+                logger.info(f"{_D}   [{i}] id={u.id} sim={u.similarity} state={u.state} title={repr(u.title[:60])}")
+        else:
+            logger.info(f"{_D} Step 6: No related UATs survived filtering")
+
     except Exception as e:
-        logger.error(f"Related UAT search failed: {e}")
+        logger.error(f"{_D} EXCEPTION: {e}", exc_info=True)
         search_error = f"UAT search failed: {e}"
 
     sm.update_state(session_id, current_step=FlowStep.related_uats)
     sm.set_extra(session_id, "raw_related_uats", [u.model_dump() for u in related_uats])
 
+    logger.info(f"{_D} ===== search_related_uats() END — returning {len(related_uats)} UATs (of {total_found} total), error={search_error} =====")
+
     return RelatedUATsResponse(
         session_id=session_id,
         related_uats=related_uats,
-        total_found=len(related_uats),
+        total_found=total_found,
         search_error=search_error,
     )
 
@@ -1215,6 +1358,20 @@ async def toggle_uat_selection(req: UATSelectionRequest):
 
 
 # ============================================================================
+# Deflection Override
+# ============================================================================
+
+@router.post("/guided-override/{session_id}",
+             summary="Mark session as guided override",
+             description="Records that the user was shown deflection guidance and chose to create a UAT anyway.")
+async def guided_override(session_id: str):
+    state = _get_state(session_id)
+    sm = get_session_manager()
+    sm.update_state(session_id, guided_override=True)
+    return {"session_id": session_id, "guided_override": True}
+
+
+# ============================================================================
 # Step 9: Create UAT Work Item
 # ============================================================================
 
@@ -1250,6 +1407,7 @@ async def create_uat(req: UATCreateRequest):
         "opportunity_id": state.opportunity_id,
         "milestone_id": state.milestone_id,
         "evaluation_summary_html": summary_html,
+        "guided_override": state.guided_override,
     }
 
     try:
@@ -1322,6 +1480,167 @@ async def create_uat(req: UATCreateRequest):
             description="Returns the full state of a submission flow session.")
 async def get_session_state(session_id: str):
     return _get_state(session_id)
+
+
+# ============================================================================
+# Diagnostics
+# ============================================================================
+
+def _mask_url(url: str) -> str:
+    """Redact everything after the host so secrets/paths are not exposed."""
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlparse
+        p = urlparse(url)
+        return f"{p.scheme}://{p.hostname}{':[port]' if p.port else ''}/"
+    except Exception:
+        return url[:30] + "…"
+
+
+@router.get("/diagnostics",
+            summary="System diagnostics",
+            description="Lightweight diagnostics for the debug panel. "
+                        "Returns connectivity status for every subsystem "
+                        "with 5-second timeouts per check.")
+async def get_diagnostics():
+    import asyncio
+    import time as _time
+    from datetime import timezone
+
+    CHECK_TIMEOUT = 5          # seconds per subsystem
+    AI_INIT_TIMEOUT = 15       # first-time analyzer init can be slow
+
+    diag: Dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "api": {"status": "healthy"},
+        "gateway": {},
+        "cosmos": {},
+        "ai": {},
+        "ado_main": {},
+        "ado_tft": {},
+    }
+
+    # --- Gateway ---
+    async def _check_gateway():
+        t0 = _time.perf_counter()
+        gw = get_gateway()
+        ok = await gw.check_health()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        return {"status": "healthy" if ok else "offline", "latencyMs": ms,
+                "url": _mask_url(gw.base_url)}
+
+    try:
+        diag["gateway"] = await asyncio.wait_for(
+            _check_gateway(), timeout=CHECK_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["gateway"] = {"status": "timeout", "error": f"Gateway check exceeded {CHECK_TIMEOUT}s"}
+    except Exception as e:
+        diag["gateway"] = {"status": "error", "error": str(e)}
+
+    # --- Cosmos DB ---
+    def _check_cosmos():
+        t0 = _time.perf_counter()
+        from .cosmos_client import _get_cosmos
+        cosmos = _get_cosmos()
+        info = cosmos.health_check()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        st = info.get("status", "healthy")
+        in_mem = "in-memory" in st
+        if in_mem:
+            st = "healthy"
+        return {"status": st, "latencyMs": ms, "inMemory": in_mem}
+
+    try:
+        diag["cosmos"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_cosmos), timeout=CHECK_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["cosmos"] = {"status": "timeout", "error": f"Health check exceeded {CHECK_TIMEOUT}s"}
+    except Exception as e:
+        diag["cosmos"] = {"status": "error", "error": str(e)}
+
+    # --- AI / Azure OpenAI ---
+    def _check_ai():
+        t0 = _time.perf_counter()
+        from hybrid_context_analyzer import HybridContextAnalyzer
+        global _hybrid_analyzer
+        if _hybrid_analyzer is None:
+            _hybrid_analyzer = HybridContextAnalyzer(use_ai=True)
+        analyzer = _hybrid_analyzer
+        ai_info = analyzer.get_ai_status()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        enabled = ai_info.get("enabled", False)
+
+        cfg = getattr(analyzer, "config", None)
+        aoai = getattr(cfg, "azure_openai", None) if cfg else None
+        endpoint = ai_info.get("endpoint") or (getattr(aoai, "endpoint", "") if aoai else "")
+        use_aad = ai_info.get("use_aad")
+        if use_aad is None and aoai:
+            use_aad = getattr(aoai, "use_aad", None)
+
+        return {
+            "status": "healthy" if enabled else "offline",
+            "enabled": enabled,
+            "latencyMs": ms,
+            "reason": ai_info.get("reason"),
+            "endpoint": _mask_url(endpoint),
+            "useAad": use_aad,
+            "initError": getattr(analyzer, "_init_error", None),
+        }
+
+    try:
+        diag["ai"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_ai), timeout=AI_INIT_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["ai"] = {"status": "timeout", "error": f"AI check exceeded {AI_INIT_TIMEOUT}s"}
+    except Exception as e:
+        diag["ai"] = {"status": "error", "error": str(e)}
+
+    # --- ADO Main Org ---
+    def _check_ado_main():
+        t0 = _time.perf_counter()
+        from ado_integration import AzureDevOpsConfig
+        cred = AzureDevOpsConfig.get_credential()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        org = AzureDevOpsConfig.ORGANIZATION
+        return {"status": "healthy", "latencyMs": ms, "org": org}
+
+    try:
+        diag["ado_main"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_ado_main), timeout=CHECK_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["ado_main"] = {"status": "timeout", "error": f"ADO main check exceeded {CHECK_TIMEOUT}s"}
+    except Exception as e:
+        diag["ado_main"] = {"status": "error", "error": str(e)}
+
+    # --- ADO TFT Org ---
+    def _check_ado_tft():
+        t0 = _time.perf_counter()
+        from ado_integration import AzureDevOpsConfig
+        cred = AzureDevOpsConfig.get_tft_credential()
+        ms = int((_time.perf_counter() - t0) * 1000)
+        # Resolve TFT org name from config (same logic as get_tft_credential)
+        try:
+            from config import get_app_config as _gcfg
+            org = _gcfg().ado_tft_organization
+        except Exception:
+            org = "unifiedactiontracker"
+        return {"status": "healthy", "latencyMs": ms, "org": org}
+
+    try:
+        diag["ado_tft"] = await asyncio.wait_for(
+            asyncio.to_thread(_check_ado_tft), timeout=CHECK_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        diag["ado_tft"] = {"status": "timeout", "error": f"ADO TFT check exceeded {CHECK_TIMEOUT}s"}
+    except Exception as e:
+        diag["ado_tft"] = {"status": "error", "error": str(e)}
+
+    return diag
 
 
 # ============================================================================

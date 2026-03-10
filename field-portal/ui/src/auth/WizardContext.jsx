@@ -34,6 +34,7 @@ export function WizardProvider({ children }) {
   const navigate = useNavigate();
   const [sessionId, setSessionId] = useState(null);
   const [maxStep, setMaxStep] = useState(1);
+  const [flowPath, setFlowPath] = useState(null);
 
   // Cache is keyed by step number → the location.state object for that page.
   const cacheRef = useRef({});
@@ -51,7 +52,9 @@ export function WizardProvider({ children }) {
 
   /** Navigate to a previously-visited step using cached state. */
   const navigateToStep = useCallback((step) => {
-    const route = STEP_ROUTES[step];
+    let route = STEP_ROUTES[step];
+    // Deflect flow: step 5 is the Done/Guidance page
+    if (flowPath === 'deflect' && step === 5) route = '/done';
     if (!route) return;
 
     // Build the best location.state we can.
@@ -68,12 +71,13 @@ export function WizardProvider({ children }) {
     }
 
     navigate(route, { state: state || {} });
-  }, [navigate, sessionId]);
+  }, [navigate, sessionId, flowPath]);
 
   /** Reset wizard (start over). */
   const resetWizard = useCallback(() => {
     setSessionId(null);
     setMaxStep(1);
+    setFlowPath(null);
     cacheRef.current = {};
   }, []);
 
@@ -82,6 +86,8 @@ export function WizardProvider({ children }) {
       sessionId,
       initSession,
       maxStep,
+      flowPath,
+      setFlowPath,
       cacheStep,
       navigateToStep,
       resetWizard,

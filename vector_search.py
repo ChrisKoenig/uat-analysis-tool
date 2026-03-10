@@ -46,12 +46,12 @@ class VectorSearchService:
     - Designed as independent agent
     """
     
-    def __init__(self):
+    def __init__(self, embedding_service: EmbeddingService = None):
         self.config = get_config()
         self.vector_config = self.config.vector_search
         
-        # Initialize embedding service
-        self.embedding_service = EmbeddingService()
+        # Reuse provided embedding service or create new one
+        self.embedding_service = embedding_service or EmbeddingService()
         
         # Get service-specific configuration
         service_config = self.config.get_service_config("vector_search")

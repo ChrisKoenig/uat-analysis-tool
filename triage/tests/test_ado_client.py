@@ -108,7 +108,7 @@ class TestTriageAdoConfig:
         assert config.API_VERSION == "7.0"
 
     def test_work_item_type(self, config):
-        assert config.WORK_ITEM_TYPE == "Action"
+        assert config.WORK_ITEM_TYPE == "Actions"
 
     def test_ado_scope(self, config):
         assert "499b84ac" in config.ADO_SCOPE
@@ -611,7 +611,7 @@ class TestGetFieldDefinitions:
 
         assert result["success"] is True
         assert len(result["fields"]) == 2
-        assert result["work_item_type"] == "Action"
+        assert result["work_item_type"] == "Actions"
         mock_inner_client.get_work_item_fields.assert_called_once()
 
     def test_failure(self, mock_ado_client, mock_inner_client):

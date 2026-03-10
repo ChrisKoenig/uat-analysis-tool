@@ -24,6 +24,11 @@ import ConfidenceBar from '../components/ConfidenceBar';
 import { submitCorrection, analyzeContext } from '../api/fieldApi';
 import { useWizard } from '../auth/WizardContext';
 
+const DEFLECT_CATEGORIES = new Set([
+  'technical_support', 'cost_billing', 'aoai_capacity',
+  'capacity', 'support', 'support_escalation',
+]);
+
 const CATEGORIES = [
   'technical_support', 'feature_request', 'cost_billing', 'capacity',
   'aoai_capacity', 'service_request', 'information', 'general',
@@ -47,7 +52,7 @@ export default function AnalysisPage() {
   const { state } = useLocation();
   const sessionId = state?.sessionId;
   const data = state?.analysisData;
-  const { cacheStep } = useWizard();
+  const { cacheStep, setFlowPath } = useWizard();
 
   // Cache for backward navigation (steps 3 & 4 share this route)
   useEffect(() => {
@@ -117,7 +122,8 @@ export default function AnalysisPage() {
     setSubmitting(true);
     try {
       await submitCorrection({ session_id: sessionId, action: 'approve' });
-      navigate('/searching', { state: { sessionId } });
+      setFlowPath(DEFLECT_CATEGORIES.has(analysis.category) ? 'deflect' : 'create_uat');
+      navigate('/searching', { state: { sessionId, category: analysis.category } });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -167,7 +173,9 @@ export default function AnalysisPage() {
         correct_business_impact: corrImpact || undefined,
         correction_notes: corrNotes || undefined,
       });
-      navigate('/searching', { state: { sessionId } });
+      const effectiveCategory = corrCategory || analysis.category;
+      setFlowPath(DEFLECT_CATEGORIES.has(effectiveCategory) ? 'deflect' : 'create_uat');
+      navigate('/searching', { state: { sessionId, category: effectiveCategory } });
     } catch (err) {
       setError(err.message);
     } finally {

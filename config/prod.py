@@ -64,7 +64,7 @@ PROD_CONFIG = AppConfig(
     # ── Azure DevOps ──────────────────────────────────────────────────────────
     ado_organization=_require("ADO_ORGANIZATION"),
     ado_project=_require("ADO_PROJECT"),
-    ado_tft_organization=os.environ.get("ADO_TFT_ORGANIZATION", "acrblockers"),
+    ado_tft_organization=os.environ.get("ADO_TFT_ORGANIZATION", "unifiedactiontracker"),
     ado_tft_project=os.environ.get("ADO_TFT_PROJECT", "Technical Feedback"),
     microsoft_tenant_id="72f988bf-86f1-41af-91ab-2d7cd011db47",
 

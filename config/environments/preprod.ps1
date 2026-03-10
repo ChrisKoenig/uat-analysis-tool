@@ -44,6 +44,6 @@ $MI_OBJECT_ID = "309baa86-f939-4fc3-ab3e-e2d3d0d4e475"
 # Azure DevOps
 $ADO_ORG = "unifiedactiontrackertest"
 $ADO_PROJECT = "Unified Action Tracker Test"
-$ADO_TFT_ORG = "acrblockers"
+$ADO_TFT_ORG = "unifiedactiontracker"
 
 Write-Host "[config] Loaded preprod environment (sub: $SUBSCRIPTION, rg: $RG)" -ForegroundColor Yellow

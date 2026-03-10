@@ -9,7 +9,7 @@
  * While waiting, shows a LoadingSpinner. On completion, navigates to
  * /analysis with the full analysisData in router state.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProgressStepper from '../components/ProgressStepper';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -22,6 +22,7 @@ export default function AnalyzingPage() {
   const sessionId = state?.sessionId;
   const [error, setError] = useState('');
   const { initSession } = useWizard();
+  const hasRun = useRef(false);
 
   useEffect(() => {
     if (sessionId) initSession(sessionId);
@@ -32,21 +33,17 @@ export default function AnalyzingPage() {
       navigate('/');
       return;
     }
-
-    let cancelled = false;
+    if (hasRun.current) return;
+    hasRun.current = true;
 
     (async () => {
       try {
         const result = await analyzeContext(sessionId);
-        if (!cancelled) {
-          navigate('/analysis', { state: { analysisData: result, sessionId } });
-        }
+        navigate('/analysis', { state: { analysisData: result, sessionId } });
       } catch (err) {
-        if (!cancelled) setError(err.message);
+        setError(err.message);
       }
     })();
-
-    return () => { cancelled = true; };
   }, [sessionId, navigate]);
 
   return (

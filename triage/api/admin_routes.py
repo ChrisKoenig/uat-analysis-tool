@@ -1251,8 +1251,8 @@ async def health_dashboard():
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
-        from hybrid_context_analyzer import HybridContextAnalyzer
-        analyzer = HybridContextAnalyzer(use_ai=True)
+        from .routes import get_analyzer
+        analyzer = get_analyzer()
         ai_status = analyzer.get_ai_status()
         latency = int((time.perf_counter() - t0) * 1000)
         if ai_status.get("enabled"):

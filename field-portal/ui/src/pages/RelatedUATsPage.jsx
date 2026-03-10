@@ -1,14 +1,22 @@
 /**
  * Steps 7-8: Related UATs — Select Up to 5 to Link
  *
- * Displays UATs found by the similarity search, sorted by match percentage.
- * Each item shows:
+ * Displays UATs found by the AI-powered similarity search (ADO Search API),
+ * sorted by match percentage. Each item shows:
  *   - Clickable #id badge (links to ADO), title, similarity bar
  *   - Description preview, state badge, created date, assigned to
  *   - Checkbox for selection (click anywhere on the row)
  *
  * The user can select up to UAT_MAX_SELECTED (5) items to link.
  * On "Create UAT", navigates → /create-uat (Step 9).
+ *
+ * FR-2020 changes (Mar 2026):
+ *   - Collapsible header (starts collapsed): long lists pushed the Continue
+ *     button off-screen. Pattern matches SearchResultsPage TFT Features.
+ *   - Checkbox: readOnly + pointerEvents:'none' — the parent div handles
+ *     the click. Without this, React 18 StrictMode double-fires the toggle
+ *     (once from checkbox onChange, once from parent div onClick).
+ *   - Always shows this page even with 0 results (empty-state message).
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -24,6 +32,10 @@ export default function RelatedUATsPage() {
   const { cacheStep } = useWizard();
 
   const [selectedUATs, setSelectedUATs] = useState([]);
+  const [toggleError, setToggleError] = useState('');
+  const [toggling, setToggling] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   // Cache for backward navigation (steps 7 & 8 share this route)
   useEffect(() => {
@@ -39,11 +51,21 @@ export default function RelatedUATsPage() {
   const { related_uats = [], total_found } = data;
 
   const handleToggle = async (uatId) => {
+    if (toggling) return;
+    setToggling(uatId);
+    setToggleError('');
     try {
       const result = await toggleUAT(sessionId, uatId);
       setSelectedUATs(result.selected_uats || []);
     } catch (err) {
       console.error(err);
+      if (err.message && err.message.includes('404')) {
+        setSessionExpired(true);
+      } else {
+        setToggleError(`Failed to toggle UAT #${uatId}: ${err.message}`);
+      }
+    } finally {
+      setToggling(null);
     }
   };
 
@@ -54,13 +76,69 @@ export default function RelatedUATsPage() {
   return (
     <>
       <ProgressStepper currentStep={8} />
-      <div className="card">
-        <div className="card-header">
-          Similar UATs Found ({total_found})
+      <div className="card" style={{ overflow: 'hidden' }}>
+        <div
+          className="card-header"
+          onClick={() => setExpanded(!expanded)}
+          style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}
+        >
+          <span>
+            Similar UATs Found
+            {related_uats.length > 0
+              ? ` (${related_uats.length})`
+              : ' (0)'}
+          </span>
+          <span style={{ fontSize: 18, lineHeight: 1, transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            ▾
+          </span>
         </div>
+
+        {expanded && (
+          <div style={{ padding: '0 16px 16px' }}>
+
+        {related_uats.length === 0 ? (
+          <div style={{
+            padding: '24px 16px', textAlign: 'center', color: '#605e5c',
+            background: '#faf9f8', borderRadius: 4, marginBottom: 16,
+          }}>
+            <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>
+              No similar UATs found
+            </p>
+            <p style={{ fontSize: 13 }}>
+              The search didn't find any existing UATs that match your request.
+              Click <strong>Continue</strong> below to create a new one.
+            </p>
+          </div>
+        ) : (
+          <>
         <p style={{ fontSize: 13, color: '#605e5c', marginBottom: 16 }}>
           Select related UATs to link (max 5). Sorted by similarity — highest first.
         </p>
+
+        {sessionExpired && (
+          <div style={{
+            padding: '12px 16px', marginBottom: 12, borderRadius: 4,
+            background: '#fff4ce', color: '#854d0e', fontSize: 13, border: '1px solid #fbbf24',
+          }}>
+            <strong>Session expired.</strong> The server was restarted and your session was lost.
+            Please go back and re-submit.
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => navigate('/')} style={{
+                background: '#0078d4', color: '#fff', border: 'none', borderRadius: 4,
+                padding: '6px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}>Start Over</button>
+            </div>
+          </div>
+        )}
+
+        {toggleError && !sessionExpired && (
+          <div style={{
+            padding: '8px 12px', marginBottom: 12, borderRadius: 4,
+            background: '#fde7e9', color: '#d13438', fontSize: 13,
+          }}>
+            {toggleError}
+          </div>
+        )}
 
         {related_uats.map((uat) => {
           const pct = Math.round((uat.similarity || 0) * 100);
@@ -178,6 +256,11 @@ export default function RelatedUATsPage() {
             </div>
           );
         })}
+          </>
+        )}
+
+          </div>
+        )}
 
         <div className="btn-group">
           <button className="btn btn-primary" onClick={handleContinue}>

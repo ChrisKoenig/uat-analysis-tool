@@ -5,11 +5,10 @@
  * The backend uses AzureDevOpsSearcher to find UATs from the last
  * 180 days with similar titles, sorted by cosine similarity.
  *
- * On completion:
- *   - If matches found → navigates to /related-uats (Step 8)
- *   - If no matches     → skips to /create-uat (Step 9)
+ * On completion → always navigates to /related-uats (Step 8)
+ * so the user can review results (or see "no matches found").
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProgressStepper from '../components/ProgressStepper';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -21,32 +20,25 @@ export default function SearchingUATsPage() {
   const sessionId = state?.sessionId;
   const [error, setError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const hasRun = useRef(false);
 
   useEffect(() => {
     if (!sessionId) { navigate('/'); return; }
-
-    let cancelled = false;
+    if (hasRun.current) return;
+    hasRun.current = true;
 
     (async () => {
       try {
         const result = await searchRelatedUATs(sessionId);
-        if (!cancelled) {
-          if (result.search_error) {
-            // Search failed (e.g. auth error) — show error, don't silently skip
-            setError(`Similar UAT search failed: ${result.search_error}`);
-          } else if (result.related_uats.length === 0) {
-            // Genuinely no related UATs — skip to creation
-            navigate('/create-uat', { state: { sessionId } });
-          } else {
-            navigate('/related-uats', { state: { uatData: result, sessionId } });
-          }
+        if (result.search_error) {
+          setError(`Similar UAT search failed: ${result.search_error}`);
+        } else {
+          navigate('/related-uats', { state: { uatData: result, sessionId } });
         }
       } catch (err) {
-        if (!cancelled) setError(err.message);
+        setError(err.message);
       }
     })();
-
-    return () => { cancelled = true; };
   }, [sessionId, navigate, retryCount]);
 
   return (
@@ -59,7 +51,7 @@ export default function SearchingUATsPage() {
             <p>{error}</p>
           </div>
           <div className="btn-group">
-            <button className="btn btn-primary" onClick={() => { setError(''); setRetryCount(c => c + 1); }}>
+            <button className="btn btn-primary" onClick={() => { setError(''); hasRun.current = false; setRetryCount(c => c + 1); }}>
               ↻ Retry Search
             </button>
             <button className="btn btn-secondary" onClick={() => navigate('/create-uat', { state: { sessionId } })}>

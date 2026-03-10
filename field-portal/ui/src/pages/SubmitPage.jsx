@@ -51,6 +51,9 @@ export default function SubmitPage() {
     if (!description.trim()) { setError('Description / Customer Scenario is required.'); return; }
 
     setSubmitting(true);
+    // Reset wizard state from any previous session so the stepper
+    // doesn't carry over a stale flowPath (e.g. 'deflect' → 5 steps).
+    resetWizard();
     try {
       const result = await submitIssue(title.trim(), description.trim(), impact.trim());
       // Track session in wizard context

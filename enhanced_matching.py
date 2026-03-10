@@ -135,13 +135,20 @@ class EnhancedMatchingConfig:
 
     @staticmethod
     def _load_ado_config() -> tuple[str, str, str, str]:
-        """Return (uat_org, uat_project, tft_org, tft_project) from active config."""
+        """Return (uat_org, uat_project, tft_org, tft_project) from active config.
+
+        UAT search always targets the production org (unifiedactiontracker)
+        regardless of APP_ENV so that similarity results reflect real data.
+        """
         try:
             from config import get_app_config
             c = get_app_config()
-            return c.ado_organization, c.ado_project, c.ado_tft_organization, c.ado_tft_project
+            tft_org = c.ado_tft_organization or "unifiedactiontracker"
+            tft_proj = c.ado_tft_project or "Technical Feedback"
         except Exception:
-            return "unifiedactiontracker", "Unified Action Tracker", "acrblockers", "Technical Feedback"
+            tft_org, tft_proj = "unifiedactiontracker", "Technical Feedback"
+        # Always search production UAT org
+        return "unifiedactiontracker", "Unified Action Tracker", tft_org, tft_proj
 
     _uat_org, _uat_proj, _tft_org, _tft_proj = _load_ado_config.__func__()
 
@@ -156,6 +163,7 @@ class EnhancedMatchingConfig:
     TFT_BASE_URL = f"https://dev.azure.com/{TFT_ORGANIZATION}"
 
     API_VERSION = "7.0"
+    WORK_ITEM_TYPE = "Actions"  # Must match ado_integration.py's AzureDevOpsConfig.WORK_ITEM_TYPE
 
     # Stable Microsoft corporate tenant — used for TFT auth fallback
     try:
@@ -244,69 +252,32 @@ class EnhancedMatchingConfig:
     @staticmethod
     def get_tft_credential():
         """
-        Get Azure credential for TFT organization (acrblockers) access.
+        Get Azure credential for TFT organization (unifiedactiontracker) access.
         
-        Reuses the cached UAT credential if available (same Microsoft account),
-        otherwise creates a new InteractiveBrowserCredential.
+        Delegates to AzureDevOpsConfig.get_tft_credential() which validates
+        credentials with an actual API call to the TFT org (not just get_token(),
+        which succeeds even when the identity isn't materialized in the org).
         
         Returns:
             Tuple of (credential, token) for TFT Azure DevOps authentication
         """
-        from azure.identity import InteractiveBrowserCredential, ManagedIdentityCredential
-        
-        # First check if TFT credential is already cached
+        # 1. Return cached TFT credential
         if EnhancedMatchingConfig._tft_credential is not None and EnhancedMatchingConfig._tft_token is not None:
-            print("🔐 [TFT Auth] Reusing cached TFT credential...")
+            print("[TFT Auth] Reusing cached TFT credential...")
             return EnhancedMatchingConfig._tft_credential, EnhancedMatchingConfig._tft_token
         
-        # Check if we can reuse the UAT credential (same account)
-        if EnhancedMatchingConfig._uat_credential is not None:
-            print("🔐 [TFT Auth] Checking if UAT credential works for TFT org...")
-            try:
-                token = EnhancedMatchingConfig._uat_credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-                print("✅ [TFT Auth] UAT credential reused successfully")
-                EnhancedMatchingConfig._tft_credential = EnhancedMatchingConfig._uat_credential
-                EnhancedMatchingConfig._tft_token = token.token
-                return EnhancedMatchingConfig._uat_credential, token.token
-            except Exception as e:
-                print(f"⚠️  [TFT Auth] Cannot reuse UAT credential for TFT: {e}")
-        
-        # Managed Identity (container / cloud) — same pattern as get_uat_credential
-        ado_mi_client_id = os.environ.get("ADO_MANAGED_IDENTITY_CLIENT_ID") or os.environ.get("AZURE_CLIENT_ID")
-        if ado_mi_client_id:
-            try:
-                print(f"🔐 [TFT Auth] Trying Managed Identity (client_id={ado_mi_client_id[:8]}...)...")
-                credential = ManagedIdentityCredential(client_id=ado_mi_client_id)
-                token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-                print("✅ [TFT Auth] Managed Identity successful")
-                EnhancedMatchingConfig._tft_credential = credential
-                EnhancedMatchingConfig._tft_token = token.token
-                return credential, token.token
-            except Exception as e:
-                print(f"⚠️  [TFT Auth] Managed Identity failed: {e}")
-        
-        # Try Azure CLI (no prompts)
+        # 2. Delegate to AzureDevOpsConfig which does proper org-level verification
         try:
-            from azure.identity import AzureCliCredential
-            print("🔐 [TFT Auth] Trying Azure CLI credential...")
-            credential = AzureCliCredential()
+            from ado_integration import AzureDevOpsConfig
+            credential = AzureDevOpsConfig.get_tft_credential()
             token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-            print("✅ [TFT Auth] Azure CLI works for TFT org")
             EnhancedMatchingConfig._tft_credential = credential
             EnhancedMatchingConfig._tft_token = token.token
+            print("[TFT Auth] Got verified TFT credential from AzureDevOpsConfig")
             return credential, token.token
-        except Exception:
-            pass
-        
-        # Fallback: Interactive Browser with Microsoft tenant ID
-        print("🔐 [TFT Auth] Using Interactive Browser credential (one-time)...")
-        tenant_id = EnhancedMatchingConfig.MICROSOFT_TENANT_ID
-        credential = InteractiveBrowserCredential(tenant_id=tenant_id)
-        token = credential.get_token(EnhancedMatchingConfig.ADO_SCOPE)
-        print("✅ [TFT Auth] Authentication successful (cached for session)")
-        EnhancedMatchingConfig._tft_credential = credential
-        EnhancedMatchingConfig._tft_token = token.token
-        return credential, token.token
+        except Exception as e:
+            print(f"[TFT Auth] AzureDevOpsConfig.get_tft_credential() failed: {e}")
+            raise
     
     # AI Analysis Configuration Parameters
     MIN_DESCRIPTION_WORDS = 5      # Minimum words required in description
@@ -775,12 +746,31 @@ class AzureDevOpsSearcher:
         self.cutoff_date = datetime.now() - timedelta(days=30 * self.config.LOOKBACK_MONTHS)
         print("[DEBUG ADO 8] AzureDevOpsSearcher.__init__() completed successfully!", flush=True)
     
+    def _refresh_token(self, org: str = 'uat') -> str:
+        """Refresh the token from the credential object if it's likely expired (>50 min old)."""
+        try:
+            if org == 'tft' and self.tft_credential is not None:
+                token_obj = self.tft_credential.get_token(self.config.ADO_SCOPE)
+                self.tft_token = token_obj.token
+                EnhancedMatchingConfig._tft_token = token_obj.token
+                print("[TFT Auth] Token refreshed successfully", flush=True)
+                return token_obj.token
+            elif org == 'uat' and self.uat_credential is not None:
+                token_obj = self.uat_credential.get_token(self.config.ADO_SCOPE)
+                self.uat_token = token_obj.token
+                EnhancedMatchingConfig._uat_token = token_obj.token
+                print("[UAT Auth] Token refreshed successfully", flush=True)
+                return token_obj.token
+        except Exception as e:
+            print(f"[{org.upper()} Auth] Token refresh failed: {e}", flush=True)
+        return self.tft_token if org == 'tft' else self.uat_token
+
     def _get_headers(self, org: str = 'uat') -> Dict[str, str]:
         """
         Generate authentication headers for Azure DevOps API calls.
         
-        Uses appropriate credential based on organization (UAT or TFT) to prevent
-        dual authentication prompts.
+        Refreshes the token from the credential object each time to avoid
+        using expired tokens (Azure AD tokens expire after ~1 hour).
         
         Args:
             org (str): Organization type - 'uat' for UAT searches, 'tft' for Feature searches
@@ -802,10 +792,10 @@ class AzureDevOpsSearcher:
                     except Exception as e:
                         print(f"[ERROR] TFT credential initialization failed: {e}")
                         raise
-            token = self.tft_token
+            token = self._refresh_token('tft')
         else:
-            # Use UAT credentials (default)
-            token = self.uat_token
+            # Refresh UAT token from credential object
+            token = self._refresh_token('uat')
         
         return {
             'Content-Type': 'application/json',
@@ -813,105 +803,286 @@ class AzureDevOpsSearcher:
             'Accept': 'application/json'
         }
     
-    def search_uat_items(self, title: str, description: str) -> List[Dict]:
+    # ── FR-2020: Replaced WIQL with ADO Search API (Mar 2026) ──
+    # WHY: WIQL CONTAINS is a filter operator, not a search engine. It does
+    # literal substring matching and returns results ordered by date, not
+    # relevance. Searching for "Copilot" via WIQL matched 4,363 items; only
+    # the newest 200 were fetched, burying truly relevant matches. The ADO
+    # Work Item Search API (almsearch.dev.azure.com) provides full-text
+    # relevance-ranked results — identical to the ADO web UI search — so the
+    # best matches come back first regardless of creation date.
+    def search_uat_items(self, title: str, description: str,
+                         ai_services: List[str] | None = None,
+                         ai_keywords: List[str] | None = None,
+                         ai_concepts: List[str] | None = None) -> List[Dict]:
         """
-        Fast search UAT Azure DevOps organization for similar work items.
-        
-        Optimized for submission wizard performance - completes in 2-3 minutes max.
-        Uses intelligent search strategies: first finds all items with key terms,
-        then ranks by semantic similarity to title and description.
-        
+        AI-powered search for similar UAT work items using ADO Work Item
+        Search API (full-text relevance ranking) instead of WIQL.
+
+        Strategy:
+          Phase 1 — Search API with AI-detected service names (best signal)
+          Phase 2 — Search API with the full issue title (if Phase 1 < 10)
+          Phase 3 — WIQL broad fallback (no keywords, newest 200)
+
+        Results from all phases are de-duped, then scored with multi-signal
+        similarity (service overlap, title similarity, description, etc.).
+
         Args:
-            title (str): Issue title to search for similarities
-            description (str): Issue description for content matching
-            
+            title:        Issue title to search for similarities
+            description:  Issue description for content matching
+            ai_services:  AI-detected service/product names (e.g. "Defender for Cloud")
+            ai_keywords:  AI-generated semantic search terms
+            ai_concepts:  AI-detected high-level concepts
+
         Returns:
-            List[Dict]: List of similar work items with metadata
+            List[Dict]: Similar work items with metadata and similarity scores
         """
-        print("\n" + "#"*80)
-        print("[ADO SEARCHER] 🎯 SEARCH_UAT_ITEMS() EXECUTED 🎯")
-        print(f"[ADO SEARCHER] Title: {title[:100]}...")
-        print(f"[ADO SEARCHER] Description length: {len(description) if description else 0} chars")
-        print("#"*80)
-        
+        _D = "[UAT-DEBUG]"  # prefix for easy grep
+        ai_services = ai_services or []
+        ai_keywords = ai_keywords or []
+        ai_concepts = ai_concepts or []
+        print(f"\n{'='*80}")
+        print(f"{_D} ===== search_uat_items() START =====")
+        print(f"{_D} Org:     {self.config.UAT_ORGANIZATION}")
+        print(f"{_D} Project: {self.config.UAT_PROJECT}")
+        print(f"{_D} BaseURL: {self.config.UAT_BASE_URL}")
+        print(f"{_D} Title:   {repr(title)}")
+        print(f"{_D} Desc:    {repr(description[:200]) if description else '(empty)'}")
+        print(f"{_D} AI services:  {ai_services}")
+        print(f"{_D} AI keywords:  {ai_keywords[:10]}")
+        print(f"{_D} AI concepts:  {ai_concepts[:10]}")
+        print(f"{'='*80}")
+
         try:
-            print("[SEARCH] Starting simple UAT search (date + title keywords)...")
             start_time = time.time()
-            
-            # SIMPLE QUERY - just like the user's screenshot:
-            # Created Date > 6/1/2025, Work Item Type = Actions, Title Contains key terms
+
             from datetime import datetime, timedelta
-            cutoff_date = datetime.now() - timedelta(days=240)  # ~8 months
+            cutoff_date = datetime.now() - timedelta(days=180)
             cutoff_date_str = cutoff_date.strftime('%Y-%m-%d')
-            
-            # Extract key terms from title (words 4+ chars, skip common words)
-            title_lower = title.lower()
-            stop_words = {'the', 'and', 'for', 'with', 'from', 'that', 'this', 'where', 'when', 'what', 'how', 'azure', 'microsoft'}
-            title_words = [word for word in title_lower.split() if len(word) > 3 and word not in stop_words]
-            
-            # Use top 3 key terms
-            key_terms = title_words[:3]
-            
-            if key_terms:
-                # Build simple CONTAINS query - ALL terms must match
-                contains_clause = " AND ".join([f"[System.Title] CONTAINS '{term}'" for term in key_terms])
-                
-                wiql_query = f"""
-                SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.State]
-                FROM workitems 
-                WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-                AND [System.WorkItemType] = 'Actions'
-                AND [System.State] <> 'Removed'
-                AND [System.CreatedDate] > '{cutoff_date_str}'
-                AND ({contains_clause})
-                ORDER BY [System.CreatedDate] DESC
-                """
+            print(f"{_D} Step 1: Cutoff date = {cutoff_date_str} (180 days back)")
+
+            import re as _re
+
+            # AI service names for both searching and scoring
+            service_phrases = [s.strip() for s in ai_services if s.strip()]
+
+            # Build search-text for Phase 1: join all AI service names
+            # e.g. "Copilot SharePoint Teams Microsoft 365 Copilot Studio"
+            svc_search_text = " ".join(service_phrases) if service_phrases else ""
+
+            print(f"{_D} Step 2: Service search text: {repr(svc_search_text)}")
+            print(f"{_D} Step 2: Title search text:   {repr(title)}")
+
+            # ── Helper: ADO Work Item Search API ──
+            # Uses almsearch.dev.azure.com for full-text relevance-ranked search
+            def _run_search(search_text: str, label: str, top: int = 200) -> list:
+                """Call ADO Work Item Search API. Returns list of {id: int} stubs."""
+                search_url = (
+                    f"https://almsearch.dev.azure.com/"
+                    f"{quote(self.config.UAT_ORGANIZATION)}/"
+                    f"{quote(self.config.UAT_PROJECT)}/"
+                    f"_apis/search/workitemsearchresults?api-version=7.0"
+                )
+                body = {
+                    "searchText": search_text,
+                    "$top": top,
+                    "$skip": 0,
+                    "filters": {
+                        "System.TeamProject": [self.config.UAT_PROJECT],
+                        "System.WorkItemType": [self.config.WORK_ITEM_TYPE],
+                    },
+                }
+                print(f"{_D} {label}: POST {search_url}")
+                print(f"{_D} {label}: searchText={repr(search_text)}, $top={top}")
+                resp = requests.post(
+                    search_url,
+                    headers=self._get_headers('uat'),
+                    json=body,
+                    timeout=30,
+                )
+                print(f"{_D} {label}: Response status={resp.status_code}")
+                if resp.status_code != 200:
+                    try:
+                        err_body = resp.json()
+                    except Exception:
+                        err_body = resp.text[:500]
+                    print(f"{_D} {label}: ERROR body: {err_body}")
+                    return []
+                data = resp.json()
+                total_count = data.get("count", 0)
+                results_list = data.get("results", [])
+                print(f"{_D} {label}: API reports count={total_count}, returned {len(results_list)} results")
+                # Convert Search API result format to our stub format {id: int}
+                items = []
+                for r in results_list:
+                    fields = r.get("fields", {})
+                    wid_str = fields.get("system.id", "")
+                    if wid_str:
+                        try:
+                            items.append({"id": int(wid_str)})
+                        except (ValueError, TypeError):
+                            pass
+                if items:
+                    print(f"{_D} {label}: First 5 IDs: {[wi['id'] for wi in items[:5]]}")
+                return items
+
+            # ── Helper: WIQL broad fallback (no keyword filter) ──
+            def _run_wiql_broad(label: str) -> list:
+                wiql_url = (
+                    f"{self.config.UAT_BASE_URL}/"
+                    f"{quote(self.config.UAT_PROJECT)}/"
+                    f"_apis/wit/wiql?api-version={self.config.API_VERSION}"
+                )
+                query = (
+                    f"SELECT [System.Id] FROM workitems"
+                    f" WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'"
+                    f" AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'"
+                    f" AND [System.State] <> 'Removed'"
+                    f" AND [System.CreatedDate] > '{cutoff_date_str}'"
+                    f" ORDER BY [System.CreatedDate] DESC"
+                )
+                print(f"{_D} {label}: POST {wiql_url}")
+                resp = requests.post(
+                    wiql_url,
+                    headers=self._get_headers('uat'),
+                    json={"query": query},
+                    timeout=30,
+                )
+                print(f"{_D} {label}: Response status={resp.status_code}")
+                if resp.status_code != 200:
+                    print(f"{_D} {label}: ERROR — {resp.text[:300]}")
+                    return []
+                items = resp.json().get("workItems", [])
+                print(f"{_D} {label}: returned {len(items)} work item IDs")
+                return items
+
+            # ── Candidate pool — de-duped across all phases ──
+            MAX_CANDIDATES = 200
+            BROADENING_THRESHOLD = 10
+            work_items: list = []
+            seen_ids: set = set()
+
+            def _merge(new_items: list, label: str) -> int:
+                nonlocal work_items, seen_ids
+                added = 0
+                for wi in new_items:
+                    wid = wi["id"]
+                    if wid not in seen_ids and len(work_items) < MAX_CANDIDATES:
+                        work_items.append(wi)
+                        seen_ids.add(wid)
+                        added += 1
+                print(f"{_D} {label}: merged {added} new (total now {len(work_items)})")
+                return added
+
+            # ── Phase 1: Search API with AI service names ──
+            if svc_search_text:
+                print(f"{_D} Step 3: Phase 1 — ADO Search API with AI service names")
+                svc_items = _run_search(svc_search_text, "Phase1-SearchSvc", top=MAX_CANDIDATES)
+                _merge(svc_items, "Phase1-SearchSvc")
+
+            # ── Phase 2: Search API with full issue title ──
+            if len(work_items) < MAX_CANDIDATES and title.strip():
+                print(f"{_D} Step 4: Phase 2 — ADO Search API with full title")
+                title_items = _run_search(title.strip(), "Phase2-SearchTitle", top=MAX_CANDIDATES)
+                _merge(title_items, "Phase2-SearchTitle")
+
+            # ── Phase 3: WIQL broad fallback ──
+            if len(work_items) < BROADENING_THRESHOLD:
+                print(f"{_D} Step 5: Phase 3 — WIQL broad fallback (only {len(work_items)} so far)")
+                broad_items = _run_wiql_broad("Phase3-WIQLBroad")
+                _merge(broad_items, "Phase3-WIQLBroad")
             else:
-                # Fallback - just date + work item type
-                wiql_query = f"""
-                SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.State]
-                FROM workitems 
-                WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-                AND [System.WorkItemType] = 'Actions'
-                AND [System.State] <> 'Removed'
-                AND [System.CreatedDate] > '{cutoff_date_str}'
-                ORDER BY [System.CreatedDate] DESC
-                """
-            
-            print(f"[SEARCH] Simple Query: CreatedDate > {cutoff_date_str}, Type=Actions, Title Contains: {key_terms}")
-            
-            wiql_url = f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query})
-            
-            if response.status_code != 200:
-                print(f"[ERROR] UAT search failed: {response.status_code}")
-                return []
-            
-            work_items = response.json().get('workItems', [])
+                print(f"{_D} Step 5: Skipping Phase 3 WIQL (already have {len(work_items)} candidates)")
+
             elapsed = time.time() - start_time
-            print(f"✅ Simple UAT search completed in {elapsed:.1f}s - Found {len(work_items)} matches")
-            
+            print(f"{_D} Step 6: Total {len(work_items)} candidate IDs in {elapsed:.1f}s")
+
             if not work_items:
+                print(f"{_D} Step 7: No work items found — returning empty list")
+                print(f"{_D} ===== search_uat_items() END (0 results) =====")
                 return []
-            
-            # Get details for matches (limit to reasonable number)
-            print(f"[SEARCH] Fetching details for {min(len(work_items), 100)} work items...")
-            return self._get_work_item_details_batch(work_items[:100], title)
-            
+
+            # ── Fetch details + multi-signal scoring ──
+            fetch_count = min(len(work_items), MAX_CANDIDATES)
+            print(f"{_D} Step 7: Fetching details for {fetch_count} work items...")
+            results = self._get_work_item_details_batch(
+                work_items[:MAX_CANDIDATES], title, description,
+                service_phrases=service_phrases,
+            )
+            print(f"{_D} Step 8: _get_work_item_details_batch returned {len(results)} items")
+            if results:
+                for i, r in enumerate(results[:5]):
+                    print(f"{_D}   [{i}] id={r.get('id')} sim={r.get('similarity')} title={repr(r.get('title','')[:80])}")
+                if len(results) > 5:
+                    print(f"{_D}   ... and {len(results)-5} more")
+            total_elapsed = time.time() - start_time
+            print(f"{_D} ===== search_uat_items() END — {len(results)} results in {total_elapsed:.1f}s =====")
+            return results
+
+        except RuntimeError:
+            raise
         except Exception as e:
-            print(f"❌ CRITICAL ERROR in UAT search: {str(e)}")
+            print(f"{_D} CRITICAL ERROR: {e}")
             import traceback
-            print(f"❌ Full traceback: {traceback.format_exc()}")
+            print(f"{_D} Traceback:\n{traceback.format_exc()}")
+            print(f"{_D} ===== search_uat_items() END (exception) =====")
             return []
     
-    def _get_work_item_details_batch(self, work_items: List[Dict], query_title: str = "") -> List[Dict]:
-        """Get work item details in batch with similarity scoring based on title match"""
+    @staticmethod
+    def _tokenize(text: str) -> set:
+        """Extract lowercase alpha-numeric tokens (3+ chars) from text, excluding stop words."""
+        stop = {'the', 'and', 'for', 'with', 'from', 'that', 'this', 'where', 'when',
+                'what', 'how', 'are', 'was', 'were', 'been', 'being', 'have', 'has',
+                'had', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
+                'not', 'but', 'its', 'also', 'can', 'than', 'into', 'our', 'your'}
+        return {w for w in re.sub(r'[^a-z0-9\s]', '', text.lower()).split()
+                if len(w) >= 3 and w not in stop}
+
+    @staticmethod
+    def _jaccard(a: set, b: set) -> float:
+        """Jaccard similarity between two token sets."""
+        if not a and not b:
+            return 0.0
+        intersection = a & b
+        union = a | b
+        return len(intersection) / len(union) if union else 0.0
+
+    def _get_work_item_details_batch(self, work_items: List[Dict],
+                                     query_title: str = "",
+                                     query_description: str = "",
+                                     service_phrases: List[str] | None = None) -> List[Dict]:
+        """Get work item details in batch with multi-signal similarity scoring.
+
+        Scoring combines:
+          - Service-name overlap   (weight 0.30) — AI-detected service in candidate
+          - Title SequenceMatcher  (weight 0.25)
+          - Title token overlap    (weight 0.20)
+          - Description similarity (weight 0.15)
+          - Exact/substring boost  (weight 0.10)
+
+        When no AI services are available, falls back to the original 4-signal
+        weighting (title-seq 35%, token 30%, desc 20%, exact 15%).
+        """
+        _D = "[UAT-DEBUG]"
+        svc_list = service_phrases or []
+        svc_lower = [s.lower() for s in svc_list]
+        has_services = bool(svc_lower)
+        print(f"{_D} _get_work_item_details_batch: {len(work_items)} items, query_title={repr(query_title[:80])}, services={svc_list}")
         try:
             if not work_items:
+                print(f"{_D} _get_work_item_details_batch: empty input, returning []")
                 return []
             
             results = []
             work_item_ids = [item['id'] for item in work_items if 'id' in item]
+            print(f"{_D} Extracted {len(work_item_ids)} IDs from work_items")
+
+            # Pre-tokenize query strings once
+            q_title_lower = query_title.lower()
+            q_desc_lower = query_description.lower() if query_description else ""
+            q_title_tokens = self._tokenize(query_title)
+            q_desc_clean = re.sub(r'<[^>]+>', '', q_desc_lower)
+            q_desc_clean = re.sub(r'\s+', ' ', q_desc_clean).strip()
             
             # Batch fetch for performance
             batch_size = 50
@@ -926,49 +1097,115 @@ class AzureDevOpsSearcher:
                     'api-version': '7.0'
                 }
                 
-                detail_response = requests.get(detail_url, headers=self._get_headers('uat'), params=detail_params)
+                print(f"{_D} Batch {i//batch_size + 1}: GET {detail_url} (ids={len(batch_ids)})")
+                detail_response = requests.get(detail_url, headers=self._get_headers('uat'), params=detail_params, timeout=30)
                 
+                print(f"{_D} Batch {i//batch_size + 1}: status={detail_response.status_code}")
                 if detail_response.status_code != 200:
+                    try:
+                        err = detail_response.json()
+                    except Exception:
+                        err = detail_response.text[:300]
+                    print(f"{_D} Batch {i//batch_size + 1}: ERROR body: {err}")
                     continue
                 
                 batch_work_items = detail_response.json().get('value', [])
+                print(f"{_D} Batch {i//batch_size + 1}: got {len(batch_work_items)} work items")
                 
                 for work_item in batch_work_items:
                     fields = work_item.get('fields', {})
                     work_item_id = work_item.get('id')
                     
-                    # Extract title and description from work item fields
                     uat_title = fields.get('System.Title', '')
                     uat_description = fields.get('System.Description', '')
                     
-                    # Strip HTML tags from description for clean display
-                    # Azure DevOps stores descriptions as HTML, which needs cleaning for search results
-                    clean_description = re.sub(r'<[^>]+>', '', uat_description)  # Remove HTML tags like <div>, <p>, etc.
-                    clean_description = re.sub(r'\s+', ' ', clean_description).strip()  # Normalize whitespace
+                    clean_description = re.sub(r'<[^>]+>', '', uat_description)
+                    clean_description = re.sub(r'\s+', ' ', clean_description).strip()
+
+                    uat_title_lower = uat_title.lower()
+                    uat_combined_lower = (uat_title_lower + " " + clean_description.lower())
+
+                    # --- Multi-signal scoring (AI-enhanced) ---
+
+                    # 1. Service-name overlap (0.0–1.0)
+                    #    How many AI-detected services appear in this candidate?
+                    svc_score = 0.0
+                    matched_services = []
+                    if has_services:
+                        for sv in svc_lower:
+                            if sv in uat_combined_lower:
+                                matched_services.append(sv)
+                        svc_score = len(matched_services) / len(svc_lower)
+
+                    # 2. Title SequenceMatcher (character-level)
+                    title_seq = SequenceMatcher(None, q_title_lower, uat_title_lower).ratio()
+
+                    # 3. Title token overlap (Jaccard — word-level)
+                    uat_title_tokens = self._tokenize(uat_title)
+                    title_jaccard = self._jaccard(q_title_tokens, uat_title_tokens)
+
+                    # 4. Description similarity (SequenceMatcher on first 500 chars)
+                    desc_sim = 0.0
+                    if q_desc_clean and clean_description:
+                        desc_sim = SequenceMatcher(None, q_desc_clean[:500],
+                                                   clean_description[:500].lower()).ratio()
+
+                    # 5. Exact / substring boost
+                    exact_boost = 0.0
+                    if q_title_lower == uat_title_lower:
+                        exact_boost = 1.0      # identical titles → 100 %
+                    elif q_title_lower in uat_title_lower or uat_title_lower in q_title_lower:
+                        exact_boost = 0.6      # one title is a substring of the other
+
+                    # Weighted combination — weights shift when AI services are available
+                    if has_services:
+                        # AI-enhanced: service overlap is the strongest signal
+                        similarity = (0.30 * svc_score
+                                      + 0.25 * title_seq
+                                      + 0.20 * title_jaccard
+                                      + 0.15 * desc_sim
+                                      + 0.10 * exact_boost)
+                    else:
+                        # Fallback: original 4-signal weighting
+                        similarity = (0.35 * title_seq
+                                      + 0.30 * title_jaccard
+                                      + 0.20 * desc_sim
+                                      + 0.15 * exact_boost)
+                    similarity = round(min(similarity, 1.0), 2)
+
+                    # Build human-readable reasoning
+                    reasoning_parts = []
+                    if has_services:
+                        reasoning_parts.append(f"svc {int(svc_score*100)}%")
+                        if matched_services:
+                            reasoning_parts.append(f"matched:[{','.join(matched_services[:3])}]")
+                    reasoning_parts.append(f"title-seq {int(title_seq*100)}%")
+                    reasoning_parts.append(f"token {int(title_jaccard*100)}%")
+                    if desc_sim > 0:
+                        reasoning_parts.append(f"desc {int(desc_sim*100)}%")
+                    if exact_boost > 0:
+                        reasoning_parts.append("exact-boost" if exact_boost == 1.0 else "substr-boost")
                     
-                    # Calculate actual title similarity using SequenceMatcher (Python's difflib)
-                    # This provides accurate similarity scores from 0.0 (no match) to 1.0 (exact match)
-                    # SequenceMatcher uses the Ratcliff-Obershelp algorithm for sequence comparison
-                    title_similarity = SequenceMatcher(None, query_title.lower(), uat_title.lower()).ratio()
-                    
-                    # Build result dictionary with all relevant work item information
                     results.append({
                         'id': work_item_id,
                         'title': uat_title,
-                        'description': clean_description[:500],  # Truncate long descriptions
-                        'similarity': round(title_similarity, 2),  # Actual calculated similarity (not hardcoded)
+                        'description': clean_description[:500],
+                        'similarity': similarity,
                         'source': 'UAT',
                         'url': f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_workitems/edit/{work_item_id}",
                         'created_date': fields.get('System.CreatedDate', ''),
                         'work_item_type': 'Actions',
                         'state': fields.get('System.State', ''),
-                        'match_reasoning': f'Title match: {int(title_similarity * 100)}%'  # User-friendly percentage
+                        'match_reasoning': f'Match: {int(similarity*100)}% ({", ".join(reasoning_parts)})'
                     })
             
+            print(f"{_D} _get_work_item_details_batch: {len(results)} total results")
             return results
             
         except Exception as e:
-            print(f"[ERROR] Batch work item fetch failed: {e}")
+            print(f"{_D} _get_work_item_details_batch ERROR: {e}")
+            import traceback
+            print(f"{_D} {traceback.format_exc()}")
             return []
     
     def _search_by_key_terms(self, title: str, description: str) -> List[Dict]:
@@ -1023,7 +1260,7 @@ class AzureDevOpsSearcher:
             SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.WorkItemType], [System.State]
             FROM workitems 
             WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-            AND [System.WorkItemType] = 'Actions'
+            AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'
             AND [System.CreatedDate] >= '{cutoff_date_str}'
             AND ({' AND '.join(contains_clauses)})
             ORDER BY [System.CreatedDate] DESC
@@ -1032,7 +1269,7 @@ class AzureDevOpsSearcher:
             print(f"[SEARCH] Key terms search: Using 240-day filter + AND matching for {len(search_terms[:5])} terms")
             
             wiql_url = f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query})
+            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query}, timeout=30)
             
             if response.status_code == 200:
                 work_items = response.json().get('workItems', [])
@@ -1061,13 +1298,13 @@ class AzureDevOpsSearcher:
                 SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.WorkItemType], [System.State]
                 FROM workitems 
                 WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-                AND [System.WorkItemType] = 'Actions'
+                AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'
                 AND [System.Title] CONTAINS '{title_escaped}'
                 ORDER BY [System.CreatedDate] DESC
                 """
                 
                 wiql_url = f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-                response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query})
+                response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query}, timeout=30)
                 
                 if response.status_code == 200:
                     work_items = response.json().get('workItems', [])
@@ -1561,13 +1798,13 @@ class AzureDevOpsSearcher:
             SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.WorkItemType], [System.State]
             FROM workitems 
             WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-            AND [System.WorkItemType] = 'Actions'
+            AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'
             AND ({' OR '.join(contains_clauses)})
             ORDER BY [System.CreatedDate] DESC
             """
             
             wiql_url = f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query})
+            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query}, timeout=30)
             
             if response.status_code != 200:
                 return []
@@ -1618,7 +1855,7 @@ class AzureDevOpsSearcher:
                 SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.WorkItemType], [System.State]
                 FROM workitems 
                 WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-                AND [System.WorkItemType] = 'Actions'
+                AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'
                 AND [System.CreatedDate] >= '{cutoff_date_str}'
                 AND ({contains_clause})
                 ORDER BY [System.CreatedDate] DESC
@@ -1629,7 +1866,7 @@ class AzureDevOpsSearcher:
                 SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.WorkItemType], [System.State]
                 FROM workitems 
                 WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-                AND [System.WorkItemType] = 'Actions'
+                AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'
                 AND [System.CreatedDate] >= '{cutoff_date_str}'
                 ORDER BY [System.CreatedDate] DESC
                 """
@@ -1638,7 +1875,7 @@ class AzureDevOpsSearcher:
             print(f"[SEARCH] WIQL Query Preview: ...WHERE CreatedDate >= '{cutoff_date_str}' AND Title CONTAINS...")
             
             wiql_url = f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query})
+            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query}, timeout=30)
             
             if response.status_code != 200:
                 print(f"Recent search failed: {response.status_code}")
@@ -1679,13 +1916,13 @@ class AzureDevOpsSearcher:
             SELECT [System.Id], [System.Title], [System.Description], [System.CreatedDate], [System.WorkItemType], [System.State]
             FROM workitems 
             WHERE [System.TeamProject] = '{self.config.UAT_PROJECT}'
-            AND [System.WorkItemType] = 'Actions'
+            AND [System.WorkItemType] = '{self.config.WORK_ITEM_TYPE}'
             AND ({' OR '.join(contains_clauses)})
             ORDER BY [System.CreatedDate] DESC
             """
             
             wiql_url = f"{self.config.UAT_BASE_URL}/{quote(self.config.UAT_PROJECT)}/_apis/wit/wiql?api-version={self.config.API_VERSION}"
-            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query})
+            response = requests.post(wiql_url, headers=self._get_headers('uat'), json={"query": wiql_query}, timeout=30)
             
             if response.status_code != 200:
                 return []
@@ -1731,7 +1968,7 @@ class AzureDevOpsSearcher:
                     'api-version': '7.0'
                 }
                 
-                detail_response = requests.get(detail_url, headers=self._get_headers('uat'), params=detail_params)
+                detail_response = requests.get(detail_url, headers=self._get_headers('uat'), params=detail_params, timeout=30)
                 
                 if detail_response.status_code != 200:
                     continue
@@ -1920,7 +2157,8 @@ class AzureDevOpsSearcher:
             wiql_response = requests.post(
                 wiql_url,
                 headers=self._get_headers('tft'),
-                json={"query": wiql_query}
+                json={"query": wiql_query},
+                timeout=30
             )
             
             if wiql_response.status_code != 200:
@@ -1942,7 +2180,7 @@ class AzureDevOpsSearcher:
             
             # Get work item details
             batch_url = f"{self.config.TFT_BASE_URL}/_apis/wit/workitems?ids={','.join(work_item_ids)}&api-version={self.config.API_VERSION}"
-            batch_response = requests.get(batch_url, headers=self._get_headers('tft'))
+            batch_response = requests.get(batch_url, headers=self._get_headers('tft'), timeout=30)
             
             if batch_response.status_code != 200:
                 print(f"TFT Batch request failed: {batch_response.status_code}")

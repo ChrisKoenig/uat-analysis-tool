@@ -44,7 +44,7 @@ PREPROD_CONFIG = AppConfig(
     # ── Azure DevOps ──────────────────────────────────────────────────────────
     ado_organization="unifiedactiontrackertest",
     ado_project="Unified Action Tracker Test",
-    ado_tft_organization="acrblockers",
+    ado_tft_organization="unifiedactiontracker",
     ado_tft_project="Technical Feedback",
     microsoft_tenant_id="72f988bf-86f1-41af-91ab-2d7cd011db47",
 

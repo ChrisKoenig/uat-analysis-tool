@@ -231,11 +231,20 @@ These are recommended but not required. If you leave both blank and click
 
 ## Step 7 — Searching for Similar UATs (Loading)
 
-The system searches Azure DevOps for similar UATs created in the last 180 days.
-A spinner is displayed.
+The system uses **AI-powered search** to find similar UATs in Azure DevOps from
+the last 180 days. It leverages the AI analysis from Step 3 — detected Azure
+services, technologies, and semantic keywords — to search using the ADO Work
+Item Search API (full-text relevance ranking) instead of simple keyword
+filtering.
+
+A spinner is displayed while the 3-phase search runs:
+1. Search by AI-detected service names (e.g. "Copilot Studio SharePoint")
+2. Search by full issue title
+3. Broad fallback if few results found
 
 - If similar UATs are found → you proceed to Step 8 to review them.
-- If no similar UATs exist → you skip directly to Step 9 (Create UAT).
+- If no similar UATs exist → you still see Step 8 with a "No similar UATs
+  found" message and can continue to create a new UAT.
 - If the search fails → you can click **"Skip & Create UAT →"** to proceed
   anyway, or **"← Start Over"**.
 
@@ -243,8 +252,8 @@ A spinner is displayed.
 
 ## Step 8 — Select Related UATs
 
-If similar UATs were found, they are listed ranked by similarity (highest
-first):
+UATs are displayed in a **collapsible section** ranked by similarity (highest
+first). Click the header to expand/collapse the list.
 
 - Each UAT shows an ID (clickable link to ADO), title, match percentage,
   similarity bar, description preview, state badge, creation date, and assignee.

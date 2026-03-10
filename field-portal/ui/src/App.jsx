@@ -31,6 +31,7 @@ const AnalysisPage = lazy(() => import('./pages/AnalysisPage'));
 const AnalysisDetailPage = lazy(() => import('./pages/AnalysisDetailPage'));
 const SearchingPage = lazy(() => import('./pages/SearchingPage'));
 const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'));
+const DonePage = lazy(() => import('./pages/DonePage'));
 const UATInputPage = lazy(() => import('./pages/UATInputPage'));
 const SearchingUATsPage = lazy(() => import('./pages/SearchingUATsPage'));
 const RelatedUATsPage = lazy(() => import('./pages/RelatedUATsPage'));
@@ -101,6 +102,9 @@ function AppShell() {
               {/* Step 5: Search Results + Feature Selection */}
               <Route path="/search-results" element={<SearchResultsPage />} />
 
+              {/* Deflect exit — category handled outside UAT flow */}
+              <Route path="/done" element={<DonePage />} />
+
               {/* Step 6: UAT Input (Opportunity / Milestone) */}
               <Route path="/uat-input" element={<UATInputPage />} />
 
@@ -126,6 +130,8 @@ function AppShell() {
         }}>
           Intelligent Context Analysis System — Field Portal v1.0
         </footer>
+
+
       </div>
     </WizardProvider>
   );

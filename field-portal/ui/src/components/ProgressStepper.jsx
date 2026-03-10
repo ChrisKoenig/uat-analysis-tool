@@ -7,7 +7,7 @@
 import React from 'react';
 import { useWizard } from '../auth/WizardContext';
 
-const STEPS = [
+const STEPS_FULL = [
   { num: 1, label: 'Submit' },
   { num: 2, label: 'Quality' },
   { num: 3, label: 'Analysis' },
@@ -19,8 +19,17 @@ const STEPS = [
   { num: 9, label: 'Created' },
 ];
 
+const STEPS_DEFLECT = [
+  { num: 1, label: 'Submit' },
+  { num: 2, label: 'Quality' },
+  { num: 3, label: 'Analysis' },
+  { num: 4, label: 'Review' },
+  { num: 5, label: 'Guidance' },
+];
+
 export default function ProgressStepper({ currentStep }) {
-  const { maxStep, navigateToStep } = useWizard();
+  const { maxStep, navigateToStep, flowPath } = useWizard();
+  const STEPS = flowPath === 'deflect' ? STEPS_DEFLECT : STEPS_FULL;
 
   return (
     <div className="stepper">

@@ -59,7 +59,10 @@ async def lifespan(app: FastAPI):
         """Timestamped debug log — prints + logs so Azure log stream captures it."""
         ts = f"{_t.time():.3f}"
         line = f"[STARTUP {ts}] {msg}"
-        print(line, flush=True)
+        try:
+            print(line, flush=True)
+        except UnicodeEncodeError:
+            print(line.encode("utf-8", errors="replace").decode("ascii", errors="replace"), flush=True)
         logger.info(msg)
 
     _log(f"Field Portal API starting on port {FIELD_PORTAL_PORT}")
@@ -107,23 +110,9 @@ async def lifespan(app: FastAPI):
         import traceback
         traceback.print_exc()
 
-    # 3. Gateway health check (also wrapped in try/except so it never blocks startup)
-    try:
-        _log("Step 3: Checking gateway connectivity...")
-        _t0 = _t.time()
-        gw = get_gateway()
-        _log(f"  Gateway URL: {gw.base_url}")
-        reachable = await gw.check_health()
-        _log(f"Step 3 done in {_t.time()-_t0:.1f}s — reachable={reachable}")
-        if reachable:
-            _log("  ✅ API Gateway is reachable")
-        else:
-            _log("  ⚠️  API Gateway not reachable — some features will fail")
-    except Exception as e:
-        _log(f"  ⚠️ Gateway check FAILED: {type(e).__name__}: {e}")
-
-    _log("=== Startup sequence complete — yielding to app ===")
+    _log("=== Core startup complete — yielding to app (accepting requests) ===")
     yield
+
     # Shutdown
     try:
         gw = get_gateway()

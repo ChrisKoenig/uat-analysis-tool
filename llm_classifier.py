@@ -158,10 +158,10 @@ class LLMClassifier:
                 import sys as _sys
                 import os as _os
                 _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), "triage"))
-                from triage.config.cosmos_config import CosmosDBConfig
-                cosmos = CosmosDBConfig()
+                from triage.config.cosmos_config import get_cosmos_config
+                cosmos = get_cosmos_config()
                 self._cosmos_container = cosmos.get_container("classification-config")
-                print("[LLMClassifier] ✅ Connected to classification-config container")
+                print("[LLMClassifier] ✅ Connected to classification-config container (shared singleton)")
             except Exception as e:
                 print(f"[LLMClassifier] ⚠️ Could not connect to classification-config: {e}")
                 self._cosmos_container = None

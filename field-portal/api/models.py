@@ -221,6 +221,7 @@ class SearchResponse(BaseModel):
     tft_features: List[TFTFeature] = Field(default_factory=list)
     category_guidance: Optional[CategoryGuidance] = None
     search_metadata: Dict[str, Any] = Field(default_factory=dict)
+    flow_path: str = "create_uat"  # "deflect" | "feature_search" | "create_uat"
 
 
 # ============================================================================
@@ -347,6 +348,9 @@ class SessionState(BaseModel):
     # Step 7-8
     related_uats: List[Dict[str, Any]] = Field(default_factory=list)
     selected_uats: List[int] = Field(default_factory=list)
+
+    # Deflection override
+    guided_override: bool = False
 
     # Step 9
     work_item_id: Optional[int] = None

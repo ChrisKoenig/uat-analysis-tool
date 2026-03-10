@@ -172,16 +172,14 @@ export default function AnalysisDetailPage() {
 
   useEffect(() => {
     if (!sessionId) return;
-    let cancelled = false;
     (async () => {
       try {
         const d = await getAnalysisDetail(sessionId);
-        if (!cancelled) { setDetail(d); setLoading(false); }
+        setDetail(d); setLoading(false);
       } catch (err) {
-        if (!cancelled) { setError(err.message); setLoading(false); }
+        setError(err.message); setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
   }, [sessionId]);
 
   if (!sessionId) {
@@ -223,8 +221,8 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
     technical_complexity, urgency_level, context_summary,
     data_sources, confidence_breakdown, final_analysis } = detail;
 
-  const isLLM = (analysis_method?.source || '').toLowerCase().includes('llm')
-    || (analysis_method?.source || '').toLowerCase().includes('ai');
+  const srcLower = (analysis_method?.source || '').toLowerCase();
+  const isLLM = srcLower.includes('llm') || srcLower.includes('ai') || srcLower.includes('hybrid');
   const aiOffline = analysis_method?.ai_available === false || !isLLM;
   const aiError = analysis_method?.ai_error || analysis?.ai_error || null;
   const sourceLabel = isLLM
@@ -636,7 +634,7 @@ function AnalysisDetailContent({ detail, sessionId, setDetail }) {
                 <strong>Domain Entities Detected:</strong>
                 <div style={{ marginTop: 8 }}>
                   {domain_entities.azure_services?.length > 0 && (
-                    <CollapsibleSection title="Azure Services" count={domain_entities.azure_services.length} defaultOpen={true}>
+                    <CollapsibleSection title="Services" count={domain_entities.azure_services.length} defaultOpen={true}>
                       <div>{domain_entities.azure_services.map((s, i) => <Badge key={i} bg="#deecf9" color="#0078d4">{s}</Badge>)}</div>
                     </CollapsibleSection>
                   )}

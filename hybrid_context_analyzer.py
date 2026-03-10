@@ -279,8 +279,8 @@ class HybridContextAnalyzer:
                 self.llm_classifier = LLMClassifier()
                 print("[DEBUG HYBRID 11] LLMClassifier created. Creating EmbeddingService...", flush=True)
                 self.embedding_service = EmbeddingService()
-                print("[DEBUG HYBRID 12] EmbeddingService created. Creating VectorSearchService...", flush=True)
-                self.vector_search = VectorSearchService()
+                print("[DEBUG HYBRID 12] EmbeddingService created. Creating VectorSearchService (shared embedding)...", flush=True)
+                self.vector_search = VectorSearchService(embedding_service=self.embedding_service)
                 print("[DEBUG HYBRID 13] VectorSearchService created!", flush=True)
                 
                 print("[HybridAnalyzer] AI services initialized successfully")
