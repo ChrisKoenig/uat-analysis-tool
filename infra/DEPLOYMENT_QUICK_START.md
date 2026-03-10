@@ -20,7 +20,7 @@ Last Updated: February 23, 2026
 ### Step 2: Deploy Bicep Template
 1. In the resource group, click **Deploy** > **Deploy a custom template**
 2. Click **Build your own template in the editor**
-3. Click **Load file** and select: `infrastructure/bicep/resources.bicep`
+3. Click **Load file** and select: `infra/bicep/resources.bicep`
 4. Click **Save**
 5. Fill in parameters:
    - **Location:** northcentralus
@@ -47,7 +47,7 @@ Last Updated: February 23, 2026
 5. Select **+ Create new resource group**
 6. Name it: `rg-gcs-dev`
 7. Select region: **North Central US**
-8. Select the Bicep file: `infrastructure/bicep/main.bicep`
+8. Select the Bicep file: `infra/bicep/main.bicep`
 9. Click **Deploy**
 
 ---
@@ -60,8 +60,7 @@ Last Updated: February 23, 2026
 3. Follow the device code flow
 4. Then run:
    ```powershell
-   cd C:\Projects\Hack
-   .\infrastructure\scripts\deploy-infrastructure.ps1
+   .\infra\scripts\deploy-infrastructure.ps1
    ```
 
 ---

@@ -55,7 +55,7 @@ Additional analysis detail is available via `AnalysisDetailPage`.
 ## Project Structure
 
 ```
-field-portal/
+apps/field-portal/
 ├── api/                         # FastAPI backend (Python)
 │   ├── main.py                  # App entry, lifespan, CORS middleware
 │   ├── config.py                # Central configuration constants
@@ -138,7 +138,7 @@ A legacy local `corrections.json` file is also written as a backup.
 ### Connection
 
 The field portal reuses the triage system's `CosmosDBConfig` singleton
-(`triage/config/cosmos_config.py`) via the helper module `api/cosmos_client.py`.
+(`apps/triage/config/cosmos_config.py`) via the helper module `api/cosmos_client.py`.
 AAD authentication (Entra ID) is used with the same tenant as the rest of the
 system (`16b3c013-d300-468d-ac64-7eda0820b6d3`).
 

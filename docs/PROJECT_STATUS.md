@@ -14,7 +14,7 @@ This platform serves **two distinct personas** that must NEVER be combined into 
 |---|---|---|
 | **Who** | Field CSMs, account managers, support engineers | Central triage/operations team |
 | **Purpose** | Enter issues they need help with, get AI guidance | Review incoming items, apply rules, route to teams |
-| **Current UI** | Flask app `:5003` (`app.py`, 2369 lines) | React SPA `:3000` (`triage-ui/`) |
+| **Current UI** | Flask app `:5003` (`app.py`, 2369 lines) | React SPA `:3000` (`apps/triage/ui/`) |
 | **Future UI** | New React SPA (separate URL/project) | Current React SPA (`:3000`) |
 | **API Backend** | Microservices via API Gateway `:8000` | FastAPI Triage API `:8009` |
 
@@ -101,9 +101,9 @@ uat_input.html → searching_uats.html → select_related_uats.html → uat_crea
 
 ### What Was Built Feb 11 (Triage UI — Separate from Field Flow)
 These are triage team tools, NOT field submission replacements:
-- `triage/api/classify_routes.py` — Standalone classify API (POST /api/v1/classify, /classify/batch)
-- `triage/api/admin_routes.py` — Corrections CRUD (full CRUD: GET, POST, PUT, DELETE) + health dashboard API
-- `triage-ui/src/pages/CorrectionsPage.jsx` — Admin CRUD for corrections.json with blade pattern (list + detail panel), edit mode (NOT field correction flow)
+- `apps/triage/api/classify_routes.py` — Standalone classify API (POST /api/v1/classify, /classify/batch)
+- `apps/triage/api/admin_routes.py` — Corrections CRUD (full CRUD: GET, POST, PUT, DELETE) + health dashboard API
+- `apps/triage/ui/src/pages/CorrectionsPage.jsx` — Admin CRUD for corrections.json with blade pattern (list + detail panel), edit mode (NOT field correction flow)
 - ~~`ClassifyPage.jsx`~~ — Removed Feb 23 (dead feature)
 - ~~`HealthPage.jsx`~~ — Merged into Dashboard Feb 23
 
@@ -124,16 +124,16 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 ## Current Architecture
 
 ### Triage Management System (PRIMARY — active development)
-- **Backend API**: FastAPI on port 8009 (uvicorn, `triage/api/routes.py`)
-- **Frontend**: React + Vite on port 3000 (`triage-ui/`)
+- **Backend API**: FastAPI on port 8009 (uvicorn, `apps/triage/api/routes.py`)
+- **Frontend**: React + Vite on port 3000 (`apps/triage/ui/`)
 - **Database**: Azure Cosmos DB (`cosmos-gcs-dev`, serverless, North Central US)
 - **Analysis Engine**: Hybrid pattern matching + LLM classification
-- **Startup**: `python launcher.py` (GUI launcher) OR manual start
+- **Startup**: `start_dev.ps1` OR `python launcher.py` (GUI launcher) OR manual start
 - **Pages** (14): Dashboard (with health + AI discoveries count), Queue, Evaluate/Analyze, Rules, Triggers, Actions, Routes, Triage Teams, Validation, Audit Log, Eval History, Corrections, Data Management (export/import + bulk edit/delete), Classification Config
 
 ### Field Portal (Built Feb 12, deployed to App Service Mar 2)
-- **Backend API**: FastAPI on port 8010 locally / port 8000 on App Service (uvicorn, `field-portal/api/main.py`)
-- **Frontend**: React 18 + Vite on port 3001 locally / pm2+serve on App Service (`field-portal/ui/`)
+- **Backend API**: FastAPI on port 8010 locally / port 8000 on App Service (uvicorn, `apps/field-portal/api/main.py`)
+- **Frontend**: React 18 + Vite on port 3001 locally / pm2+serve on App Service (`apps/field-portal/ui/`)
 - **Pattern**: Calls analysis engines DIRECTLY (no gateway/microservice dependency). Gateway is fallback only.
   - Quality scoring: `AIAnalyzer.analyze_completeness()` called directly from `enhanced_matching.py`
   - Context analysis: `HybridContextAnalyzer.analyze()` called directly from `hybrid_context_analyzer.py`
@@ -141,7 +141,7 @@ All share the Hybrid Analysis Engine (API Gateway :8000 → Agents :8001-8007), 
 - **Auth (local)**: AzureCliCredential-first with cached singletons across all 4 key files (no repeated auth prompts)
 - **Auth (pre-prod)**: ManagedIdentityCredential (`TechRoB-Automation-DEV`) for Cosmos/KV/OpenAI/ADO
 - **OpenAPI**: Full Swagger docs at http://localhost:8010/docs (Copilot-plugin ready)
-- **Startup**: `python launcher.py` → "Field Portal" card, or manual start
+- **Startup**: `start_dev.ps1` → "Field Portal" card, or manual start
 - **Pre-prod URLs**: `https://app-field-api-nonprod.azurewebsites.net`, `https://app-field-ui-nonprod.azurewebsites.net`
 
 ### Input/Analysis System (legacy — still operational)
@@ -261,7 +261,7 @@ Deployed all 4 services (triage-api, field-api, triage-ui, field-ui) to **Azure 
 | **Managed Identity** | `TechRoB-Automation-DEV` | Client ID: `0fe9d340-a359-4849-8c0f-d3c9640017ee` |
 | **App Insights** | (configured) | Instrumentation Key `766a42c9-...` |
 
-### Deployment Scripts (infrastructure/deploy/)
+### Deployment Scripts (infra/deploy/)
 
 | Script | Purpose |
 |--------|---------|
@@ -281,7 +281,7 @@ gunicorn --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker --time
 ### Build & Deploy Process
 ```powershell
 # Build locally (creates packages/ dir with 4 zips)
-.\infrastructure\deploy\build-packages.ps1 -Target triage-api   # copies triage/, api/, agents/ + 12 shared .py modules
+.\infra\deploy\build-packages.ps1 -Target triage-api   # copies apps/triage/, api/, services/ + shared/ modules
 .\infrastructure\deploy\build-packages.ps1 -Target triage-ui    # npm build + dist
 .\infrastructure\deploy\build-packages.ps1 -Target field-api
 .\infrastructure\deploy\build-packages.ps1 -Target field-ui

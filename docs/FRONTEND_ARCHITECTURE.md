@@ -22,7 +22,7 @@ No state management library — each page manages its own state via `useState`/`
 ## Application Structure
 
 ```
-triage-ui/src/
+apps/triage/ui/src/
 ├── App.jsx                      # Root component, routing, layout shell
 ├── main.jsx                     # React DOM entry point
 ├── index.css                    # Global styles + CSS variables

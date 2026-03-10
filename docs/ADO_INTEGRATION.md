@@ -38,7 +38,7 @@ This matches the existing application pattern: real Actions come from production
 
 ### Configuration
 
-Defined in `triage/services/ado_client.py` → `TriageAdoConfig`:
+Defined in `apps/triage/services/ado_client.py` → `TriageAdoConfig`:
 
 ```python
 # Read: Production org (real data)
@@ -57,13 +57,13 @@ WRITE_PROJECT = "Unified Action Tracker Test"
 The `AdoClient` is a thin adapter that wraps the existing `AzureDevOpsClient`:
 
 ```
-ado_integration.py (existing)
+ado_integration.py (existing, in shared/)
   └── AzureDevOpsClient
         ├── Authentication chain
         ├── Credential caching
         └── Base API methods
 
-triage/services/ado_client.py (new)
+apps/triage/services/ado_client.py (new)
   └── AdoClient (wraps AzureDevOpsClient)
         ├── Dual-org routing (read vs write)
         ├── Triage queue WIQL query

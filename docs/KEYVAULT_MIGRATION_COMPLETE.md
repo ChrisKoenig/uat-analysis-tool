@@ -22,9 +22,9 @@ All secrets stored in Key Vault `kv-gcs-dev-gg4a6y`:
 ### 2. ✅ Code Integration
 
 Key Vault is consumed by:
-- `keyvault_config.py` — Central Key Vault configuration module
-- `triage/config/cosmos_config.py` — Cosmos DB connection (uses Key Vault for endpoint)
-- `field-portal/api/cosmos_client.py` — Field Portal Cosmos DB access
+- `shared/keyvault_config.py` — Central Key Vault configuration module
+- `apps/triage/config/cosmos_config.py` — Cosmos DB connection (uses Key Vault for endpoint)
+- `apps/field-portal/api/cosmos_client.py` — Field Portal Cosmos DB access
 
 ### 3. ✅ Authentication & Authorization
 - **RBAC Role**: Key Vault Secrets Officer assigned to user account
@@ -96,8 +96,8 @@ Key Vault is consumed by:
 
 | File | Purpose |
 |------|---------|
-| `keyvault_config.py` | Central Key Vault integration module |
-| `triage/config/cosmos_config.py` | Cosmos DB connection (reads KV) |
+| `shared/keyvault_config.py` | Central Key Vault integration module |
+| `apps/triage/config/cosmos_config.py` | Cosmos DB connection (reads KV) |
 | `field-portal/api/cosmos_client.py` | Field Portal Cosmos DB access |
 | `configure_keyvault_security.ps1` | Security configuration script |
 | `add_ip_to_keyvault.ps1` | Firewall management helper |

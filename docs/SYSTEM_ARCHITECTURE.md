@@ -142,7 +142,7 @@ the results back to ADO — with human review at the decision point.
 │  │              │    │ wins         │    │              │                    │
 │  └──────────────┘    └──────────────┘    └──────────────┘                    │
 │                                                                              │
-│  Location: triage/engines/                                                   │
+│  Location: apps/triage/engines/                                                   │
 └──────────────────────────────────────────────────────────────────────────────┘
             │                                  │
             ▼                                  ▼
@@ -222,50 +222,50 @@ the results back to ADO — with human review at the decision point.
 
 | Module | File | Used By |
 |--------|------|---------|
-| Hybrid Analyzer | `hybrid_context_analyzer.py` | Triage API, Input App |
-| Pattern Analyzer | `intelligent_context_analyzer.py` | Hybrid Analyzer |
-| LLM Classifier | `llm_classifier.py` | Hybrid Analyzer |
-| Embedding Service | `embedding_service.py` | Hybrid Analyzer, Vector Search |
-| ADO Client (root) | `ado_integration.py` | Input App, Admin Portal |
-| ADO Client (triage) | `triage/services/ado_client.py` | Triage API (wraps root client) |
-| Key Vault Config | `keyvault_config.py` | All services |
-| AI Config | `ai_config.py` | LLM Classifier, Embedding Service |
-| Cosmos Config | `triage/config/cosmos_config.py` | Triage API |
-| Cache Manager | `cache_manager.py` | LLM Classifier |
-| Weight Tuner | `weight_tuner.py` | Pattern Analyzer (via active learning) |
-| ServiceTree Service | `servicetree_service.py` | Triage API (routing enrichment) |
-| Graph User Lookup | `graph_user_lookup.py` | Triage API (resolve email → displayName/jobTitle/department via Microsoft Graph) |
+| Hybrid Analyzer | `shared/hybrid_context_analyzer.py` | Triage API, Input App |
+| Pattern Analyzer | `shared/intelligent_context_analyzer.py` | Hybrid Analyzer |
+| LLM Classifier | `shared/llm_classifier.py` | Hybrid Analyzer |
+| Embedding Service | `shared/embedding_service.py` | Hybrid Analyzer, Vector Search |
+| ADO Client (root) | `shared/ado_integration.py` | Input App, Admin Portal |
+| ADO Client (triage) | `apps/triage/services/ado_client.py` | Triage API (wraps root client) |
+| Key Vault Config | `shared/keyvault_config.py` | All services |
+| AI Config | `shared/ai_config.py` | LLM Classifier, Embedding Service |
+| Cosmos Config | `apps/triage/config/cosmos_config.py` | Triage API |
+| Cache Manager | `shared/cache_manager.py` | LLM Classifier |
+| Weight Tuner | `shared/weight_tuner.py` | Pattern Analyzer (via active learning) |
+| ServiceTree Service | `shared/servicetree_service.py` | Triage API (routing enrichment) |
+| Graph User Lookup | `shared/graph_user_lookup.py` | Triage API (resolve email → displayName/jobTitle/department via Microsoft Graph) |
 
 ### Triage Engines (deterministic logic, no AI)
 
 | Engine | File | Purpose |
 |--------|------|---------|
-| Rules Engine | `triage/engines/rules_engine.py` | Evaluates atomic conditions (15 operators) |
-| Trigger Engine | `triage/engines/trigger_engine.py` | Chains rules with AND/OR/NOT, priority-ordered |
-| Routes Engine | `triage/engines/routes_engine.py` | Executes field changes (set, copy, append, template, set_computed) |
+| Rules Engine | `apps/triage/engines/rules_engine.py` | Evaluates atomic conditions (15 operators) |
+| Trigger Engine | `apps/triage/engines/trigger_engine.py` | Chains rules with AND/OR/NOT, priority-ordered |
+| Routes Engine | `apps/triage/engines/routes_engine.py` | Executes field changes (set, copy, append, template, set_computed) |
 
 ### Triage Services (business logic layer)
 
 | Service | File | Purpose |
 |---------|------|---------|
-| CRUD Service | `triage/services/crud_service.py` | Generic Cosmos CRUD for all entity types |
-| Evaluation Service | `triage/services/evaluation_service.py` | Orchestrates rules → triggers → routes |
-| Audit Service | `triage/services/audit_service.py` | Logs all changes to audit-log container |
-| ADO Writer | `triage/services/ado_writer.py` | Converts route output to ADO JSON Patch |
-| Webhook Receiver | `triage/services/webhook_receiver.py` | Future: receive ADO webhook events |
+| CRUD Service | `apps/triage/services/crud_service.py` | Generic Cosmos CRUD for all entity types |
+| Evaluation Service | `apps/triage/services/evaluation_service.py` | Orchestrates rules → triggers → routes |
+| Audit Service | `apps/triage/services/audit_service.py` | Logs all changes to audit-log container |
+| ADO Writer | `apps/triage/services/ado_writer.py` | Converts route output to ADO JSON Patch |
+| Webhook Receiver | `apps/triage/services/webhook_receiver.py` | Future: receive ADO webhook events |
 
 ### Triage Data Models
 
 | Model | File | Cosmos Container |
 |-------|------|-----------------|
-| Rule | `triage/models/rule.py` | `rules` |
-| Action | `triage/models/action.py` | `actions` |
-| Trigger | `triage/models/trigger.py` | `triggers` |
-| Route | `triage/models/route.py` | `routes` |
-| Evaluation | `triage/models/evaluation.py` | `evaluations` |
-| AnalysisResult | `triage/models/analysis_result.py` | `analysis-results` |
-| AuditEntry | `triage/models/audit_entry.py` | `audit-log` |
-| FieldSchema | `triage/models/field_schema.py` | `field-schema` |
+| Rule | `apps/triage/models/rule.py` | `rules` |
+| Action | `apps/triage/models/action.py` | `actions` |
+| Trigger | `apps/triage/models/trigger.py` | `triggers` |
+| Route | `apps/triage/models/route.py` | `routes` |
+| Evaluation | `apps/triage/models/evaluation.py` | `evaluations` |
+| AnalysisResult | `apps/triage/models/analysis_result.py` | `analysis-results` |
+| AuditEntry | `apps/triage/models/audit_entry.py` | `audit-log` |
+| FieldSchema | `apps/triage/models/field_schema.py` | `field-schema` |
 | Correction | *(schema in admin_routes.py)* | `corrections` |
 | TrainingSignal | *(schema in admin_routes.py)* | `training-signals` |
 | ServiceTreeCatalog | *(schema in servicetree_service.py)* | `servicetree-catalog` |
@@ -281,21 +281,21 @@ the results back to ADO — with human review at the decision point.
 
 | Page | File | Function |
 |------|------|----------|
-| Dashboard | `triage-ui/src/pages/Dashboard.jsx` | Overview stats, health indicator |
-| Queue | `triage-ui/src/pages/QueuePage.jsx` | ADO work items, batch analyze |
-| Evaluate | `triage-ui/src/pages/EvaluatePage.jsx` | Run triggers on items |
-| Rules | `triage-ui/src/pages/RulesPage.jsx` | CRUD for rules |
-| Actions | `triage-ui/src/pages/ActionsPage.jsx` | CRUD for actions |
-| Triggers | `triage-ui/src/pages/TriggersPage.jsx` | CRUD for triggers |
-| Routes | `triage-ui/src/pages/RoutesPage.jsx` | CRUD for routes |
-| Validation | `triage-ui/src/pages/ValidationPage.jsx` | Check for broken refs |
-| Audit Log | `triage-ui/src/pages/AuditPage.jsx` | Change history |
-| Eval History | `triage-ui/src/pages/EvalHistoryPage.jsx` | Past evaluation results |
-| Classify | `triage-ui/src/pages/ClassifyPage.jsx` | ~~Removed~~ — merged into Dashboard quick-classify |
-| Corrections | `triage-ui/src/pages/CorrectionsPage.jsx` | Corrective learning management |
-| Data Management | `triage-ui/src/pages/DataManagementPage.jsx` | Entity export/import with auto-backup |
-| Classification Config | `triage-ui/src/pages/ClassificationConfigPage.jsx` | Dynamic classification categories/intents/impacts — AI discovery review |
-| Health | `triage-ui/src/pages/HealthPage.jsx` | ~~Removed~~ — health indicator integrated into Dashboard |
+| Dashboard | `apps/triage/ui/src/pages/Dashboard.jsx` | Overview stats, health indicator |
+| Queue | `apps/triage/ui/src/pages/QueuePage.jsx` | ADO work items, batch analyze |
+| Evaluate | `apps/triage/ui/src/pages/EvaluatePage.jsx` | Run triggers on items |
+| Rules | `apps/triage/ui/src/pages/RulesPage.jsx` | CRUD for rules |
+| Actions | `apps/triage/ui/src/pages/ActionsPage.jsx` | CRUD for actions |
+| Triggers | `apps/triage/ui/src/pages/TriggersPage.jsx` | CRUD for triggers |
+| Routes | `apps/triage/ui/src/pages/RoutesPage.jsx` | CRUD for routes |
+| Validation | `apps/triage/ui/src/pages/ValidationPage.jsx` | Check for broken refs |
+| Audit Log | `apps/triage/ui/src/pages/AuditPage.jsx` | Change history |
+| Eval History | `apps/triage/ui/src/pages/EvalHistoryPage.jsx` | Past evaluation results |
+| Classify | `apps/triage/ui/src/pages/ClassifyPage.jsx` | ~~Removed~~ — merged into Dashboard quick-classify |
+| Corrections | `apps/triage/ui/src/pages/CorrectionsPage.jsx` | Corrective learning management |
+| Data Management | `apps/triage/ui/src/pages/DataManagementPage.jsx` | Entity export/import with auto-backup |
+| Classification Config | `apps/triage/ui/src/pages/ClassificationConfigPage.jsx` | Dynamic classification categories/intents/impacts — AI discovery review |
+| Health | `apps/triage/ui/src/pages/HealthPage.jsx` | ~~Removed~~ — health indicator integrated into Dashboard |
 
 ---
 
@@ -755,10 +755,13 @@ C:\Projects\Hack\
 ### Option A: Desktop Launcher (recommended)
 
 ```powershell
+.\start_dev.ps1
+
+# Or use the GUI launcher:
 python launcher.py
 ```
 
-Presents a GUI with three cards. Click to start/stop:
+Presents a GUI with cards. Click to start/stop:
 - **Input Process**: Flask app on :5003
 - **Admin Process**: Admin service on :8008
 - **Triage Process**: API on :8009 + React on :3000
@@ -781,7 +784,7 @@ $env:PYTHONIOENCODING = "utf-8"
 python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload
 
 # Terminal 2 — Frontend
-cd triage-ui
+cd apps\triage\ui
 npm run dev
 ```
 

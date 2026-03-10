@@ -29,7 +29,7 @@ cd uat-analysis-tool
 
 ```bash
 # Triage API
-pip install -r triage/requirements.txt
+pip install -r apps/triage/requirements.txt
 
 # Field Portal API (shared deps, plus httpx)
 pip install httpx
@@ -41,14 +41,14 @@ Key packages: `fastapi`, `uvicorn`, `azure-cosmos`, `azure-identity`, `azure-key
 
 ```bash
 # Triage UI
-cd triage-ui
+cd apps/triage/ui
 npm install
-cd ..
+cd ../../..
 
 # Field Portal UI
-cd field-portal/ui
+cd apps/field-portal/ui
 npm install
-cd ../..
+cd ../../..
 ```
 
 ---
@@ -78,14 +78,14 @@ No PAT tokens are needed. The credential chain is:
 ### Environment Profile Files
 
 Configuration profiles are stored in:
-- `config/environments/dev.ps1`
-- `config/environments/preprod.ps1`
-- `config/environments/prod.ps1`
+- `shared/config/environments/dev.ps1`
+- `shared/config/environments/preprod.ps1`
+- `shared/config/environments/prod.ps1`
 
 Inspect effective values for a profile:
 
 ```powershell
-.\infrastructure\scripts\show-config.ps1 -Env dev
+.\infra\scripts\show-config.ps1 -Env dev
 ```
 
 Select a profile for local run:
@@ -102,7 +102,7 @@ If you want persistent storage, set up Cosmos DB:
 
 1. Create a Cosmos DB account (NoSQL API)
 2. Store the endpoint URL in Azure Key Vault or set the `COSMOS_ENDPOINT` environment variable
-3. The system auto-creates the database (`triage-management`) and all 8 containers on first startup
+3. The system auto-creates the database (`triage-management`) and all 13 containers on first startup
 
 ---
 
@@ -127,7 +127,7 @@ The API starts on **port 8009** with:
 ### Start Triage UI
 
 ```bash
-cd triage-ui
+cd apps/triage/ui
 npm run dev
 ```
 
@@ -146,7 +146,7 @@ The API starts on **port 8010** with:
 ### Start Field Portal UI
 
 ```bash
-cd field-portal/ui
+cd apps/field-portal/ui
 npm run dev
 ```
 
@@ -155,7 +155,7 @@ The React app starts on **port 3001** and proxies API calls to port 8010.
 ### Start All (PowerShell)
 
 ```powershell
-.\start_services.ps1
+.\start_dev.ps1
 ```
 
 ---
@@ -163,35 +163,42 @@ The React app starts on **port 3001** and proxies API calls to port 8010.
 ## Project Structure
 
 ```
-Hack/
-├── triage/                      # Triage Backend (Python package)
-│   ├── api/                     #   FastAPI routes + Pydantic schemas
-│   ├── config/                  #   Configuration (Cosmos DB, logging)
-│   ├── engines/                 #   Core evaluation engines
-│   ├── models/                  #   Data models (dataclasses)
-│   ├── services/                #   Business logic services
-│   ├── tests/                   #   Test suite (313+ tests)
-│   └── requirements.txt         #   Python dependencies
+uat-analysis-tool/
+├── apps/
+│   ├── triage/                  # Triage Backend (Python package)
+│   │   ├── api/                 #   FastAPI routes + Pydantic schemas
+│   │   ├── config/              #   Configuration (Cosmos DB, logging)
+│   │   ├── engines/             #   Core evaluation engines
+│   │   ├── models/              #   Data models (dataclasses)
+│   │   ├── services/            #   Business logic services
+│   │   ├── tests/               #   Triage test suite (313+ tests)
+│   │   ├── ui/                  #   Triage Frontend (React)
+│   │   │   ├── src/
+│   │   │   │   ├── pages/       #   14 page components
+│   │   │   │   ├── components/  #   Shared UI components
+│   │   │   │   └── api/triageApi.js  # API client
+│   │   │   └── vite.config.js
+│   │   └── requirements.txt     #   Python dependencies
+│   │
+│   └── field-portal/            # Field Portal
+│       ├── api/                 #   FastAPI backend (9-step wizard)
+│       │   ├── main.py          #   App entry, CORS, lifespan
+│       │   ├── routes.py        #   All wizard API endpoints
+│       │   └── cosmos_client.py #   Cosmos DB integration
+│       └── ui/                  #   React SPA (9-step wizard)
+│           ├── src/pages/       #   Wizard step components
+│           └── vite.config.js
 │
-├── triage-ui/                   # Triage Frontend (React)
-│   ├── src/
-│   │   ├── pages/               #   11 page components
-│   │   ├── components/          #   Shared UI components
-│   │   └── api/triageApi.js     #   API client
-│   └── vite.config.js
+├── shared/                      # Shared Python library modules
+│   ├── config/                  #   Environment-specific configuration
+│   └── *.py                     #   17 shared modules (AI, ADO, KV, etc.)
 │
-├── field-portal/                # Field Portal
-│   ├── api/                     #   FastAPI backend (9-step wizard)
-│   │   ├── main.py              #   App entry, CORS, lifespan
-│   │   ├── routes.py            #   All wizard API endpoints
-│   │   └── cosmos_client.py     #   Cosmos DB integration
-│   └── ui/                      #   React SPA (9-step wizard)
-│       ├── src/pages/           #   Wizard step components
-│       └── vite.config.js
-│
+├── services/                    # Microservice agents & gateway
+├── infra/                       # Azure Bicep templates & deploy scripts
+├── tests/                       # Root test suites (unit, integration, security)
 ├── docs/                        # Documentation
-├── infrastructure/              # Azure Bicep templates
-└── keyvault_config.py           # Azure Key Vault configuration
+├── data/                        # JSON data fixtures
+└── scripts/                     # Admin & setup scripts
 ```
 
 ---
@@ -201,20 +208,24 @@ Hack/
 ### Run Tests
 
 ```bash
-python -m pytest triage/tests/ -q
+# All tests (uses pyproject.toml config)
+python -m pytest -q
+
+# Triage tests only
+python -m pytest apps/triage/tests/ -q
 ```
 
-Expected: `313 passed` (runs in ~2 seconds).
+Expected: `313 passed` for triage tests (runs in ~2 seconds).
 
 ### Build Frontends
 
 ```bash
 # Triage UI
-cd triage-ui
+cd apps/triage/ui
 npx vite build
 
 # Field Portal UI
-cd field-portal/ui
+cd apps/field-portal/ui
 npx vite build
 ```
 

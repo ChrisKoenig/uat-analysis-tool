@@ -13,9 +13,9 @@ No external services required. The system auto-detects the environment:
 | Component | How to Start | Port |
 |-----------|-------------|------|
 | Triage API | `python -m triage.triage_service` | 8009 |
-| Triage UI | `cd triage-ui && npm run dev` | 3000 |
+| Triage UI | `cd apps/triage/ui && npm run dev` | 3000 |
 | Field Portal API | `python -m uvicorn field-portal.api.main:app --port 8010` | 8010 |
-| Field Portal UI | `cd field-portal/ui && npm run dev` | 3001 |
+| Field Portal UI | `cd apps/field-portal/ui && npm run dev` | 3001 |
 | Storage | In-memory (automatic when `COSMOS_ENDPOINT` is not set) | — |
 
 ### With Cosmos DB
@@ -24,7 +24,7 @@ For persistent storage:
 
 1. Create an Azure Cosmos DB account (NoSQL API)
 2. Add endpoint URL to Azure Key Vault (or set `COSMOS_ENDPOINT` env var)
-3. Start the API — it auto-creates the database and all 10 containers
+3. Start the API — it auto-creates the database and all 13 containers
 
 ### Azure App Service (Pre-Prod)
 
@@ -43,7 +43,7 @@ Deployed Feb 2026. Four App Services on a shared B1 plan in `rg-nonprod-aitriage
 
 ```powershell
 # 1. Build deployment package (local machine)
-.\infrastructure\deploy\build-packages.ps1 -Target triage-api
+.\infra\deploy\build-packages.ps1 -Target triage-api
 
 # 2. Upload zip to Cloud Shell (required — local CLI is dev tenant)
 # Use Cloud Shell upload button or Azure Storage
@@ -53,11 +53,11 @@ az webapp deploy --resource-group rg-nonprod-aitriage \
   --name app-triage-api-nonprod --src-path ./triage-api.zip --type zip
 ```
 
-The build script copies `triage/`, `api/`, `agents/` directories plus 12 shared
-root Python modules. It does NOT include `.env` files — all config comes from
+The build script copies `apps/triage/`, `api/`, `services/` directories plus the
+`shared/` Python package. It does NOT include `.env` files — all config comes from
 App Settings and Key Vault.
 
-For the field portal API, the build script also copies `triage/config/` (just
+For the field portal API, the build script also copies `apps/triage/config/` (just
 `cosmos_config.py` and `__init__` files) because the field portal's
 `cosmos_client.py` imports `triage.config.cosmos_config` for shared Cosmos DB
 access.
@@ -125,7 +125,7 @@ Returns `status`, `components` (gateway, key_vault, ai), and `response_time_ms`.
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌───────────────┐
 │ Triage UI       │────▶│ Triage API      │────▶│ Cosmos DB     │
-│ (port 3000)     │     │ (port 8009)     │     │ 10 containers │
+│ (port 3000)     │     │ (port 8009)     │     │ 13 containers │
 └─────────────────┘     │ FastAPI/Uvicorn │     └───────────────┘
                         └────────┬────────┘
                                  │

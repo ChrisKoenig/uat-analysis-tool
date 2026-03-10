@@ -37,8 +37,7 @@ Azure Container App / App Service
 Run this in a **new PowerShell window**:
 
 ```powershell
-cd C:\Projects\Hack
-.\configure_managed_identity.ps1
+.\scripts\configure_managed_identity.ps1
 ```
 
 This script will:
@@ -92,7 +91,7 @@ az webapp config appsettings set \
 
 ### Code Behavior
 
-**keyvault_config.py:**
+**keyvault_config.py** (`shared/keyvault_config.py`):
 ```python
 # Checks for AZURE_CLIENT_ID environment variable
 if managed_identity_client_id:
@@ -103,7 +102,7 @@ else:
     credential = DefaultAzureCredential()
 ```
 
-**blob_storage_helper.py:**
+**blob_storage_helper.py** (`shared/blob_storage_helper.py`):
 ```python
 # Checks for AZURE_CLIENT_ID environment variable
 if managed_identity_client_id:
@@ -129,7 +128,7 @@ else:
 ### Test Locally (Development Mode)
 ```powershell
 # Should show: Authentication: DefaultAzureCredential
-python keyvault_config.py
+python shared/keyvault_config.py
 ```
 
 ### Test with Managed Identity (Simulated)
@@ -138,7 +137,7 @@ python keyvault_config.py
 $env:AZURE_CLIENT_ID = "<client-id-from-step-2>"
 
 # Run test - should show: Authentication: Managed Identity
-python keyvault_config.py
+python shared/keyvault_config.py
 
 # Unset when done
 Remove-Item Env:AZURE_CLIENT_ID

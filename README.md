@@ -4,13 +4,16 @@ A dual-portal platform for field personnel issue submission (9-step wizard) and
 corporate triage team management (rules, routing, AI classification).
 
 > **Two separate UIs for two audiences:**
-> - **Field Portal** ([`field-portal/`](field-portal/README.md)) — React SPA (port 3001) + FastAPI (port 8010) for field personnel
-> - **Triage Admin** ([`triage-ui/`](triage-ui/)) — React SPA (port 3000) + FastAPI (port 8009) for the corporate triage team
+> - **Field Portal** ([`apps/field-portal/`](apps/field-portal/README.md)) — React SPA (port 3001) + FastAPI (port 8010) for field personnel
+> - **Triage Admin** ([`apps/triage/ui/`](apps/triage/ui/)) — React SPA (port 3000) + FastAPI (port 8009) for the corporate triage team
 
 ## Quick Start
 
 ```powershell
-# All-in-one GUI launcher (recommended)
+# All-in-one dev startup (recommended)
+.\start_dev.ps1
+
+# Or use the desktop GUI launcher
 python launcher.py
 ```
 
@@ -27,7 +30,7 @@ The repo now supports environment-specific non-secret settings via `APP_ENV`:
 $env:APP_ENV = "dev"
 
 # View effective settings for a profile
-.\infrastructure\scripts\show-config.ps1 -Env dev
+.\infra\scripts\show-config.ps1 -Env dev
 ```
 
 ### Manual: Triage System
@@ -38,7 +41,7 @@ $env:APP_ENV="dev"
 python -m uvicorn triage.api.routes:app --host 0.0.0.0 --port 8009 --reload
 
 # Terminal 2 — Frontend
-cd triage-ui && npm run dev
+cd apps\triage\ui && npm run dev
 ```
 
 ### Manual: Field Portal
@@ -47,55 +50,67 @@ cd triage-ui && npm run dev
 python -m uvicorn "field-portal.api.main:app" --host 0.0.0.0 --port 8010 --reload
 
 # Terminal 2 — UI
-cd field-portal\ui && npm run dev
+cd apps\field-portal\ui && npm run dev
 ```
 
 ## Repository Layout
 
 ```
-C:\Projects\Hack\
-├── triage-ui/             # ★ Triage Admin UI (React + Vite, port 3000)
-│   └── src/pages/         #   14 pages: Dashboard, Queue, Evaluate, Rules,
-│                          #   Triggers, Actions, Routes, Teams, Validation,
-│                          #   Audit Log, Eval History, Corrections, Data Mgmt,
-│                          #   Classification Config
-├── triage/                # ★ Triage API (FastAPI, port 8009)
-│   ├── api/               #   Routes, admin routes, schemas
-│   ├── config/            #   Cosmos DB config
-│   ├── models/            #   Data models
-│   └── services/          #   ADO client, CRUD service
+uat-analysis-tool/
+├── apps/
+│   ├── triage/                # ★ Triage Management System
+│   │   ├── api/               #   FastAPI routes, admin routes, schemas
+│   │   ├── config/            #   Cosmos DB config
+│   │   ├── engines/           #   Rules, triggers, routes engines
+│   │   ├── models/            #   Data models
+│   │   ├── services/          #   ADO client, CRUD service
+│   │   ├── tests/             #   Triage-specific test suite
+│   │   └── ui/                #   ★ Triage Admin UI (React + Vite, port 3000)
+│   │       └── src/pages/     #   14 pages: Dashboard, Queue, Evaluate, Rules,
+│   │                          #   Triggers, Actions, Routes, Teams, Validation,
+│   │                          #   Audit Log, Eval History, Corrections, Data Mgmt,
+│   │                          #   Classification Config
+│   └── field-portal/          # ★ Field Portal (React + FastAPI)
+│       ├── api/               #   FastAPI backend (port 8010)
+│       ├── ui/                #   React SPA (port 3001)
+│       └── README.md          #   Full architecture & setup docs
 │
-├── field-portal/          # ★ Field Portal (React + FastAPI)
-│   ├── api/               #   FastAPI backend (port 8010)
-│   ├── ui/                #   React SPA (port 3001)
-│   └── README.md          #   Full architecture & setup docs
+├── shared/                    # Shared Python service modules (package)
+│   ├── config/                #   Environment-specific configuration
+│   └── *.py                   #   17 shared library modules
 │
-├── containers/            # Docker deployment (Dockerfiles, nginx, deploy script)
-├── api_gateway.py         # Microservice gateway (port 8000)
-├── enhanced_matching.py   # AI analysis and matching engine
-├── hybrid_context_analyzer.py  # Hybrid AI: pattern + LLM + vectors + corrections
-├── ado_integration.py     # Azure DevOps API client (dual-org)
-├── ai_config.py           # Azure OpenAI / KeyVault configuration
-├── keyvault_config.py     # KeyVault helper utilities
-├── launcher.py            # Desktop GUI launcher (tkinter)
-├── corrections.json       # Corrective learning data
+├── services/                  # Microservice agents & gateway
+│   ├── gateway/               #   FastAPI API Gateway routing layer
+│   └── (agent containers)     #   context-analyzer, llm-classifier, etc.
 │
-├── agents/                # AI agent experiments
-├── admin-service/         # Admin dashboard microservice (port 8008)
-├── archive/               # Archived code (old Flask UI, backups)
-└── *.md                   # Project documentation
+├── infra/                     # Infrastructure & deployment
+│   ├── bicep/                 #   Azure Bicep IaC templates
+│   ├── deploy/                #   Step-by-step deployment scripts
+│   ├── docker/                #   Dockerfiles & nginx configs
+│   └── scripts/               #   Infrastructure management utilities
+│
+├── tests/                     # Test suites (unit, integration, security)
+├── data/                      # JSON data fixtures & reference data
+├── docs/                      # All project documentation
+├── scripts/                   # Admin, setup & migration scripts
+│
+├── api_gateway.py             # Microservice gateway (port 8000)
+├── admin_service.py           # Admin dashboard microservice (port 8008)
+├── launcher.py                # Desktop GUI launcher (tkinter)
+├── start_dev.ps1              # Start all dev services
+└── pyproject.toml             # Python project config (pytest, paths)
 ```
 
 ## Key Services
 
 | Service              | Port  | Entry Point                                    |
 |----------------------|-------|------------------------------------------------|
-| **Triage UI**        | 3000  | `triage-ui/` (`npm run dev`)                   |
-| **Triage API**       | 8009  | `triage/api/routes.py` (uvicorn)               |
-| **Field Portal UI**  | 3001  | `field-portal/ui/` (`npm run dev`)             |
-| **Field Portal API** | 8010  | `field-portal/api/main.py` (uvicorn)           |
+| **Triage UI**        | 3000  | `apps/triage/ui/` (`npm run dev`)              |
+| **Triage API**       | 8009  | `apps/triage/api/routes.py` (uvicorn)          |
+| **Field Portal UI**  | 3001  | `apps/field-portal/ui/` (`npm run dev`)        |
+| **Field Portal API** | 8010  | `apps/field-portal/api/main.py` (uvicorn)      |
 | **API Gateway**      | 8000  | `api_gateway.py`                               |
-| **Admin Service**    | 8008  | `admin-service/`                               |
+| **Admin Service**    | 8008  | `admin_service.py`                             |
 
 ## Triage Admin Pages (14)
 
@@ -147,17 +162,17 @@ Deployed Feb-Mar 2026 to subscription `a1e66643-...`, resource group `rg-nonprod
 
 Build & deploy via:
 ```powershell
-.\infrastructure\deploy\build-packages.ps1 -Target triage-api
+.\infra\deploy\build-packages.ps1 -Target triage-api
 # Upload zip to Cloud Shell, then:
 az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonprod --src-path ./triage-api.zip --type zip
 ```
 
-See [`DEPLOYMENT_OPERATIONS.md`](docs/DEPLOYMENT_OPERATIONS.md) and [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for full details.
+See [`DEPLOYMENT_OPERATIONS.md`](docs/DEPLOYMENT_OPERATIONS.md) and [`PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for full details.
 
 For environment-specific deployment values used by scripts, see:
-- `config/environments/dev.ps1`
-- `config/environments/preprod.ps1`
-- `config/environments/prod.ps1`
+- `shared/config/environments/dev.ps1`
+- `shared/config/environments/preprod.ps1`
+- `shared/config/environments/prod.ps1`
 
 ## Azure Container Apps Deployment (Dev)
 
@@ -166,7 +181,7 @@ Dev environment deployed to Azure Container Apps in `rg-gcs-dev` (North Central 
 - Field UI / API — external + internal ingress
 - Cosmos DB (AAD auth), ADO dual-org PAT, AI-Powered analysis enabled
 
-See [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) and the Container Apps section in [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for details.
+See the Container Apps section in [`PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for details.
 
 ## Authentication
 
@@ -189,14 +204,12 @@ See [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) and the Container Apps section 
 
 | Document                                       | Description                        |
 |------------------------------------------------|------------------------------------|
-| [`PROJECT_STATUS.md`](PROJECT_STATUS.md)           | Full project status & change log    |
-| [`field-portal/README.md`](field-portal/README.md) | Field portal architecture & setup   |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md)               | Microservices architecture overview  |
-| [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md) | Component inventory                  |
-| [`QUICKSTART.md`](QUICKSTART.md)                   | Quick-start guide                    |
-| [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)         | Common issues & solutions            |
-| [`AI_SETUP.md`](AI_SETUP.md)                       | Azure OpenAI configuration           |
-| [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)       | Deployment procedures                |
+| [`PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)           | Full project status & change log    |
+| [`field-portal/README.md`](apps/field-portal/README.md) | Field portal architecture & setup   |
+| [`SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) | Component inventory                  |
+| [`QUICKSTART.md`](QUICKSTART.md)                         | Quick-start guide                    |
+| [`AZURE_OPENAI_AUTH_SETUP.md`](docs/AZURE_OPENAI_AUTH_SETUP.md) | Azure OpenAI configuration  |
+| [`DEPLOYMENT_OPERATIONS.md`](docs/DEPLOYMENT_OPERATIONS.md) | Deployment procedures             |
 
 ## License
 
