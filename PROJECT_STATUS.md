@@ -1,6 +1,6 @@
 # Project Status - Intelligent Context Analysis System
 **Last Updated**: March 10, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **AI-powered UAT search via ADO Search API (FR-2020)** + **60 API endpoints**
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **AI-powered UAT search via ADO Search API (FR-2020)** + **AI-powered TFT Feature search via ADO Search API (FR-2020b)** + **60 API endpoints**
 
 ---
 
@@ -52,7 +52,10 @@ Step 4: User Review & Correction (/context_summary or /evaluate_context)
 Step 5: Resource Search (/search_resources → /perform_search → /search_results)
   └─ Searches: Microsoft Learn, similar products, regional availability
   └─ Retirement info, capacity guidance
-  └─ TFT Features (for feature_request category — checkbox selection)
+  └─ TFT Features: AI-powered search via ADO Search API (relevance-ranked)
+      - 3-phase: AI service names → issue title → WIQL broad fallback
+      - 5-signal scoring (service-overlap, title-seq, token-jaccard, desc, exact-boost)
+      - ServiceTree resolution for service-overlap scoring signal
   └─ Category-specific guidance:
       - technical_support → CSS Compass/Escalation links
       - cost_billing → Out of scope, redirect to GetHelp

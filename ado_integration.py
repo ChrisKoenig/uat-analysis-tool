@@ -1018,9 +1018,25 @@ class AzureDevOpsClient:
                 'error': f"Request failed: {str(e)}"
             }
     
+    # ── FR-2020b: Replaced WIQL with ADO Search API (Mar 2026) ──
+    # WHY: Same problem as UAT search — WIQL CONTAINS is a filter operator
+    # returning results by date, not relevance. With $top=50, popular service
+    # names pushed relevant features off the list, capping similarity at ~24%.
+    # ADO Search API provides full-text relevance-ranked results.
     def search_tft_features(self, title: str, description: str, threshold: float = 0.7, azure_services: list = None) -> List[Dict]:
         """
-        Search Technical Feedback ADO for similar Features.
+        AI-powered search for similar TFT Feature work items using ADO Work Item
+        Search API (full-text relevance ranking) instead of WIQL.
+
+        Strategy:
+          Phase 1 — Search API with AI-detected service names (best signal)
+          Phase 2 — Search API with the full issue title (if Phase 1 < threshold)
+          Phase 3 — WIQL broad fallback (no keywords, newest 200)
+
+        Service names are resolved through ServiceTree for the scoring signal
+        (service-overlap contributes 30% of the similarity score).
+
+        Returns top 10 matches sorted by similarity.
         """
         _D = "[TFT-DEBUG]"  # prefix for easy grep
         print(f"\n{'='*80}")
@@ -1058,10 +1074,9 @@ class AzureDevOpsClient:
             cutoff_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
             print(f"{_D} Step 3: Cutoff date = {cutoff_date} (730 days)")
             
-            # ── SERVICE NAME RESOLUTION VIA SERVICETREE ──
+            # ── SERVICE NAME RESOLUTION (for both search text AND scoring) ──
             import re
-            import json
-            import os
+            from difflib import SequenceMatcher
 
             candidate_names: list = []
 
@@ -1093,7 +1108,7 @@ class AzureDevOpsClient:
             print(f"{_D} Step 4c: Abbreviations from title: {abbr_matches}")
             print(f"{_D} Step 4 TOTAL candidate_names: {candidate_names}")
 
-            # ── Resolve candidates via ServiceTree ──
+            # ── Resolve candidates via ServiceTree (for scoring signal) ──
             from servicetree_service import get_servicetree_service
             svc_tree = get_servicetree_service()
 
@@ -1102,192 +1117,294 @@ class AzureDevOpsClient:
             for i, svc in enumerate(resolved_services):
                 print(f"{_D}   [{i}] name={repr(svc.get('name',''))} offering={repr(svc.get('offering',''))}")
 
-            # ── Build WIQL search terms from ServiceTree results ──
-            search_terms: list = []
+            # Build service phrases for scoring (both resolved names and raw candidates)
+            service_phrases: list = []
             for svc in resolved_services:
                 svc_name = svc.get("name", "")
                 offering = svc.get("offering", "")
-                if svc_name and svc_name not in search_terms:
-                    search_terms.append(svc_name)
-                if offering and offering != svc_name and offering not in search_terms:
-                    search_terms.append(offering)
-                inner = re.findall(r'\(([A-Z][A-Za-z0-9 ]+)\)', svc_name)
-                for abbr in inner:
-                    if abbr not in search_terms:
-                        search_terms.append(abbr)
-                for cand in candidate_names:
-                    if cand not in search_terms and cand.lower() in svc_name.lower():
-                        search_terms.append(cand)
+                if svc_name and svc_name not in service_phrases:
+                    service_phrases.append(svc_name)
+                if offering and offering != svc_name and offering not in service_phrases:
+                    service_phrases.append(offering)
+            for cand in candidate_names:
+                if cand not in service_phrases:
+                    service_phrases.append(cand)
+            print(f"{_D} Step 6: service_phrases for scoring: {service_phrases}")
 
-            # Fallback: if ServiceTree had no matches, use title keywords
-            if not search_terms:
-                print(f"{_D} Step 6: No ServiceTree matches — falling back to title keywords")
-                title_words = re.findall(r'\b[A-Za-z]{4,}\b', title)
-                noise = {'support', 'request', 'feature', 'provide', 'need', 'customer',
-                         'blocked', 'sale', 'seats', 'services', 'service', 'azure',
-                         'microsoft', 'please', 'help', 'want', 'would', 'could',
-                         'should', 'with', 'from', 'that', 'this', 'have', 'been'}
-                meaningful = [w for w in title_words if w.lower() not in noise]
-                print(f"{_D} Step 6: title_words={title_words}, meaningful={meaningful}")
-                if meaningful:
-                    search_terms.append(meaningful[0])
-            else:
-                print(f"{_D} Step 6: search_terms from ServiceTree: {search_terms}")
+            # Build search-text for Phase 1: join all service-related terms
+            svc_search_text = " ".join(service_phrases) if service_phrases else ""
+            print(f"{_D} Step 6: svc_search_text={repr(svc_search_text)}")
 
-            # Build WIQL product filter (OR across all terms)
-            if search_terms:
-                clauses = " OR ".join(
-                    f"[System.Title] CONTAINS '{term}'" for term in search_terms
+            # ── Helper: ADO Work Item Search API ──
+            # Uses almsearch.dev.azure.com for full-text relevance-ranked search
+            MAX_CANDIDATES = 200
+            BROADENING_THRESHOLD = 10
+
+            def _run_search(search_text: str, label: str, top: int = MAX_CANDIDATES) -> list:
+                """Call ADO Work Item Search API. Returns list of {id: int} stubs."""
+                search_url = (
+                    f"https://almsearch.dev.azure.com/"
+                    f"{quote(tft_org)}/"
+                    f"{quote(tft_project)}/"
+                    f"_apis/search/workitemsearchresults?api-version=7.0"
                 )
-                product_filter = f"AND ({clauses})"
-                print(f"{_D} Step 7: Multi-term WIQL filter ({len(search_terms)} terms): {product_filter}")
+                body = {
+                    "searchText": search_text,
+                    "$top": top,
+                    "$skip": 0,
+                    "filters": {
+                        "System.TeamProject": [tft_project],
+                        "System.WorkItemType": ["Feature"],
+                    },
+                }
+                print(f"{_D} {label}: POST {search_url}")
+                print(f"{_D} {label}: searchText={repr(search_text)}, $top={top}")
+                resp = requests.post(search_url, headers=tft_headers, json=body, timeout=30)
+                print(f"{_D} {label}: Response status={resp.status_code}")
+                if resp.status_code != 200:
+                    try:
+                        err_body = resp.json()
+                    except Exception:
+                        err_body = resp.text[:500]
+                    print(f"{_D} {label}: ERROR body: {err_body}")
+                    return []
+                data = resp.json()
+                total_count = data.get("count", 0)
+                results_list = data.get("results", [])
+                print(f"{_D} {label}: API reports count={total_count}, returned {len(results_list)} results")
+                items = []
+                for r in results_list:
+                    fields = r.get("fields", {})
+                    wid_str = fields.get("system.id", "")
+                    if wid_str:
+                        try:
+                            items.append({"id": int(wid_str)})
+                        except (ValueError, TypeError):
+                            pass
+                if items:
+                    print(f"{_D} {label}: First 5 IDs: {[wi['id'] for wi in items[:5]]}")
+                return items
+
+            # ── Helper: WIQL broad fallback (no keyword filter) ──
+            def _run_wiql_broad(label: str) -> list:
+                wiql_url = (
+                    f"{tft_base_url}/{quote(tft_project)}/"
+                    f"_apis/wit/wiql?api-version={self.config.API_VERSION}"
+                )
+                query = (
+                    f"SELECT [System.Id] FROM workitems"
+                    f" WHERE [System.TeamProject] = '{tft_project}'"
+                    f" AND [System.WorkItemType] = 'Feature'"
+                    f" AND [System.State] <> 'Closed'"
+                    f" AND [System.ChangedDate] >= '{cutoff_date}'"
+                    f" ORDER BY [System.ChangedDate] DESC"
+                )
+                print(f"{_D} {label}: POST {wiql_url}")
+                resp = requests.post(
+                    wiql_url, headers=tft_headers,
+                    json={"query": query}, timeout=30,
+                )
+                print(f"{_D} {label}: Response status={resp.status_code}")
+                if resp.status_code != 200:
+                    print(f"{_D} {label}: ERROR — {resp.text[:300]}")
+                    return []
+                items = resp.json().get("workItems", [])
+                print(f"{_D} {label}: returned {len(items)} work item IDs")
+                return items
+
+            # ── Candidate pool — de-duped across all phases ──
+            work_items: list = []
+            seen_ids: set = set()
+
+            def _merge(new_items: list, label: str) -> int:
+                nonlocal work_items, seen_ids
+                added = 0
+                for wi in new_items:
+                    wid = wi["id"]
+                    if wid not in seen_ids and len(work_items) < MAX_CANDIDATES:
+                        work_items.append(wi)
+                        seen_ids.add(wid)
+                        added += 1
+                print(f"{_D} {label}: merged {added} new (total now {len(work_items)})")
+                return added
+
+            # ── Phase 1: Search API with service names ──
+            if svc_search_text:
+                print(f"{_D} Step 7: Phase 1 — ADO Search API with service names")
+                svc_items = _run_search(svc_search_text, "Phase1-SearchSvc", top=MAX_CANDIDATES)
+                _merge(svc_items, "Phase1-SearchSvc")
+
+            # ── Phase 2: Search API with full issue title ──
+            if len(work_items) < MAX_CANDIDATES and title.strip():
+                print(f"{_D} Step 8: Phase 2 — ADO Search API with full title")
+                title_items = _run_search(title.strip(), "Phase2-SearchTitle", top=MAX_CANDIDATES)
+                _merge(title_items, "Phase2-SearchTitle")
+
+            # ── Phase 3: WIQL broad fallback ──
+            if len(work_items) < BROADENING_THRESHOLD:
+                print(f"{_D} Step 9: Phase 3 — WIQL broad fallback (only {len(work_items)} so far)")
+                broad_items = _run_wiql_broad("Phase3-WIQLBroad")
+                _merge(broad_items, "Phase3-WIQLBroad")
             else:
-                product_filter = ""
-                print(f"{_D} Step 7: No filter terms — running broad WIQL query")
-            wiql_query = f"""
-            SELECT [System.Id], [System.Title], [System.Description], [System.ChangedDate], [System.State]
-            FROM workitems
-            WHERE [System.TeamProject] = '{tft_project}'
-            AND [System.WorkItemType] = 'Feature'
-            AND [System.ChangedDate] >= '{cutoff_date}'
-            AND [System.State] <> 'Closed'
-            {product_filter}
-            ORDER BY [System.ChangedDate] DESC
-            """
-            
-            print(f"{_D} Step 8: WIQL Query:\n{wiql_query.strip()}")
-            
-            wiql_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/wiql?api-version={self.config.API_VERSION}&$top=50"
-            print(f"{_D} Step 9: POST {wiql_url}")
-            wiql_response = requests.post(
-                wiql_url,
-                headers=tft_headers,
-                json={'query': wiql_query},
-                timeout=30
-            )
-            
-            print(f"{_D} Step 10: WIQL response status={wiql_response.status_code}")
-            if wiql_response.status_code != 200:
-                try:
-                    err_body = wiql_response.json()
-                except Exception:
-                    err_body = wiql_response.text[:500]
-                print(f"{_D} Step 10: ERROR body: {err_body}")
-                print(f"{_D} ===== search_tft_features() END (WIQL error) =====")
-                return []
-            
-            work_items = wiql_response.json().get('workItems', [])
+                print(f"{_D} Step 9: Skipping Phase 3 WIQL (already have {len(work_items)} candidates)")
+
+            print(f"{_D} Step 10: Total {len(work_items)} candidate IDs")
+
             if not work_items:
-                print(f"{_D} Step 10: No Features found — returning []")
-                print(f"{_D} ===== search_tft_features() END (0 WIQL results) =====")
+                print(f"{_D} Step 10: No work items found — returning empty list")
+                print(f"{_D} ===== search_tft_features() END (0 results) =====")
                 return []
-            
-            print(f"{_D} Step 10: WIQL returned {len(work_items)} Feature IDs")
-            print(f"{_D} Step 10: First 5 IDs: {[wi.get('id') for wi in work_items[:5]]}")
-            
-            # Get detailed work item info (limit to 200 since we have product-filtered results)
-            work_item_ids = [str(wi['id']) for wi in work_items[:50]]
+
+            # ── Batch fetch details ──
+            fetch_count = min(len(work_items), MAX_CANDIDATES)
+            work_item_ids = [str(wi['id']) for wi in work_items[:fetch_count]]
             batch_url = f"{tft_base_url}/{quote(tft_project)}/_apis/wit/workitemsbatch?api-version={self.config.API_VERSION}"
-            
+
             print(f"{_D} Step 11: Batch-fetching {len(work_item_ids)} items from {batch_url}")
-            batch_response = requests.post(
-                batch_url,
-                headers=tft_headers,
-                json={
-                    'ids': work_item_ids,
-                    'fields': ['System.Id', 'System.Title', 'System.Description', 'System.State', 'System.CreatedDate']
-                },
-                timeout=30
-            )
-            
-            print(f"{_D} Step 12: Batch response status={batch_response.status_code}")
-            if batch_response.status_code != 200:
-                print(f"{_D} Step 12: Batch request FAILED")
+
+            all_items = []
+            batch_size = 50
+            for bi in range(0, len(work_item_ids), batch_size):
+                batch_chunk = work_item_ids[bi:bi + batch_size]
+                batch_response = requests.post(
+                    batch_url, headers=tft_headers,
+                    json={
+                        'ids': batch_chunk,
+                        'fields': ['System.Id', 'System.Title', 'System.Description',
+                                   'System.State', 'System.CreatedDate']
+                    },
+                    timeout=30,
+                )
+                print(f"{_D} Step 11: Batch {bi//batch_size+1} status={batch_response.status_code}, count={len(batch_chunk)}")
+                if batch_response.status_code == 200:
+                    batch_items = batch_response.json().get('value', [])
+                    all_items.extend(batch_items)
+                else:
+                    print(f"{_D} Step 11: Batch {bi//batch_size+1} FAILED — {batch_response.text[:300]}")
+
+            print(f"{_D} Step 12: Batch returned {len(all_items)} items total")
+
+            if not all_items:
                 print(f"{_D} ===== search_tft_features() END (batch error) =====")
                 return []
-            
-            # Parse all items first (shared by both AI and fallback paths)
-            all_items = batch_response.json().get('value', [])
-            print(f"{_D} Step 13: Batch returned {len(all_items)} items")
-            
-            # Limit items for embedding comparison — each item requires
-            # an individual Azure OpenAI embedding call, so keep this small.
-            if len(all_items) > 20:
-                print(f"{_D} Step 13: Limiting from {len(all_items)} to 20 features (embedding budget)")
-                all_items = all_items[:20]
-            
-            parsed_items = []
+
+            # ── 5-signal similarity scoring (same as UAT search) ──
+            print(f"{_D} Step 13: Scoring {len(all_items)} features via 5-signal similarity...")
+
+            svc_lower = [s.lower() for s in service_phrases]
+            has_services = bool(svc_lower)
+            q_title_lower = title.lower()
+            q_desc_lower = description.lower() if description else ""
+            q_desc_clean = re.sub(r'<[^>]+>', '', q_desc_lower)
+            q_desc_clean = re.sub(r'\s+', ' ', q_desc_clean).strip()
+
+            # Tokenizer + Jaccard helpers (matching enhanced_matching.py)
+            stop = {'the', 'and', 'for', 'with', 'from', 'that', 'this', 'where', 'when',
+                    'what', 'how', 'are', 'was', 'were', 'been', 'being', 'have', 'has',
+                    'had', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
+                    'not', 'but', 'its', 'also', 'can', 'than', 'into', 'our', 'your'}
+            def _tokenize(text):
+                return {w for w in re.sub(r'[^a-z0-9\s]', '', text.lower()).split()
+                        if len(w) >= 3 and w not in stop}
+            def _jaccard(a, b):
+                if not a and not b:
+                    return 0.0
+                union = a | b
+                return len(a & b) / len(union) if union else 0.0
+
+            q_title_tokens = _tokenize(title)
+
+            matches = []
             for item in all_items:
+                if item is None:
+                    continue
                 fields = item.get('fields', {})
-                item_id = fields.get('System.Id')
+                item_id = fields.get('System.Id') or item.get('id')
                 item_title = fields.get('System.Title', '')
                 item_desc = fields.get('System.Description', '')
-                
-                # Strip HTML tags from description
+
+                # Strip HTML from description
                 if item_desc:
                     from html import unescape
-                    import re as _re
-                    item_desc = _re.sub(r'<[^>]+>', '', item_desc)
+                    item_desc = re.sub(r'<[^>]+>', '', item_desc)
                     item_desc = unescape(item_desc)
                     item_desc = ' '.join(item_desc.split())
-                
-                parsed_items.append({
+
+                feat_title_lower = item_title.lower()
+                feat_combined_lower = feat_title_lower + " " + item_desc.lower()
+
+                # 1. Service-name overlap (0.0–1.0)
+                svc_score = 0.0
+                matched_services = []
+                if has_services:
+                    for sv in svc_lower:
+                        if sv in feat_combined_lower:
+                            matched_services.append(sv)
+                    svc_score = len(matched_services) / len(svc_lower)
+
+                # 2. Title SequenceMatcher (character-level)
+                title_seq = SequenceMatcher(None, q_title_lower, feat_title_lower).ratio()
+
+                # 3. Title token overlap (Jaccard)
+                feat_title_tokens = _tokenize(item_title)
+                title_jaccard = _jaccard(q_title_tokens, feat_title_tokens)
+
+                # 4. Description similarity
+                desc_sim = 0.0
+                if q_desc_clean and item_desc:
+                    desc_sim = SequenceMatcher(None, q_desc_clean[:500],
+                                               item_desc[:500].lower()).ratio()
+
+                # 5. Exact / substring boost
+                exact_boost = 0.0
+                if q_title_lower == feat_title_lower:
+                    exact_boost = 1.0
+                elif q_title_lower in feat_title_lower or feat_title_lower in q_title_lower:
+                    exact_boost = 0.6
+
+                # Weighted combination
+                if has_services:
+                    similarity = (0.30 * svc_score
+                                  + 0.25 * title_seq
+                                  + 0.20 * title_jaccard
+                                  + 0.15 * desc_sim
+                                  + 0.10 * exact_boost)
+                else:
+                    similarity = (0.35 * title_seq
+                                  + 0.30 * title_jaccard
+                                  + 0.20 * desc_sim
+                                  + 0.15 * exact_boost)
+                similarity = round(min(similarity, 0.99), 2)
+
+                # Build reasoning string
+                reasoning_parts = []
+                if has_services:
+                    reasoning_parts.append(f"svc {int(svc_score*100)}%")
+                    if matched_services:
+                        reasoning_parts.append(f"matched:[{','.join(matched_services[:3])}]")
+                reasoning_parts.append(f"title-seq {int(title_seq*100)}%")
+                reasoning_parts.append(f"token {int(title_jaccard*100)}%")
+                if desc_sim > 0:
+                    reasoning_parts.append(f"desc {int(desc_sim*100)}%")
+                if exact_boost > 0:
+                    reasoning_parts.append("exact-boost" if exact_boost == 1.0 else "substr-boost")
+
+                print(f"{_D}   id={item_id} sim={similarity} ({', '.join(reasoning_parts)}) title={repr(item_title[:60])}")
+
+                matches.append({
                     'id': item_id,
                     'title': item_title,
-                    'description': item_desc,
+                    'description': item_desc[:500],
+                    'similarity': similarity,
                     'state': fields.get('System.State', 'Unknown'),
                     'created_date': fields.get('System.CreatedDate', ''),
                     'url': f"{tft_base_url}/{quote(tft_project)}/_workitems/edit/{item_id}",
-                    'source': 'Technical Feedback'
+                    'source': 'Technical Feedback',
+                    'match_reasoning': f'Match: {int(similarity*100)}% ({", ".join(reasoning_parts)})',
                 })
-            
-            # Score features using keyword overlap + SequenceMatcher (no embeddings — too slow / rate-limited)
-            print(f"{_D} Step 14: Scoring {len(parsed_items)} features via keyword + SequenceMatcher...")
-            import re as _re
-            from difflib import SequenceMatcher
-
-            search_text = f"{title} {description}".lower()
-            search_words = set(_re.findall(r'\b[a-z]{3,}\b', search_text))
-            stop_words = {'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was',
-                          'will', 'has', 'have', 'been', 'not', 'but', 'they', 'their',
-                          'them', 'which', 'when', 'what', 'where', 'who', 'how', 'all',
-                          'can', 'would', 'could', 'should', 'into', 'also', 'than',
-                          'customer', 'services', 'service', 'support', 'request', 'feature',
-                          'new', 'need', 'sale', 'seats', 'blocked', 'related', 'requires'}
-            search_words -= stop_words
-            search_title_lower = title.lower()
-            print(f"{_D} Step 14: search_words ({len(search_words)}): {sorted(list(search_words))[:15]}")
-
-            matches = []
-            for p_item in parsed_items:
-                feature_text = f"{p_item['title']} {p_item['description']}".lower()
-                feature_words = set(_re.findall(r'\b[a-z]{3,}\b', feature_text))
-                feature_words -= stop_words
-
-                # Keyword overlap score
-                if search_words and feature_words:
-                    common = search_words & feature_words
-                    overlap = len(common) / min(len(search_words), len(feature_words))
-                else:
-                    overlap = 0.0
-
-                # SequenceMatcher on titles (more precise)
-                seq_sim = SequenceMatcher(None, search_title_lower, p_item['title'].lower()).ratio()
-
-                # Combined score: weight title similarity higher
-                score = (seq_sim * 0.6) + (overlap * 0.4)
-
-                passed = score >= 0.15 or len(parsed_items) <= 10
-                print(f"{_D}   id={p_item['id']} score={score:.3f} (seq={seq_sim:.3f} ovl={overlap:.3f}) {'✓' if passed else '✗'} title={repr(p_item['title'][:60])}")
-
-                if passed:
-                    matches.append({
-                        **p_item,
-                        'similarity': round(min(score, 0.99), 2),
-                    })
 
             matches.sort(key=lambda x: x['similarity'], reverse=True)
-            print(f"{_D} Step 15: Found {len(matches)} features above threshold")
+            print(f"{_D} Step 14: {len(matches)} scored features, returning top 10")
             if matches:
                 for i, m in enumerate(matches[:5]):
                     print(f"{_D}   match[{i}] id={m['id']} sim={m['similarity']} title={repr(m['title'][:60])}")

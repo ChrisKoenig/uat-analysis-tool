@@ -36,6 +36,7 @@
 | 24 | B0007 | 2026-03-06 | *pending* | **Bug fix — Requestor card always empty (wrong ADO field)** — `System.CreatedBy` was a service account ("Action 360 Platform") on all queue items, so the Requestor card always showed "No requestor data available". The actual human requestor is in `Custom.Requestors` (email string) and `Custom.Requestor` (identity object). Fixed by adding these fields to the ADO batch fetch, preserving raw emails in hidden `_requestorEmail`/`_createdByEmail` fields, and updating the frontend email extraction chain: `Custom.Requestors` → `_requestorEmail` → `_createdByEmail` → display name fallback. |
 | 25 | PERF-001 | 2026-03-06 | *pending* | **Performance — Background prefetch + cache for Graph user data** — Opening the analysis blade showed a 5-second "Loading requestor info..." spinner on every click, and re-clicking the same item re-fetched. Implemented: (1) `useRef(new Map())` cache keyed by email with `{ data, loading, promise }` entries persisting across blade open/close. (2) Background prefetch IIFE fires after queue load, extracting all unique requestor emails and calling `getGraphUser()` with 80 ms stagger. (3) Cache-first blade open logic: cache hit → instant display, prefetch in-flight → await existing promise, cache miss → on-demand fetch + cache. Total API endpoints: 60. |
 | 26 | FR-2020 | 2026-03-10 | *pending* | **AI-powered UAT search — ADO Search API + multi-signal scoring + UX fixes** — Replaced WIQL-based UAT search with ADO Work Item Search API (`almsearch.dev.azure.com`) for relevance-ranked full-text search. AI analysis from Step 3 (azure_services, technologies, semantic_keywords, key_concepts) is now extracted from session and passed to search. 3-phase strategy: Phase 1 ADO Search with AI service names, Phase 2 ADO Search with issue title, Phase 3 WIQL broad fallback. 5-signal similarity scoring (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). UX: collapsible UAT list header (matching TFT Features pattern), checkbox readOnly fix for StrictMode, header count simplification. Dynamic `WORK_ITEM_TYPE` ("Action" for test org, "Actions" for production). False "to do" service detection fix. 180-day cutoff fix (was 240). Total API endpoints: 60. Total UI pages: 14. Total Cosmos containers: 13. |
+| 27 | FR-2020b | 2026-03-10 | *pending* | **AI-powered TFT Feature search — ADO Search API + 5-signal scoring** — Same migration as FR-2020 but for TFT Feature search (`search_tft_features()` in `ado_integration.py`). Old approach used WIQL CONTAINS which returned results by date, capping similarity at ~24%. Now uses ADO Work Item Search API for relevance-ranked results. 3-phase strategy: Phase 1 ADO Search with AI service names + ServiceTree-resolved names, Phase 2 ADO Search with issue title, Phase 3 WIQL broad fallback. Upgraded scoring from 2-signal (SequenceMatcher 60% + keyword overlap 40%) to 5-signal (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). Removed 20-item "embedding budget" cap. Batch-fetches up to 200 candidates in batches of 50. |
 
 ---
 
@@ -48,7 +49,7 @@
 
 ### Week of March 10, 2026
 
-**Reported entries:** #26  
+**Reported entries:** #26, #27  
 **Last reported:** Entries #1–25 (week of March 3)
 
 #### Summary
@@ -64,6 +65,17 @@ Completely replaced the UAT similarity search engine in the Field Portal (Steps 
 - **Bug fixes** — Dynamic work item type for test vs production orgs ("Action" vs "Actions"), false "to do" Azure service detection removed, search window corrected from 240 to 180 days.
 
 **Files changed:** 44 | **Commit:** `786ecce`
+
+**TFT Feature Search Overhaul (FR-2020b)**  
+Applied the same ADO Search API migration to the TFT Feature search (Step 5 of the wizard). The old `search_tft_features()` used WIQL CONTAINS — the same flawed approach that limited UAT search. Features never exceeded ~24% similarity because WIQL sorted by date, not relevance, and with `$top=50`, popular service names pushed relevant features off the list. Now uses the same 3-phase strategy (Search API with service names → title → WIQL broad fallback) and the same 5-signal scoring model.
+
+**Key changes:**
+- **Search engine swap** — WIQL CONTAINS → ADO Work Item Search API for the TFT org (`unifiedactiontracker`/`Technical Feedback`).
+- **Scoring upgrade** — From 2-signal (SequenceMatcher 60% + keyword overlap 40%, threshold 0.15) to 5-signal (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%).
+- **Candidate pool expansion** — Removed 20-item "embedding budget" cap. Now evaluates up to 200 candidates in batches of 50.
+- **ServiceTree integration preserved** — Service name resolution (AI-detected + regex + abbreviations → ServiceTree lookup) still used for both search text and the service-overlap scoring signal.
+
+**Files changed:** 1 (`ado_integration.py`)
 
 ---
 

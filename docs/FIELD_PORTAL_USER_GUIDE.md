@@ -204,7 +204,16 @@ open the article in a new tab. The first 3 are shown by default; click
 ### Related TFT Features (Feature Requests)
 
 For feature requests, a collapsible section shows related TFT features
-ranked by similarity:
+ranked by similarity. The search uses the **ADO Work Item Search API**
+(same engine as UAT search) with a 3-phase strategy:
+
+1. **Phase 1** — Search by AI-detected service names + ServiceTree-resolved names
+2. **Phase 2** — Search by the full issue title
+3. **Phase 3** — WIQL broad fallback (newest features, no keyword filter)
+
+Results are scored using 5 signals: service-name overlap (30%),
+title similarity (25%), token overlap (20%), description match (15%),
+and exact-match boost (10%).
 
 - Each feature shows an ID (clickable link to ADO), title, match percentage,
   similarity bar, description preview, and state badge.
