@@ -39,6 +39,43 @@
 
 ---
 
+## Weekly Reports
+
+> Copy-paste ready summaries for team updates. Newest week first.  
+> Entries listed above in the Change Log table have full technical detail.
+
+---
+
+### Week of March 10, 2026
+
+**Reported entries:** #26  
+**Last reported:** Entries #1–25 (week of March 3)
+
+#### Summary
+
+**AI-Powered UAT Search Overhaul (FR-2020)**  
+Completely replaced the UAT similarity search engine in the Field Portal (Steps 7-8 of the wizard). The old approach used WIQL keyword filtering which returned results by date — burying relevant matches. The new system uses the Azure DevOps full-text Search API with AI-detected service names from Step 3, producing relevance-ranked results. In testing, a known UAT (#698498) that was previously unfindable now appears at position #1 with 100% similarity.
+
+**Key changes:**
+- **Search engine swap** — WIQL → ADO Work Item Search API (`almsearch.dev.azure.com`). 3-phase strategy: AI service names first, then issue title, then broad fallback.
+- **AI integration** — The context analysis from Step 3 (detected Azure services, technologies, semantic keywords) is now passed into the search to improve relevance.
+- **5-signal scoring** — Results scored by service overlap (30%), title similarity (25%), token overlap (20%), description match (15%), and exact-match boost (10%).
+- **UX improvements** — UAT results list is now collapsible (starts collapsed to keep Continue button visible), checkbox double-toggle bug fixed, simplified header counts, added empty-state message.
+- **Bug fixes** — Dynamic work item type for test vs production orgs ("Action" vs "Actions"), false "to do" Azure service detection removed, search window corrected from 240 to 180 days.
+
+**Files changed:** 44 | **Commit:** `786ecce`
+
+---
+
+### Week of March 3, 2026
+
+**Reported entries:** #1–25  
+**Status:** Initial change log — all prior work captured retroactively.
+
+*(Detailed summaries for entries #1–25 were reported to the team on March 7.)*
+
+---
+
 ## Change Detail
 
 ### PERF-001 — Background Prefetch + Cache for Graph User Data
