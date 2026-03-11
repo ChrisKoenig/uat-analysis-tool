@@ -1185,6 +1185,7 @@
   max-width: 600px;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
+  table-layout: fixed;
 }
 
 .queue-changes-table th {
@@ -1196,9 +1197,24 @@
   cursor: default;
 }
 
+.queue-changes-table th:first-child { width: 22%; }
+
 .queue-changes-table td {
   padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid var(--border);
+  max-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* FR-2055: rules header with toggle */
+.queue-rules-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
 }
 
 .queue-result-actions {

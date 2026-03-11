@@ -163,6 +163,7 @@ export default function QueuePage({ addToast }) {
   const [settingState, setSettingState] = useState(false);
   const [results, setResults] = useState(null);
   const [expandedIds, setExpandedIds] = useState(new Set());
+  const [showAllQueueRules, setShowAllQueueRules] = useState(false);
   const [applying, setApplying] = useState(null);
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -867,21 +868,44 @@ export default function QueuePage({ addToast }) {
     setSettingState(true);
     try {
       const data = await api.setAnalysisState(ids, newState);
-      addToast?.(
-        successMsg || `Set ${data.updated} item(s) to "${newState}"`,
-        data.failed > 0 ? 'warning' : 'success'
-      );
 
-      // Update local item fields so filtering re-renders correctly
-      setItems((prev) =>
-        prev.map((item) =>
-          ids.includes(item.id)
+      // Check for individual failures in the response
+      const succeeded = (data.results || []).filter(r => r.success).map(r => r.workItemId);
+      const failedCount = (data.results || []).filter(r => !r.success).length;
+
+      if (failedCount > 0) {
+        addToast?.(
+          `${succeeded.length} updated, ${failedCount} failed — check ADO permissions`,
+          'warning'
+        );
+      } else {
+        addToast?.(
+          successMsg || `Set ${succeeded.length} item(s) to "${newState}"`,
+          'success'
+        );
+      }
+
+      // Update local item fields only for items that succeeded
+      const successSet = new Set(succeeded);
+      setItems((prev) => {
+        const updated = prev.map((item) =>
+          successSet.has(item.id)
             ? { ...item, fields: { ...item.fields, 'Custom.ROBAnalysisState': newState } }
             : item
-        )
-      );
+        );
+        // Persist updated items to cache so navigating away and back keeps the state
+        if (activeQueryId) {
+          setCachedQueue(activeQueryId, {
+            items: updated,
+            queryName,
+            totalAvailable,
+            analysisMap,
+            queryColumns,
+          });
+        }
+        return updated;
+      });
       setSelectedIds(new Set());
-      clearQueueCache(activeQueryId); // invalidate this query's cache only
     } catch (err) {
       addToast?.(err.message, 'error');
     } finally {
@@ -1536,18 +1560,36 @@ export default function QueuePage({ addToast }) {
                               )}
                             </div>
 
-                            {/* Rule Results */}
-                            <div className="queue-result-rules">
-                              {Object.entries(evalResult.ruleResults || {}).map(([ruleId, passed]) => (
-                                <span
-                                  key={ruleId}
-                                  className={`queue-rule-chip ${passed ? 'rule-true' : 'rule-false'}`}
-                                  title={ruleId}
-                                >
-                                  {passed ? '\u2713' : '\u2717'} {evalResult.ruleNames?.[ruleId] || ruleId}
-                                </span>
-                              ))}
-                            </div>
+                            {/* Rule Results — FR-2055: show fired only by default */}
+                            {(() => {
+                              const allEntries = Object.entries(evalResult.ruleResults || {});
+                              const firedEntries = allEntries.filter(([, r]) => r);
+                              const displayEntries = showAllQueueRules ? allEntries : firedEntries;
+                              return (
+                                <div className="queue-result-rules">
+                                  <div className="queue-rules-header">
+                                    <span>Rules Fired ({firedEntries.length} of {allEntries.length})</span>
+                                    {allEntries.length > firedEntries.length && (
+                                      <button
+                                        className="evaluate-toggle-rules"
+                                        onClick={() => setShowAllQueueRules(prev => !prev)}
+                                      >
+                                        {showAllQueueRules ? 'Show fired only' : `Show all ${allEntries.length}`}
+                                      </button>
+                                    )}
+                                  </div>
+                                  {displayEntries.map(([ruleId, passed]) => (
+                                    <span
+                                      key={ruleId}
+                                      className={`queue-rule-chip ${passed ? 'rule-true' : 'rule-false'}`}
+                                      title={ruleId}
+                                    >
+                                      {passed ? '\u2713' : '\u2717'} {evalResult.ruleNames?.[ruleId] || ruleId}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
 
                             {/* Field Changes */}
                             {Object.keys(evalResult.fieldsChanged || {}).length > 0 && (
@@ -1556,13 +1598,25 @@ export default function QueuePage({ addToast }) {
                                   <tr><th>Field</th><th>From</th><th>To</th></tr>
                                 </thead>
                                 <tbody>
-                                  {Object.entries(evalResult.fieldsChanged).map(([field, change]) => (
-                                    <tr key={field}>
-                                      <td><code className="field-ref">{field}</code></td>
-                                      <td className="text-muted">{change.from ?? '\u2014'}</td>
-                                      <td><strong>{change.to ?? '\u2014'}</strong></td>
-                                    </tr>
-                                  ))}
+                                  {Object.entries(evalResult.fieldsChanged).map(([field, change]) => {
+                                    const renderVal = (v) => {
+                                      if (v == null) return '\u2014';
+                                      if (typeof v === 'object') {
+                                        if (v.displayName) return v.displayName;
+                                        if (v.name) return v.name;
+                                        const s = JSON.stringify(v);
+                                        return s.length > 200 ? s.slice(0, 200) + '\u2026' : s;
+                                      }
+                                      return String(v);
+                                    };
+                                    return (
+                                      <tr key={field}>
+                                        <td><code className="field-ref">{field}</code></td>
+                                        <td className="text-muted">{renderVal(change.from)}</td>
+                                        <td><strong>{renderVal(change.to)}</strong></td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             )}
