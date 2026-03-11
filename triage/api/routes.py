@@ -2257,11 +2257,45 @@ async def list_fields(
             af["canSet"] = False  # Analysis fields are read-only
         items.extend(analysis_fields)
 
-        # Sort: Analysis group first, then ADO groups alphabetically
+        # ── Add ServiceTree routing fields ────────────────────
+        # These resolve via Analysis.get_analysis_field() in the rules engine.
+        servicetree_fields = [
+            {"id": "Analysis.ServiceTreeMatch",    "displayName": "Service Tree Match",    "type": "string", "description": "Matched ServiceTree service name"},
+            {"id": "Analysis.ServiceTreeOffering",  "displayName": "Service Tree Offering",  "type": "string", "description": "Parent offering from ServiceTree"},
+            {"id": "Analysis.SolutionArea",         "displayName": "Solution Area",          "type": "string", "description": "Solution area (AI Business Process, Cloud and AI Platform, Security, etc.)"},
+            {"id": "Analysis.CsuDri",              "displayName": "CSU DRI",               "type": "string", "description": "CSU DRI alias from ServiceTree"},
+            {"id": "Analysis.AreaPathAdo",          "displayName": "ADO Area Path",          "type": "string", "description": "ADO area path from ServiceTree (Security, Data and AI, etc.)"},
+            {"id": "Analysis.ReleaseManager",       "displayName": "Release Manager",        "type": "string", "description": "Release manager alias(es) from ServiceTree"},
+            {"id": "Analysis.DevContact",           "displayName": "Dev Contact",            "type": "string", "description": "Dev team alias from ServiceTree"},
+        ]
+        for sf in servicetree_fields:
+            sf["source"] = "servicetree"
+            sf["group"] = "ServiceTree"
+            sf["canEvaluate"] = True
+            sf["canSet"] = False
+        items.extend(servicetree_fields)
+
+        # ── Add Graph / Identity fields ───────────────────────
+        # These resolve via Graph.* prefix in the rules engine.
+        graph_fields = [
+            {"id": "Graph.DisplayName", "displayName": "Requestor Name",       "type": "string", "description": "Requestor display name from Microsoft Graph"},
+            {"id": "Graph.JobTitle",    "displayName": "Requestor Job Title",  "type": "string", "description": "Requestor job title from Microsoft Graph"},
+            {"id": "Graph.Department",  "displayName": "Requestor Department", "type": "string", "description": "Requestor department from Microsoft Graph"},
+            {"id": "Graph.Email",       "displayName": "Requestor Email",      "type": "string", "description": "Requestor email address from Microsoft Graph"},
+            {"id": "Graph.Alias",       "displayName": "Requestor Alias",      "type": "string", "description": "Requestor alias (mailNickname) from Microsoft Graph"},
+        ]
+        for gf in graph_fields:
+            gf["source"] = "graph"
+            gf["group"] = "Graph"
+            gf["canEvaluate"] = True
+            gf["canSet"] = False
+        items.extend(graph_fields)
+
+        # Sort: Analysis → ServiceTree → Graph → ADO groups alphabetically
         def sort_key(x):
             g = x["group"]
-            # Analysis fields sort before everything else
-            return (0 if g == "Analysis" else 1, g, x["displayName"])
+            order = {"Analysis": 0, "ServiceTree": 1, "Graph": 2}
+            return (order.get(g, 3), g, x["displayName"])
         items.sort(key=sort_key)
 
         return {

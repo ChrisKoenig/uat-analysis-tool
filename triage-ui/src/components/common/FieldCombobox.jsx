@@ -155,10 +155,12 @@ export default function FieldCombobox({
       const g = f.group || f.source || '';
       if (g !== lastGroup) {
         const groupLabels = {
-          'Analysis': '🔬 AI / Evaluation Fields',
-          'Custom':   'Custom Fields',
-          'System':   'System Fields',
-          'Microsoft': 'Microsoft Fields',
+          'Analysis':    '🔬 AI / Evaluation Fields',
+          'ServiceTree': '🌳 Service Tree Fields',
+          'Graph':       '👤 Graph / Identity Fields',
+          'Custom':      'Custom Fields',
+          'System':      'System Fields',
+          'Microsoft':   'Microsoft Fields',
         };
         items.push({ _isHeader: true, label: groupLabels[g] || `${g} Fields` });
         lastGroup = g;

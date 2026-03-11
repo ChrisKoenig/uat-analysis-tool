@@ -45,6 +45,8 @@ class GraphUserInfo:
     display_name: str
     job_title: str
     department: str
+    email: str = ""
+    alias: str = ""
 
 
 # ── public API ─────────────────────────────────────────────────────────────
@@ -169,10 +171,14 @@ def _filter_users(filter_expr: str, headers: dict) -> Optional[dict]:
 
 def _to_user_info(data: dict, fallback_email: str) -> GraphUserInfo:
     """Convert a raw Graph JSON object to our dataclass."""
+    email = data.get("mail") or data.get("userPrincipalName") or fallback_email
+    alias = data.get("mailNickname") or email.split("@")[0].lower()
     return GraphUserInfo(
         display_name=data.get("displayName") or fallback_email,
         job_title=data.get("jobTitle") or "Unknown",
         department=data.get("department") or "Unknown",
+        email=email,
+        alias=alias,
     )
 
 

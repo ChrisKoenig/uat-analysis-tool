@@ -38,6 +38,7 @@ from typing import Dict, Any, Optional, List, Tuple
 
 from ..models.rule import Rule, VALID_OPERATORS
 from ..models.analysis_result import AnalysisResult
+from graph_user_lookup import get_user_info
 
 logger = logging.getLogger("triage.engines.rules")
 
@@ -211,7 +212,12 @@ class RulesEngine:
             # Strip "Analysis." prefix and resolve from the analysis result
             analysis_field = field_ref[len("Analysis."):]
             return analysis.get_analysis_field(analysis_field)
-        
+
+        # Graph / Identity fields — resolve requestor info from MS Graph
+        if field_ref.startswith("Graph."):
+            graph_field = field_ref[len("Graph."):]
+            return self._resolve_graph_field(graph_field, work_item)
+
         # Standard ADO fields - look up in work item dict
         # Try exact match first, then case-insensitive fallback
         if field_ref in work_item:
@@ -225,7 +231,42 @@ class RulesEngine:
         
         # Field not found in work item data
         return None
-    
+
+    # ── Graph / Identity field resolver ────────────────────────────────────
+
+    _GRAPH_FIELD_MAP = {
+        "DisplayName": "display_name",
+        "JobTitle":    "job_title",
+        "Department":  "department",
+        "Email":       "email",
+        "Alias":       "alias",
+    }
+
+    def _resolve_graph_field(
+        self, graph_field: str, work_item: Dict[str, Any]
+    ) -> Optional[str]:
+        """Resolve a Graph.* field by looking up the requestor in MS Graph."""
+        attr = self._GRAPH_FIELD_MAP.get(graph_field)
+        if attr is None:
+            logger.warning("Unknown Graph field: %s", graph_field)
+            return None
+
+        # Prefer explicit requestor email; fall back to created-by email
+        email = (
+            work_item.get("_requestorEmail")
+            or work_item.get("_createdByEmail")
+            or ""
+        )
+        if not email:
+            logger.debug("Graph resolve skipped: no requestor email on work item")
+            return None
+
+        info = get_user_info(email)
+        if info is None:
+            return None
+
+        return getattr(info, attr, None)
+
     def _apply_operator(
         self,
         operator: str,

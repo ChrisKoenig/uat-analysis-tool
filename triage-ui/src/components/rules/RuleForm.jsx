@@ -158,7 +158,7 @@ export default function RuleForm({ rule, teams = [], onSubmit, onCancel }) {
       {/* Analysis/ADO Field(s) */}
       <div className="form-group">
         <label htmlFor="rule-field">
-          {isMultiField ? 'Analysis/ADO Fields *' : 'Analysis/ADO Field *'}
+          {isMultiField ? 'Fields *' : 'Field *'}
         </label>
         {isMultiField ? (
           <>
