@@ -205,11 +205,11 @@ if ($Target -eq "all" -or $Target -eq "triage-ui") {
         Copy-Item $templateFile (Join-Path $publicDir "config.json") -Force
         Write-Ok "config.json written from config.$configSuffix.json"
 
-        npm ci --silent 2>&1 | Out-Null
-        Write-Ok "npm ci complete"
+        npm install --silent 2>&1 | Out-Null
+        Write-Ok "npm install complete"
 
-        npm run build
-        if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
+        npx vite build
+        if ($LASTEXITCODE -ne 0) { throw "npx vite build failed" }
         Write-Ok "Build complete"
 
         $zipFile = Join-Path $outDir "triage-ui.zip"
@@ -241,11 +241,11 @@ if ($Target -eq "all" -or $Target -eq "field-ui") {
         Copy-Item $templateFile (Join-Path $publicDir "config.json") -Force
         Write-Ok "config.json written from config.$configSuffix.json"
 
-        npm ci --silent 2>&1 | Out-Null
-        Write-Ok "npm ci complete"
+        npm install --silent 2>&1 | Out-Null
+        Write-Ok "npm install complete"
 
-        npm run build
-        if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
+        npx vite build
+        if ($LASTEXITCODE -ne 0) { throw "npx vite build failed" }
         Write-Ok "Build complete"
 
         $zipFile = Join-Path $outDir "field-ui.zip"
