@@ -159,6 +159,7 @@ export default function EvaluatePage({ addToast }) {
   const [dryRun, setDryRun] = useState(true);
   const [results, setResults] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [showAllRules, setShowAllRules] = useState(false);
   const [applying, setApplying] = useState(null);
 
   // ── Analyze State ────────────────────────────────────────────
@@ -1247,21 +1248,40 @@ export default function EvaluatePage({ addToast }) {
                 <div className="evaluate-result-details">
                   {/* Rule Results */}
                   <div className="evaluate-detail-section">
-                    <h4>Rule Results ({Object.keys(evalResult.ruleResults || {}).length})</h4>
-                    <div className="evaluate-rule-results">
-                      {Object.entries(evalResult.ruleResults || {}).map(([ruleId, result]) => {
-                        const ruleName = evalResult.ruleNames?.[ruleId] || ruleId;
-                        return (
-                          <span
-                            key={ruleId}
-                            className={`evaluate-rule-chip ${result ? 'rule-true' : 'rule-false'}`}
-                            title={ruleId}
-                          >
-                            {result ? '✓' : '✗'} {ruleName}
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {(() => {
+                      const allEntries = Object.entries(evalResult.ruleResults || {});
+                      const firedEntries = allEntries.filter(([, r]) => r);
+                      const displayEntries = showAllRules ? allEntries : firedEntries;
+                      return (
+                        <>
+                          <h4>
+                            Rules Fired ({firedEntries.length} of {allEntries.length})
+                            {allEntries.length > firedEntries.length && (
+                              <button
+                                className="evaluate-toggle-rules"
+                                onClick={() => setShowAllRules(prev => !prev)}
+                              >
+                                {showAllRules ? 'Show fired only' : `Show all ${allEntries.length}`}
+                              </button>
+                            )}
+                          </h4>
+                          <div className="evaluate-rule-results">
+                            {displayEntries.map(([ruleId, result]) => {
+                              const ruleName = evalResult.ruleNames?.[ruleId] || ruleId;
+                              return (
+                                <span
+                                  key={ruleId}
+                                  className={`evaluate-rule-chip ${result ? 'rule-true' : 'rule-false'}`}
+                                  title={ruleId}
+                                >
+                                  {result ? '✓' : '✗'} {ruleName}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Field Changes */}
@@ -1281,7 +1301,12 @@ export default function EvaluatePage({ addToast }) {
                             const c = (change && typeof change === 'object') ? change : {};
                             const renderFieldValue = (v) => {
                               if (v == null) return '—';
-                              if (typeof v === 'object') return v.displayName || v.name || JSON.stringify(v);
+                              if (typeof v === 'object') {
+                                if (v.displayName) return v.displayName;
+                                if (v.name) return v.name;
+                                const s = JSON.stringify(v);
+                                return s.length > 200 ? s.slice(0, 200) + '…' : s;
+                              }
                               return String(v);
                             };
                             return (

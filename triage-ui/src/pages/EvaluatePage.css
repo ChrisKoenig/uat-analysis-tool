@@ -207,11 +207,32 @@
   color: var(--danger);
 }
 
+.evaluate-toggle-rules {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  font-weight: 400;
+  text-decoration: underline;
+  padding: 0;
+}
+.evaluate-toggle-rules:hover {
+  color: var(--primary-dark, #004578);
+}
+
 /* Field changes table */
 .evaluate-changes-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: var(--font-size-sm);
+}
+
+.evaluate-changes-table th:first-child,
+.evaluate-changes-table td:first-child {
+  width: 22%;
 }
 
 .evaluate-changes-table th {
@@ -225,6 +246,9 @@
 .evaluate-changes-table td {
   padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid var(--border);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 0;
 }
 
 /* Actions executed */
