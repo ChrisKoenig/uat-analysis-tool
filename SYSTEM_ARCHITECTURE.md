@@ -161,7 +161,7 @@ the results back to ADO — with human review at the decision point.
 │  │ DB: triage-      │  │ - OpenAI config  │  │ Deployments:     │            │
 │  │   management     │  │ - ADO PAT        │  │ - gpt-4o-standard│            │
 │  │                  │  │ - Storage keys   │  │ - text-embedding-│            │
-│  │ 13 containers:   │  │ - App Insights   │  │   3-large        │            │
+│  │ 16 containers:   │  │ - App Insights   │  │   3-large        │            │
 │  │ rules, actions,  │  │                  │  │                  │            │
 │  │ triggers, routes,│  │ Auth: Default    │  │ Auth: AAD only   │            │
 │  │ analysis-results,│  │ AzureCredential  │  │ (keys disabled)  │            │
@@ -184,10 +184,10 @@ the results back to ADO — with human review at the decision point.
 │  │ Azure DevOps     │  │ Azure DevOps     │  │ Local Cache      │            │
 │  │ (READ)           │  │ (WRITE)          │  │                  │            │
 │  │ unifiedaction-   │  │ unifiedaction-   │  │ cache/ai_cache/  │            │
-│  │ tracker          │  │ trackertest      │  │ 7-day TTL        │            │
+│  │ tracker          │  │ tracker          │  │ 7-day TTL        │            │
 │  │                  │  │                  │  │ LLM responses    │            │
-│  │ Production work  │  │ Safe test org    │  │ Embeddings       │            │
-│  │ items source     │  │ for writes       │  │                  │            │
+│  │ Production work  │  │ Production org   │  │ Embeddings       │            │
+│  │ items source     │  │ (B0011/FR-2056)  │  │                  │            │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘            │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -623,7 +623,7 @@ resource group `rg-nonprod-aitriage`, North Central US.
 
 | Resource | Type | Key Detail |
 |----------|------|------------|
-| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 13 containers |
+| `cosmos-aitriage-nonprod` | Cosmos DB (NoSQL, serverless) | AAD-only, 16 containers |
 | `kv-aitriage` | Key Vault | OpenAI, Cosmos, ADO secrets via MI |
 | `openai-aitriage-nonprod` | Azure OpenAI | gpt-4o-standard + text-embedding-3-large |
 | `TechRoB-Automation-DEV` | User-Assigned Managed Identity | Assigned to all 4 App Services |
@@ -653,6 +653,9 @@ Database: `triage-management`
 | `servicetree-catalog` | `/solutionArea` | Cached ServiceTree service catalog (offerings, services, routing metadata) |
 | `classification-config` | `/configType` | Dynamic classification categories, intents, and business-impact values (AI auto-discovery + admin review) |
 | `field-schema` | `/id` | Field Portal schema definitions |
+| `feedback-reports` | `/reportType` | Enhancement requests and error reports from users |
+| `feedback-attachments` | `/reportId` | Screenshots and file attachments for feedback reports |
+| `apply-snapshots` | `/workItemId` | Pre-apply ADO field snapshots for revert capability (FR-2056) |
 
 ---
 

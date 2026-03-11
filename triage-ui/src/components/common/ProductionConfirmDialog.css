@@ -1,0 +1,95 @@
+/**
+ * ProductionConfirmDialog Styles
+ * B0011: Two-step production write confirmation
+ */
+
+.prod-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: prodFadeIn 0.15s ease;
+}
+
+.prod-confirm-dialog {
+  background: var(--card-bg, #fff);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  padding: 28px 32px 24px;
+  min-width: 420px;
+  max-width: 520px;
+  outline: none;
+  text-align: center;
+  border-top: 4px solid #c47a00;
+}
+
+.prod-confirm-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.prod-confirm-title {
+  font-size: var(--font-size-lg, 18px);
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #c47a00;
+}
+.prod-confirm-title--danger {
+  color: #d13438;
+}
+
+.prod-confirm-message {
+  font-size: var(--font-size-md, 14px);
+  color: var(--text-primary, #323130);
+  margin: 0 0 8px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.prod-confirm-action {
+  font-size: 13px;
+  color: var(--text-light, #605e5c);
+  margin: 4px 0 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary, #f3f2f1);
+  border-radius: 4px;
+}
+
+.prod-confirm-step {
+  font-size: 11px;
+  color: var(--text-muted, #a19f9d);
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.prod-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.prod-confirm-actions .btn {
+  min-width: 80px;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Warning-colored Yes button for step 1 */
+.prod-confirm-actions .btn-warning {
+  background: #c47a00;
+  color: #fff;
+  border: 1px solid #c47a00;
+}
+.prod-confirm-actions .btn-warning:hover {
+  background: #a86600;
+}
+
+@keyframes prodFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}

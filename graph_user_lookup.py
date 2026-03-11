@@ -31,6 +31,12 @@ GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 
 _SELECT_FIELDS = "displayName,jobTitle,department,mail,userPrincipalName,mailNickname"
 
+# ── in-memory cache (email → GraphUserInfo | None) ────────────────────────
+import time as _time
+
+_graph_cache: dict[str, tuple[float, Optional["GraphUserInfo"]]] = {}
+_CACHE_TTL = 600  # 10 minutes
+
 
 # ── result type ────────────────────────────────────────────────────────────
 @dataclass
@@ -57,6 +63,19 @@ def get_user_info(email: str) -> Optional[GraphUserInfo]:
         logger.info("Graph lookup skipped: no email provided")
         return None
 
+    # Check cache first
+    cache_key = email.strip().lower()
+    cached = _graph_cache.get(cache_key)
+    if cached and (_time.monotonic() - cached[0]) < _CACHE_TTL:
+        return cached[1]
+
+    result = _lookup_graph_user(email)
+    _graph_cache[cache_key] = (_time.monotonic(), result)
+    return result
+
+
+def _lookup_graph_user(email: str) -> Optional[GraphUserInfo]:
+    """Internal: actually hit Graph API (no cache)."""
     try:
         token = _get_graph_token()
         headers = _build_headers(token)

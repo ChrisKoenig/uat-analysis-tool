@@ -26,6 +26,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../utils/helpers';
 import ServiceTreeRouting from '../components/ServiceTreeRouting';
 import ServiceTreeTab from '../components/ServiceTreeTab';
+import ProductionConfirmDialog from '../components/common/ProductionConfirmDialog';
 import './EvaluatePage.css';
 
 /* ── Category / Intent Options (match Flask UI reference) ───── */
@@ -161,6 +162,10 @@ export default function EvaluatePage({ addToast }) {
   const [expandedId, setExpandedId] = useState(null);
   const [showAllRules, setShowAllRules] = useState(false);
   const [applying, setApplying] = useState(null);
+  const [reverting, setReverting] = useState(null);
+
+  // B0011: Production write confirmation
+  const [pendingAction, setPendingAction] = useState(null);
 
   // ── Analyze State ────────────────────────────────────────────
   const [analysisResults, setAnalysisResults] = useState([]);  // [{workItemId, detail, error, loading}]
@@ -328,7 +333,7 @@ export default function EvaluatePage({ addToast }) {
 
   // ── Apply Results to ADO ─────────────────────────────────────
 
-  const handleApply = async (evaluation) => {
+  const executeApply = async (evaluation) => {
     setApplying(evaluation.id);
     try {
       const result = await api.applyEvaluation(
@@ -348,6 +353,87 @@ export default function EvaluatePage({ addToast }) {
     } finally {
       setApplying(null);
     }
+  };
+
+  // B0011: Gate apply behind production confirmation dialog
+  const handleApply = (evaluation) => {
+    setPendingAction({
+      type: 'apply',
+      description: `Apply evaluation changes to #${evaluation.workItemId}`,
+      execute: () => executeApply(evaluation),
+    });
+  };
+
+  // ── Revert Single Result ──────────────────────────────────────
+  const executeRevert = async (evaluation) => {
+    setReverting(evaluation.id);
+    try {
+      const snapshots = await api.getSnapshots(evaluation.workItemId);
+      const latest = snapshots.find((s) => !s.reverted);
+      if (!latest) {
+        addToast?.(`No revertable snapshot found for #${evaluation.workItemId}`, 'warning');
+        return;
+      }
+      const result = await api.revertEvaluation(latest.id, evaluation.workItemId);
+      if (result.success) {
+        addToast?.(
+          `Reverted ${result.fieldsReverted} fields on #${evaluation.workItemId}`,
+          'success'
+        );
+      } else {
+        addToast?.(result.error || 'Revert failed', 'error');
+      }
+    } catch (err) {
+      addToast?.(err.message, 'error');
+    } finally {
+      setReverting(null);
+    }
+  };
+
+  const handleRevert = (evaluation) => {
+    setPendingAction({
+      type: 'revert',
+      description: `Revert last applied changes on #${evaluation.workItemId}`,
+      execute: () => executeRevert(evaluation),
+    });
+  };
+
+  // ── Bulk Apply All ───────────────────────────────────────────
+  const [applyingAll, setApplyingAll] = useState(false);
+
+  const getApplicableEvals = () => {
+    if (!results?.evaluations) return [];
+    return results.evaluations.filter((e) => !e.isDryRun);
+  };
+
+  const executeApplyAll = async () => {
+    const items = getApplicableEvals();
+    if (items.length === 0) return;
+    setApplyingAll(true);
+    try {
+      const payload = items.map((e) => ({
+        evaluationId: e.id,
+        workItemId: e.workItemId,
+      }));
+      const result = await api.applyEvaluationBatch(payload);
+      addToast?.(
+        `Applied: ${result.succeeded} succeeded, ${result.failed} failed (of ${result.total})`,
+        result.failed > 0 ? 'warning' : 'success'
+      );
+    } catch (err) {
+      addToast?.(err.message, 'error');
+    } finally {
+      setApplyingAll(false);
+    }
+  };
+
+  const handleApplyAll = () => {
+    const items = getApplicableEvals();
+    setPendingAction({
+      type: 'apply',
+      description: `Apply evaluation changes to ${items.length} item(s)`,
+      execute: executeApplyAll,
+    });
   };
 
 
@@ -1174,6 +1260,17 @@ export default function EvaluatePage({ addToast }) {
             {results.evaluations?.[0]?.isDryRun && (
               <span className="evaluate-dryrun-badge">DRY RUN</span>
             )}
+            {getApplicableEvals().length > 0 && (
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginLeft: 16, verticalAlign: 'middle' }}
+                disabled={applyingAll}
+                onClick={handleApplyAll}
+                title={`Apply all ${getApplicableEvals().length} evaluation(s) to ADO`}
+              >
+                {applyingAll ? 'Applying All…' : `🚀 Apply All (${getApplicableEvals().length})`}
+              </button>
+            )}
           </h2>
 
           {results.errors?.length > 0 && (
@@ -1235,6 +1332,18 @@ export default function EvaluatePage({ addToast }) {
                       }}
                     >
                       {applying === evalResult.id ? 'Applying…' : 'Apply to ADO'}
+                    </button>
+                  )}
+                  {!evalResult.isDryRun && (
+                    <button
+                      className="btn btn-warning btn-sm"
+                      disabled={reverting === evalResult.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRevert(evalResult);
+                      }}
+                    >
+                      {reverting === evalResult.id ? 'Reverting…' : '↩ Revert'}
                     </button>
                   )}
                   <span className="evaluate-expand-icon">
@@ -1408,6 +1517,18 @@ export default function EvaluatePage({ addToast }) {
           ))}
         </div>
       )}
+
+      {/* B0011: Production write double-confirmation dialog */}
+      <ProductionConfirmDialog
+        open={!!pendingAction}
+        action={pendingAction?.description}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          action?.execute();
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
     </div>
   );
 }

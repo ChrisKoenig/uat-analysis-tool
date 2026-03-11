@@ -24,6 +24,7 @@ import * as api from '../api/triageApi';
 import { getCachedQueue, setCachedQueue, clearQueueCache, updateCachedAnalysis } from '../api/queueCache';
 import { formatDate, truncate } from '../utils/helpers';
 import ServiceTreeRouting from '../components/ServiceTreeRouting';
+import ProductionConfirmDialog from '../components/common/ProductionConfirmDialog';
 import './QueuePage.css';
 
 
@@ -165,6 +166,7 @@ export default function QueuePage({ addToast }) {
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [showAllQueueRules, setShowAllQueueRules] = useState(false);
   const [applying, setApplying] = useState(null);
+  const [reverting, setReverting] = useState(null);
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
   const [totalAvailable, setTotalAvailable] = useState(0);
@@ -195,6 +197,10 @@ export default function QueuePage({ addToast }) {
   // Analysis progress panel state
   const [analysisProgress, setAnalysisProgress] = useState(null);
   // Shape: { total, completed, failed, currentId, items: [ { id, title, status, category, intent, confidence, source, error } ] }
+
+  // ── B0011: Production write confirmation ─────────────────────
+  // pendingAction: { type: 'setState'|'apply', execute: () => Promise, description: string } | null
+  const [pendingAction, setPendingAction] = useState(null);
 
   // ── ENG-003: Disagreement resolution state ──────────────────
   const [bladeDisagreement, setBladeDisagreement] = useState({});
@@ -858,13 +864,12 @@ export default function QueuePage({ addToast }) {
 
   // ── Set Analysis State (shared) ──────────────────────────────
 
-  const handleSetState = async (newState, successMsg) => {
+  const executeSetState = async (newState, successMsg) => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) {
       addToast?.('Select at least one work item', 'warning');
       return;
     }
-
     setSettingState(true);
     try {
       const data = await api.setAnalysisState(ids, newState);
@@ -913,6 +918,12 @@ export default function QueuePage({ addToast }) {
     }
   };
 
+  // B0011: setState calls executeSetState directly (no confirmation gate).
+  // The production confirmation dialog is only for Apply (committing triage changes).
+  const handleSetState = (newState, successMsg) => {
+    executeSetState(newState, successMsg);
+  };
+
 
   // ── Evaluate Selected (Triage tab) ───────────────────────────
 
@@ -950,7 +961,7 @@ export default function QueuePage({ addToast }) {
 
   // ── Apply Single Result ──────────────────────────────────────
 
-  const handleApply = async (evalResult) => {
+  const executeApply = async (evalResult) => {
     setApplying(evalResult.id);
     try {
       const result = await api.applyEvaluation(evalResult.id, evalResult.workItemId);
@@ -968,6 +979,91 @@ export default function QueuePage({ addToast }) {
       setApplying(null);
       clearQueueCache(activeQueryId); // ADO fields changed — invalidate this query's cache
     }
+  };
+
+  // B0011: Gate apply behind production confirmation dialog
+  const handleApply = (evalResult) => {
+    setPendingAction({
+      type: 'apply',
+      description: `Apply evaluation changes to #${evalResult.workItemId}`,
+      execute: () => executeApply(evalResult),
+    });
+  };
+
+  // ── Revert Single Result ──────────────────────────────────────
+  const executeRevert = async (evalResult) => {
+    setReverting(evalResult.id);
+    try {
+      const snapshots = await api.getSnapshots(evalResult.workItemId);
+      const latest = snapshots.find((s) => !s.reverted);
+      if (!latest) {
+        addToast?.(`No revertable snapshot found for #${evalResult.workItemId}`, 'warning');
+        return;
+      }
+      const result = await api.revertEvaluation(latest.id, evalResult.workItemId);
+      if (result.success) {
+        addToast?.(
+          `Reverted ${result.fieldsReverted} fields on #${evalResult.workItemId}`,
+          'success'
+        );
+      } else {
+        addToast?.(result.error || 'Revert failed', 'error');
+      }
+    } catch (err) {
+      addToast?.(err.message, 'error');
+    } finally {
+      setReverting(null);
+      clearQueueCache(activeQueryId);
+    }
+  };
+
+  const handleRevert = (evalResult) => {
+    setPendingAction({
+      type: 'revert',
+      description: `Revert last applied changes on #${evalResult.workItemId}`,
+      execute: () => executeRevert(evalResult),
+    });
+  };
+
+  // ── Bulk Apply All ───────────────────────────────────────────
+  const [applyingAll, setApplyingAll] = useState(false);
+
+  const getApplicableItems = () => {
+    if (!results?.evaluations) return [];
+    return results.evaluations.filter(
+      (e) => !e.isDryRun && selectedIds.has(e.workItemId)
+    );
+  };
+
+  const executeApplyAll = async () => {
+    const items = getApplicableItems();
+    if (items.length === 0) return;
+    setApplyingAll(true);
+    try {
+      const payload = items.map((e) => ({
+        evaluationId: e.id,
+        workItemId: e.workItemId,
+      }));
+      const result = await api.applyEvaluationBatch(payload);
+      addToast?.(
+        `Applied: ${result.succeeded} succeeded, ${result.failed} failed (of ${result.total})`,
+        result.failed > 0 ? 'warning' : 'success'
+      );
+    } catch (err) {
+      addToast?.(err.message, 'error');
+    } finally {
+      setApplyingAll(false);
+      clearQueueCache(activeQueryId);
+    }
+  };
+
+  const handleApplyAll = () => {
+    const items = getApplicableItems();
+    setPendingAction({
+      type: 'apply',
+      description: `Apply evaluation changes to ${items.length} selected item(s)`,
+      execute: executeApplyAll,
+    });
   };
 
 
@@ -1235,6 +1331,16 @@ export default function QueuePage({ addToast }) {
               >
                 {settingState ? 'Updating…' : '↩️ Return to Analysis'}
               </button>
+              {results && !results.evaluations?.[0]?.isDryRun && getApplicableItems().length > 0 && (
+                <button
+                  className="btn btn-toolbar btn-primary"
+                  disabled={applyingAll || busy}
+                  onClick={handleApplyAll}
+                  title={`Apply evaluation results for ${getApplicableItems().length} checked item(s) to ADO`}
+                >
+                  {applyingAll ? 'Applying All…' : `🚀 Apply All (${getApplicableItems().length})`}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1621,7 +1727,7 @@ export default function QueuePage({ addToast }) {
                               </table>
                             )}
 
-                            {/* Apply Button */}
+                            {/* Apply / Revert Buttons */}
                             {!evalResult.isDryRun && (
                               <div className="queue-result-actions">
                                 <button
@@ -1630,6 +1736,13 @@ export default function QueuePage({ addToast }) {
                                   onClick={() => handleApply(evalResult)}
                                 >
                                   {applying === evalResult.id ? 'Applying\u2026' : 'Apply to ADO'}
+                                </button>
+                                <button
+                                  className="btn btn-warning btn-sm"
+                                  disabled={reverting === evalResult.id}
+                                  onClick={() => handleRevert(evalResult)}
+                                >
+                                  {reverting === evalResult.id ? 'Reverting\u2026' : '\u21a9 Revert'}
                                 </button>
                               </div>
                             )}
@@ -2167,6 +2280,18 @@ export default function QueuePage({ addToast }) {
         </div>,
         document.body
       )}
+
+      {/* B0011: Production write double-confirmation dialog */}
+      <ProductionConfirmDialog
+        open={!!pendingAction}
+        action={pendingAction?.description}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          action?.execute();
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
     </div>
   );
 }

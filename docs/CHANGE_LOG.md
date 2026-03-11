@@ -43,6 +43,7 @@
 | 31 | B0010 / FR-2055 | 2026-03-10 | `af01306` | **Queue page — identity crash + fired-only rules (FR-2055) + state persistence fix** — Three issues on the Queue page: (1) Same identity object crash as B0009 when expanding dry-run results — added `renderFieldValue` helper. (2) FR-2055: Show only fired rules by default with toggle (same pattern as B0009b on EvaluatePage). (3) Items moved from Analysis → Triage via "Ready for Triage" reverted when navigating away — root cause: `handleSetState` cleared cache entirely (`clearQueueCache`) instead of updating it, and read wrong response shape (`data.updated`/`data.failed` vs actual `data.results`/`data.errors`). Fixed: parse `data.results`, check per-item `success`, update cache via `setCachedQueue` instead of clearing. CSS: `table-layout: fixed` + word-break on queue changes table. |
 | 32 | FR-2040, FR-2041 | 2026-03-10 | `00d27d2` | **Enhancement Reporting & Error Reporting — full feedback system** — New feedback system across both Field Portal and Triage UI. Users can submit enhancement requests (FR-2040) or error reports (FR-2041) from a floating action button cluster. Reports stored in Cosmos DB (`feedback-reports` container, partition key `/reportType`). Screenshots captured via `html2canvas` and attachments uploaded to Azure Blob Storage (`feedback-attachments` container). Email notifications via Graph API `sendMail` (MI credential). Backend: `FeedbackService`, `EmailService`, `BlobStorageHelper`, feedback routes (2 new endpoints per app). Frontend: `FeedbackCluster` FAB, `FeedbackModal` (dual-mode), `useFeedback` hook, `feedbackApi` client. KV integration for sender UPN. 35 files, ~2,600 lines. Both builds clean. Branch: `feature/FR-2040-2041-feedback`. PR #4. Total Cosmos containers: 15. Total API endpoints: 62. |
 | 33 | ENG-012 | 2026-03-10 | `55c2192` | **Feature branch workflow + CODEOWNERS + KV infrastructure** — Adopted feature branch workflow: `feature/FR-2040-2041-feedback` branched from `main`, PR #4 created for review. Added `.github/CODEOWNERS` (`* @Price-Is-Right`) requiring owner review on all files. Branch protection configured on `main` (require PR before merge). MI `TechRoB-Automation-DEV` granted Key Vault Secrets Officer at RG level (ServicePrincipal type bypasses MCAPS SFI Deny Policy). `FEEDBACK-SENDER-UPN` secret stored in `kv-aitriage`. Deployment script `03-configure-keyvault.ps1` updated with new secret. Cloud Shell IP added to KV firewall for admin access. ⚠️ `Mail.Send` Graph permission blocked — needs Entra admin. |
+| 34 | FR-2056 / B0011 | 2026-03-10 | `7edea09` | **Production apply + bulk Apply All + revert/snapshots + ROBTAMS tag + performance fixes** — Switched ADO write target to production org (`unifiedactiontracker`). Added two-step `ProductionConfirmDialog` for all production writes. Bulk "Apply All to ADO" button for batch-applying evaluations (40–100 daily items). Pre-apply snapshot storage in new `apply-snapshots` Cosmos container — captures original field values before overwrite for rollback. Revert capability via `POST /evaluate/revert` restores original ADO values from snapshots. Auto-appends "ROBTAMS" tag to every work item touched by the system. Performance: replaced N serial Cosmos queries with single `ARRAY_CONTAINS` batch query, wrapped blocking HTTP calls in `asyncio.to_thread()` to unblock FastAPI event loop, added 10-min TTL in-memory cache for Graph user lookups. Total Cosmos containers: 16. Total API endpoints: 65. Total UI pages: 14. |
 
 ---
 
@@ -55,7 +56,7 @@
 
 ### Week of March 10, 2026
 
-**Reported entries:** #26, #27, #28, #29, #30, #31, #32, #33  
+**Reported entries:** #26, #27, #28, #29, #30, #31, #32, #33, #34  
 **Last reported:** Entries #1–25 (week of March 3)
 
 #### Summary
@@ -119,6 +120,20 @@ Added a complete feedback system to both the Field Portal and Triage UI. Users c
 **Feature Branch Workflow + CODEOWNERS (ENG-012)**  
 Adopted a feature branch workflow with code review requirements. Created `.github/CODEOWNERS` assigning `@Price-Is-Right` as owner of all files. Configured branch protection on `main` requiring PRs before merge. First feature branch (`feature/FR-2040-2041-feedback`) created with PR #4 as the inaugural use of this workflow.
 
+**Production Apply + Bulk Apply All + Revert/Snapshots + ROBTAMS Tag + Perf Fixes (FR-2056 / B0011)**  
+Major production-readiness release covering six areas: production write target, bulk operations, safety net (snapshots + revert), automated tagging, and API performance.
+
+**Key changes:**
+- **Production write target (B0011)** — ADO write target switched from test org to production `unifiedactiontracker` org. New `ProductionConfirmDialog` component provides two-step confirmation (warning → type "CONFIRM") for all production writes (Apply and Revert).
+- **Bulk Apply All** — New `POST /evaluate/apply-batch` endpoint accepts array of `{evaluationId, workItemId}` pairs, calls `_apply_single()` in loop, returns per-item success/failure. "🚀 Apply All (N)" button added to both QueuePage (toolbar, applies selected items) and EvaluatePage (results header, applies all non-dry-run items). Eliminates clicking Apply 40–100 times daily.
+- **Pre-apply snapshots** — New `apply-snapshots` Cosmos container (partition key `/workItemId`). Before every apply operation, `_save_snapshot()` reads current ADO field values and stores them as `{id: "snap-{wid}-{timestamp}", workItemId, evaluationId, originalValues, appliedAt, reverted: false}`. Enables rollback.
+- **Revert capability** — `POST /evaluate/revert` reads a snapshot from Cosmos, writes original field values back to ADO via JSON Patch, marks snapshot as reverted. `GET /evaluate/snapshots/{work_item_id}` lists all snapshots for a work item. Frontend: `revertEvaluation()` and `getSnapshots()` API methods. "↩ Revert" button on both QueuePage and EvaluatePage, gated by ProductionConfirmDialog.
+- **ROBTAMS tag** — `_ensure_robtams_tag()` helper auto-appends "ROBTAMS" to `System.Tags` (semicolon-separated) on every apply operation. Enables filtering in ADO to see all items the system has touched.
+- **Performance fixes** — Three compounding issues caused multi-minute queue load times: (1) `get_analysis_batch` made N serial Cosmos queries (one per work item) — replaced with single `ARRAY_CONTAINS` cross-partition query. (2) `async def` endpoints called synchronous HTTP/Cosmos functions blocking FastAPI's event loop — wrapped in `asyncio.to_thread()`. (3) No cache for Graph user lookups — added 10-minute TTL in-memory cache in `graph_user_lookup.py` using `time.monotonic()`.
+- **Refactored apply core** — Extracted `_apply_single()` shared helper used by both single-apply and batch-apply endpoints. Handles: find evaluation → fetch current ADO fields → save snapshot → ensure ROBTAMS tag → apply to ADO → post comments.
+
+**Files changed:** 10 (8 modified + 2 new) | **New Cosmos container:** `apply-snapshots` | **New endpoints:** 3 (`apply-batch`, `revert`, `snapshots/{wid}`)
+
 ---
 
 ### Week of March 3, 2026
@@ -131,6 +146,36 @@ Adopted a feature branch workflow with code review requirements. Created `.githu
 ---
 
 ## Change Detail
+
+### FR-2056 / B0011 — Production Apply + Bulk Apply All + Revert/Snapshots + ROBTAMS Tag + Performance
+
+**Date:** 2026-03-10  
+**Build ID:** *pending*  
+**Status:** Built, awaiting merge and deployment
+
+#### Problems
+
+1. **Manual apply bottleneck** — Daily triage of 40–100 items required clicking "Apply to ADO" individually on each one.
+2. **No rollback safety net** — Once fields were overwritten in ADO, there was no way to restore original values if something went wrong.
+3. **No audit trail for system-touched items** — No easy way to filter ADO work items that had been modified by ROBTAMS.
+4. **Multi-minute queue load** — Three compounding issues: serial Cosmos queries (N round-trips), synchronous HTTP blocking the async event loop, and uncached Graph API calls.
+
+#### Changes
+
+| File | Layer | Change |
+|------|-------|--------|
+| `triage/services/ado_client.py` | Backend | ADO write target switched from test org to production `unifiedactiontracker` org/project |
+| `triage/config/cosmos_config.py` | Backend | Added `apply-snapshots` container definition (partition key `/workItemId`, now 16 containers) |
+| `triage/api/schemas.py` | Backend | Added `BatchApplyItem`, `BatchApplyRequest`, `BatchApplyResponse`, `RevertRequest`, `RevertResponse` Pydantic models |
+| `triage/api/routes.py` | Backend | `_ensure_robtams_tag()` — appends "ROBTAMS" to `System.Tags`. `_save_snapshot()` — stores original ADO values to Cosmos. `_apply_single()` — shared core for single/batch apply. `POST /evaluate/apply-batch` — batch apply endpoint. `POST /evaluate/revert` — restore original values from snapshot. `GET /evaluate/snapshots/{wid}` — list snapshots. `get_analysis_batch` — single `ARRAY_CONTAINS` query replacing N serial queries. `asyncio.to_thread()` wrappers on `run_saved_query()` and `get_user_info()` |
+| `graph_user_lookup.py` | Backend | 10-min TTL in-memory cache (`time.monotonic()`) — avoids repeated Graph API calls for the same email |
+| `triage-ui/src/components/common/ProductionConfirmDialog.jsx` | Frontend | NEW — Two-step confirmation dialog (warning → type "CONFIRM") for production writes |
+| `triage-ui/src/components/common/ProductionConfirmDialog.css` | Frontend | NEW — Dialog styling with warning colors and step transitions |
+| `triage-ui/src/api/triageApi.js` | Frontend | Added `applyEvaluationBatch()`, `revertEvaluation()`, `getSnapshots()` API methods |
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | "🚀 Apply All (N)" button (selected items), "↩ Revert" button per row, both gated by ProductionConfirmDialog |
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | "🚀 Apply All (N)" button (all non-dry-run), "↩ Revert" button per row, both gated by ProductionConfirmDialog |
+
+---
 
 ### B0010 / FR-2055 — Queue Page: Identity Crash + Fired-Only Rules + State Persistence
 

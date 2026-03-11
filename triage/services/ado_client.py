@@ -58,29 +58,28 @@ from ado_integration import AzureDevOpsClient, AzureDevOpsConfig
 
 class TriageAdoConfig:
     """
-    Triage-specific ADO configuration with dual-org support.
+    Triage-specific ADO configuration.
 
-    Extends AzureDevOpsConfig with separate read/write targets:
-        - READ_*:  Production org (unifiedactiontracker) — real Actions data
-        - WRITE_*: Test org (unifiedactiontrackertest) — safe for development
+    Both reads and writes target the production org (unifiedactiontracker).
+    Auth: Managed Identity with Bearer token (no PATs).
 
     All shared settings (API version, work item type, OAuth scope) are
     pulled directly from AzureDevOpsConfig to stay in sync.
     """
 
-    # --- Read target: Production org (real data for evaluation) ---
+    # --- Read target: Production org ---
     READ_ORGANIZATION = "unifiedactiontracker"
     READ_PROJECT = "Unified Action Tracker"
     READ_BASE_URL = f"https://dev.azure.com/{READ_ORGANIZATION}"
 
-    # --- Write target: Test org (safe for development) ---
-    WRITE_ORGANIZATION = AzureDevOpsConfig.ORGANIZATION        # "unifiedactiontrackertest"
-    WRITE_PROJECT = AzureDevOpsConfig.PROJECT                  # "Unified Action Tracker Test"
-    WRITE_BASE_URL = AzureDevOpsConfig.BASE_URL
+    # --- Write target: Production org (switched from test, B0011) ---
+    WRITE_ORGANIZATION = "unifiedactiontracker"
+    WRITE_PROJECT = "Unified Action Tracker"
+    WRITE_BASE_URL = f"https://dev.azure.com/{WRITE_ORGANIZATION}"
 
     # --- Shared settings (from existing config, single source of truth) ---
     API_VERSION = AzureDevOpsConfig.API_VERSION                # "7.0"
-    WORK_ITEM_TYPE = AzureDevOpsConfig.WORK_ITEM_TYPE          # "Actions"
+    WORK_ITEM_TYPE = "Actions"                                 # Production uses "Actions" (plural)
     ADO_SCOPE = AzureDevOpsConfig.ADO_SCOPE
 
     # --- Backward compatibility aliases (point to WRITE org) ---
@@ -98,10 +97,9 @@ class AdoClient:
     Triage ADO adapter — wraps AzureDevOpsClient with triage-specific methods.
 
     Key design principle: Reuse, don't duplicate.
-        - Auth, credentials, headers → from AzureDevOpsClient
-        - Read operations  → target production org (real data)
-        - Write operations → target test org (safe for development)
-        - New: Comments API, 409 conflict detection, triage queue WIQL
+        - Auth, credentials, headers → from AzureDevOpsClient (Managed Identity)
+        - Read and write operations → target production org (unifiedactiontracker)
+        - Comments API, 409 conflict detection, triage queue WIQL
 
     Usage:
         client = AdoClient()   # wraps AzureDevOpsClient automatically
@@ -109,7 +107,7 @@ class AdoClient:
         # Read from production
         result = client.get_work_item(12345)
 
-        # Write to test
+        # Write to production (B0011: switched from test org)
         result = client.update_work_item(12345, field_changes)
 
     For testing, pass a mock AzureDevOpsClient:
@@ -160,17 +158,14 @@ class AdoClient:
 
     def _pat_for_org(self, org: str) -> Optional[str]:
         """
-        Return the correct PAT for a given ADO org.
+        Return the correct PAT for a given ADO org (legacy fallback).
 
-        Two org-scoped PATs are supported:
-            ADO_PAT      → write org (unifiedactiontrackertest)
-            ADO_PAT_READ → read org  (unifiedactiontracker / production)
-
-        Falls back to ADO_PAT if ADO_PAT_READ is not set.
+        Production uses Managed Identity — this returns None, so _headers
+        falls through to the Bearer token path.
         """
         if org == self._config.READ_ORGANIZATION and self._client._pat_read:
             return self._client._pat_read
-        return self._client._pat  # may be None (token auth)
+        return self._client._pat  # None when using MI (token auth)
 
     def _headers(self, content_type: str = "application/json", org: Optional[str] = None) -> Dict[str, str]:
         """

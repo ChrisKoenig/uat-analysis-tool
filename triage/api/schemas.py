@@ -304,6 +304,41 @@ class ApplyChangesResponse(BaseModel):
     conflict: bool = False
 
 
+class BatchApplyItem(BaseModel):
+    """Single item in a batch apply request"""
+    evaluationId: str = Field(..., description="Evaluation ID to apply")
+    workItemId: int = Field(..., description="ADO work item ID")
+
+
+class BatchApplyRequest(BaseModel):
+    """Request body for bulk-applying evaluation results to ADO"""
+    items: List[BatchApplyItem] = Field(
+        ..., description="List of evaluations to apply", min_length=1
+    )
+
+
+class BatchApplyResponse(BaseModel):
+    """Response for batch apply"""
+    total: int
+    succeeded: int = 0
+    failed: int = 0
+    results: List[ApplyChangesResponse] = []
+
+
+class RevertRequest(BaseModel):
+    """Request body for reverting a previously applied evaluation"""
+    snapshotId: str = Field(..., description="Snapshot ID from the apply operation")
+    workItemId: int = Field(..., description="ADO work item ID")
+
+
+class RevertResponse(BaseModel):
+    """Response for revert operation"""
+    success: bool
+    workItemId: int
+    fieldsReverted: int = 0
+    error: Optional[str] = None
+
+
 class WebhookResponse(BaseModel):
     """Response returned to ADO Service Hook after receiving a webhook"""
     received: bool = True

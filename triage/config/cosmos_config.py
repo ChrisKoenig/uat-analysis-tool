@@ -105,6 +105,10 @@ CONTAINER_DEFINITIONS = {
     "classification-config": {
         "partition_key": "/configType",
         "description": "Dynamic classification categories, intents, and business impacts (AI-discoverable)"
+    },
+    "apply-snapshots": {
+        "partition_key": "/workItemId",
+        "description": "Pre-apply field snapshots for revert capability (stores original values before ADO writes)"
     }
 }
 
