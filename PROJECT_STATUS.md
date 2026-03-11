@@ -1,6 +1,8 @@
 # Project Status - Intelligent Context Analysis System
-**Last Updated**: March 10, 2026
-**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (13 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **AI-powered UAT search via ADO Search API (FR-2020)** + **AI-powered TFT Feature search via ADO Search API (FR-2020b)** + **Correction display override fix (B0008)** + **60 API endpoints**
+**Last Updated**: March 10, 2026 (Evening)
+**Status**: ✅ All systems operational — Local + Azure Container Apps (dev) + **Azure App Service (pre-prod)** — Triage Management + Field Portal **BOTH DEPLOYED** + Cosmos DB (15 containers) + AI classification (with retry logic + **dynamic classification config**) + ADO dual-org integration (MI auth) + batch resilience (errorPolicy=Omit) + diagnostics endpoint + **centralized config package (ENG-007)** + **entity export/import (FR-2005)** + **dynamic classification config (ENG-010)** + **Graph user lookup + background prefetch/cache (FR-1998 / PERF-001)** + **AI-powered UAT search via ADO Search API (FR-2020)** + **AI-powered TFT Feature search via ADO Search API (FR-2020b)** + **Correction display override fix (B0008)** + **Evaluate/Queue identity crash + fired-only rules + state persistence (B0009/B0009b/B0010/FR-2055)** + **Enhancement & Error Reporting (FR-2040/FR-2041)** + **Feature branch workflow + CODEOWNERS (ENG-012)** + **62 API endpoints**
+
+⚠️ **Known Issue**: `Mail.Send` Graph API permission not yet granted to Managed Identity `TechRoB-Automation-DEV` — requires Entra ID admin (Cloud Application Administrator or Global Admin). Feedback email notifications will silently fail until granted. All other feedback functionality (Cosmos storage, blob upload) works.
 
 ---
 
@@ -231,8 +233,8 @@ COSMOS_TENANT_ID=16b3c013-d300-468d-ac64-7eda0820b6d3
 ```
 These are injected automatically by `launcher.py` or must be set manually.
 
-### Containers (13 total, auto-created)
-`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`, `classification-config`
+### Containers (15 total, auto-created)
+`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`, `classification-config`, `feedback-reports`, `feedback-attachments`
 
 **Shared containers:**
 - `evaluations` — Written by both triage (`source: "triage"`) and field portal (`source: "field-portal"`); partition key `/workItemId`
@@ -360,6 +362,61 @@ az webapp deploy --resource-group rg-nonprod-aitriage --name app-triage-api-nonp
 | **Networking** | Internal/External ingress | Public App Service URLs |
 | **UI Auth** | Basic auth (nginx) | MSAL (App Registration) |
 | **Build** | ACR + Docker build | Local zip build + `az webapp deploy` |
+
+---
+
+## Recent Changes (Mar 10, 2026) — FR-2040/FR-2041: Enhancement & Error Reporting + Branching Workflow
+
+### FR-2040 / FR-2041 — Enhancement Reporting & Error Reporting
+
+Added a full feedback system to both the Field Portal and Triage UI, allowing users to submit enhancement requests (FR-2040) and error reports (FR-2041) from anywhere in the application. Reports are stored in Cosmos DB, screenshots/attachments uploaded to Azure Blob Storage, and email notifications sent via Microsoft Graph API.
+
+**Backend (12 files):**
+- `triage/services/feedback_service.py` — Core `FeedbackService` class with `submit_enhancement()` and `submit_error_report()` methods. Stores reports in Cosmos DB (`feedback-reports` container, partition key `/reportType`), uploads attachments to Blob Storage (`feedback-attachments` container), and sends email notifications via Graph API.
+- `triage/services/email_service.py` — `send_feedback_email()` using MI credential → Graph API `POST /users/{sender}/sendMail`. Sender UPN resolved from Key Vault (`FEEDBACK-SENDER-UPN`) with env var fallback.
+- `triage/services/blob_storage_helper.py` — `BlobStorageHelper` for uploading base64-encoded screenshots/attachments to Azure Blob Storage with content type detection and unique blob naming.
+- `triage/api/feedback_routes.py` — FastAPI router: `POST /api/v1/feedback/enhancement`, `POST /api/v1/feedback/error-report` (2 new endpoints).
+- `field-portal/api/feedback_routes.py` — Same feedback routes for the Field Portal API.
+- `triage/config/cosmos_config.py` — Added `feedback-reports` and `feedback-attachments` container definitions (now 15 containers).
+- `keyvault_config.py` — Added `FEEDBACK_SENDER_UPN` to `SECRET_MAPPINGS`.
+- `infrastructure/deploy/03-configure-keyvault.ps1` — Added `FEEDBACK-SENDER-UPN` secret to deployment script.
+
+**Frontend — Triage UI (6 files):**
+- `triage-ui/src/hooks/useFeedback.js` — Custom React hook managing modal state, form data, screenshot capture, and API submission.
+- `triage-ui/src/api/feedbackApi.js` — API client functions for enhancement and error report submission.
+- `triage-ui/src/components/feedback/FeedbackCluster.jsx` + `.css` — Floating action button cluster (bottom-right) with expand/collapse animation, "Enhancement" and "Error Report" buttons.
+- `triage-ui/src/components/feedback/FeedbackModal.jsx` + `.css` — Dual-mode modal (enhancement / error report) with form fields, severity picker, screenshot capture via `html2canvas`, file attachments, and submission state management.
+- `App.jsx` — Wired `FeedbackCluster` + `FeedbackModal` + `useFeedback` hook into the app shell.
+
+**Frontend — Field Portal (6 files):**
+- Same component structure as Triage UI: `useFeedback.js`, `feedbackApi.js`, `FeedbackCluster.jsx/.css`, `FeedbackModal.jsx/.css`, wired into `App.jsx`.
+
+**Totals:** 35 files, ~2,600 lines of new code. 2 new API endpoints per app (4 total). 2 new Cosmos containers. Both builds clean.
+
+### Branching Workflow + CODEOWNERS
+
+- **Feature branch**: `feature/FR-2040-2041-feedback` created from `main` — all feedback code on this branch (3 commits: `55c2192`, `7754ce1`, `00d27d2`).
+- **PR #4**: Created on GitHub (`Price-Is-Right/uat-analysis-tool`) for review.
+- **CODEOWNERS**: `.github/CODEOWNERS` created with `* @Price-Is-Right` — all files require owner review.
+- **Branch protection**: Configured on `main` — require PR before merging.
+
+### Infrastructure — Key Vault & RBAC
+
+- **MI RBAC**: `TechRoB-Automation-DEV` granted **Key Vault Secrets Officer** at resource group level (`rg-nonprod-aitriage`). ServicePrincipal type bypasses MCAPS SFI Deny Policy that blocks persistent User RBAC assignments.
+- **KV Secret**: `FEEDBACK-SENDER-UPN` = `TechRob@microsoft.com` stored in `kv-aitriage` (confirmed at `2026-03-10T22:49:30`).
+- **Cloud Shell Firewall**: IP `40.118.133.244` added to KV firewall to allow Cloud Shell access (cleanup: remove when no longer needed).
+
+### Known Issue — Mail.Send Permission Blocked
+
+The email notification feature requires `Mail.Send` application permission on the MI's service principal in Microsoft Graph. Granting this permission requires an Entra ID directory role (Cloud Application Administrator or Global Admin) which the current user does not have. The "Grant admin consent" button in Enterprise Applications is grayed out, and `az rest` calls to the Graph appRoleAssignments endpoint return "Insufficient privileges".
+
+**Impact**: Feedback reports save to Cosmos DB and Blob Storage successfully. Email notifications silently fail (returns `false`). No user-facing error.
+
+**Resolution**: Requires an Entra admin to run:
+```
+az rest --method POST --uri "https://graph.microsoft.com/v1.0/servicePrincipals/309baa86-f939-4fc3-ab3e-e2d3d0d4e475/appRoleAssignments" --body "{\"principalId\":\"309baa86-f939-4fc3-ab3e-e2d3d0d4e475\",\"resourceId\":\"b19d498e-6687-4156-869a-2e8a95a9d659\",\"appRoleId\":\"b633e1c5-b582-4048-a93e-9f11b44c7e96\"}"
+```
+Or via Enterprise Apps → TechRoB-Automation-DEV → Permissions → Grant admin consent for Mail.Send.
 
 ---
 

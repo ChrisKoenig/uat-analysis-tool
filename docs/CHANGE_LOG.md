@@ -38,7 +38,11 @@
 | 26 | FR-2020 | 2026-03-10 | *pending* | **AI-powered UAT search — ADO Search API + multi-signal scoring + UX fixes** — Replaced WIQL-based UAT search with ADO Work Item Search API (`almsearch.dev.azure.com`) for relevance-ranked full-text search. AI analysis from Step 3 (azure_services, technologies, semantic_keywords, key_concepts) is now extracted from session and passed to search. 3-phase strategy: Phase 1 ADO Search with AI service names, Phase 2 ADO Search with issue title, Phase 3 WIQL broad fallback. 5-signal similarity scoring (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). UX: collapsible UAT list header (matching TFT Features pattern), checkbox readOnly fix for StrictMode, header count simplification. Dynamic `WORK_ITEM_TYPE` ("Action" for test org, "Actions" for production). False "to do" service detection fix. 180-day cutoff fix (was 240). Total API endpoints: 60. Total UI pages: 14. Total Cosmos containers: 13. |
 | 27 | FR-2020b | 2026-03-10 | *pending* | **AI-powered TFT Feature search — ADO Search API + 5-signal scoring + quality fixes** — Same migration as FR-2020 but for TFT Feature search (`search_tft_features()` in `ado_integration.py`). Old approach used WIQL CONTAINS which returned results by date, capping similarity at ~24%. Now uses ADO Work Item Search API for relevance-ranked results. 3-phase strategy: Phase 1 ADO Search with raw AI service names only (ServiceTree-resolved names used for scoring, not search text — they add noise like "Copilot Chat" that kills relevance), Phase 2 ADO Search with title keywords (stop-word stripped, max 12 words — full title was too specific), Phase 3 WIQL broad fallback with `$top=200` and `State <> 'Removed'` filter. Post-fetch filter removes Removed/Closed features before scoring. Upgraded scoring from 2-signal (SequenceMatcher 60% + keyword overlap 40%) to 5-signal (service-overlap 30%, title-seq 25%, token-jaccard 20%, description 15%, exact-boost 10%). Removed 20-item "embedding budget" cap. Batch-fetches up to 200 candidates in batches of 50. UI: diagnostics label changed from "WIQL matches" to "Candidates found". |
 | 28 | B0008 | 2026-03-10 | *pending* | **Bug fix — Reanalyze with Corrections showed stale display labels** — When a user corrected the AI classification (e.g., changed category from "Technical Support" to "Feature Request") and clicked "Reanalyze with Corrections", the internal slug (`category`) was correctly overridden but the display field (`category_display`) still showed the LLM's original value (e.g., "Roadmap"). Since the UI renders `category_display \|\| category`, users saw the stale LLM label instead of their correction. Fixed in both the `reanalyze` path (now generates matching display names from a slug→display map when corrections are present) and the `save_corrections` path (`_apply_corrections_to_analysis` now syncs `_display` fields). Same issue affected `intent_display` and `business_impact_display`. |
-| 29 | B0009 | 2026-03-10 | *pending* | **Bug fix — Evaluate expand crash on ADO identity object fields** — Clicking the expand arrow (▶) on an evaluation result crashed with React error #31 ("Objects are not valid as a React child") when `fieldsChanged` contained ADO identity fields (e.g., `System.AssignedTo`). The `from`/`to` values for these fields are objects (`{displayName, url, _links, id, uniqueName, imageUrl, descriptor}`) not strings. The Field Changes table in `EvaluatePage.jsx` rendered `c.from`/`c.to` directly via `{c.from ?? '—'}`. Fixed by adding `renderFieldValue()` helper that extracts `displayName` from identity objects, falls back to `name`, or `JSON.stringify()` for unknown objects. Hotfix branch: `hotfix/B0009-evaluate-expand-crash`. |
+| 29 | B0009 | 2026-03-10 | `0de59b1` | **Bug fix — Evaluate expand crash on ADO identity object fields** — Clicking the expand arrow (▶) on an evaluation result crashed with React error #31 ("Objects are not valid as a React child") when `fieldsChanged` contained ADO identity fields (e.g., `System.AssignedTo`). The `from`/`to` values for these fields are objects (`{displayName, url, _links, id, uniqueName, imageUrl, descriptor}`) not strings. The Field Changes table in `EvaluatePage.jsx` rendered `c.from`/`c.to` directly via `{c.from ?? '—'}`. Fixed by adding `renderFieldValue()` helper that extracts `displayName` from identity objects, falls back to `name`, or `JSON.stringify()` for unknown objects. Hotfix branch: `hotfix/B0009-evaluate-expand-crash`. |
+| 30 | B0009b | 2026-03-10 | `58ff5b8` | **Bug fix — Evaluate page table overflow + rules clutter** — Two UX issues on the EvaluatePage expand: (1) Field changes table text overflowed its column boundaries when values were long JSON strings or identity objects. Fixed with `table-layout: fixed`, `word-break: break-word`, and `max-width: 0` on `td` cells. JSON values truncated to 200 chars. (2) All rules displayed as chips (fired and unfired) cluttering the view. Added `showAllRules` state — only fired rules shown by default with "Show all N" / "Show fired only" toggle. |
+| 31 | B0010 / FR-2055 | 2026-03-10 | `af01306` | **Queue page — identity crash + fired-only rules (FR-2055) + state persistence fix** — Three issues on the Queue page: (1) Same identity object crash as B0009 when expanding dry-run results — added `renderFieldValue` helper. (2) FR-2055: Show only fired rules by default with toggle (same pattern as B0009b on EvaluatePage). (3) Items moved from Analysis → Triage via "Ready for Triage" reverted when navigating away — root cause: `handleSetState` cleared cache entirely (`clearQueueCache`) instead of updating it, and read wrong response shape (`data.updated`/`data.failed` vs actual `data.results`/`data.errors`). Fixed: parse `data.results`, check per-item `success`, update cache via `setCachedQueue` instead of clearing. CSS: `table-layout: fixed` + word-break on queue changes table. |
+| 32 | FR-2040, FR-2041 | 2026-03-10 | `00d27d2` | **Enhancement Reporting & Error Reporting — full feedback system** — New feedback system across both Field Portal and Triage UI. Users can submit enhancement requests (FR-2040) or error reports (FR-2041) from a floating action button cluster. Reports stored in Cosmos DB (`feedback-reports` container, partition key `/reportType`). Screenshots captured via `html2canvas` and attachments uploaded to Azure Blob Storage (`feedback-attachments` container). Email notifications via Graph API `sendMail` (MI credential). Backend: `FeedbackService`, `EmailService`, `BlobStorageHelper`, feedback routes (2 new endpoints per app). Frontend: `FeedbackCluster` FAB, `FeedbackModal` (dual-mode), `useFeedback` hook, `feedbackApi` client. KV integration for sender UPN. 35 files, ~2,600 lines. Both builds clean. Branch: `feature/FR-2040-2041-feedback`. PR #4. Total Cosmos containers: 15. Total API endpoints: 62. |
+| 33 | ENG-012 | 2026-03-10 | `55c2192` | **Feature branch workflow + CODEOWNERS + KV infrastructure** — Adopted feature branch workflow: `feature/FR-2040-2041-feedback` branched from `main`, PR #4 created for review. Added `.github/CODEOWNERS` (`* @Price-Is-Right`) requiring owner review on all files. Branch protection configured on `main` (require PR before merge). MI `TechRoB-Automation-DEV` granted Key Vault Secrets Officer at RG level (ServicePrincipal type bypasses MCAPS SFI Deny Policy). `FEEDBACK-SENDER-UPN` secret stored in `kv-aitriage`. Deployment script `03-configure-keyvault.ps1` updated with new secret. Cloud Shell IP added to KV firewall for admin access. ⚠️ `Mail.Send` Graph permission blocked — needs Entra admin. |
 
 ---
 
@@ -51,7 +55,7 @@
 
 ### Week of March 10, 2026
 
-**Reported entries:** #26, #27, #28  
+**Reported entries:** #26, #27, #28, #29, #30, #31, #32, #33  
 **Last reported:** Entries #1–25 (week of March 3)
 
 #### Summary
@@ -92,6 +96,29 @@ User-reported bug: correcting the AI classification and clicking "Reanalyze with
 
 **Files changed:** 1 (`field-portal/api/routes.py`)
 
+**Evaluate & Queue Page Hotfixes (B0009, B0009b, B0010 / FR-2055)**  
+Three rapid production hotfixes for the Triage UI after demo usage uncovered crashes and UX issues:
+
+1. **B0009 — Evaluate expand crash** (`0de59b1`, PR #5): Clicking ▶ on an evaluation result with identity-type field changes (e.g., `System.AssignedTo`) crashed React. ADO identity fields are objects (`{displayName, url, ...}`) not strings. Added `renderFieldValue()` helper to `EvaluatePage.jsx`.
+2. **B0009b — Table overflow + rules clutter** (`58ff5b8`, PR #6): Field changes table text overflowed columns. Fixed with `table-layout: fixed` + word-break CSS. Also added fired-only rules toggle — shows only fired rules by default with "Show all N" link.
+3. **B0010 / FR-2055 — Queue page triple fix** (`af01306`, PR #7): Same identity crash on Queue page dry-run results. Same fired-only rules toggle (FR-2055). Plus a state persistence bug: items set to "Triage" via "Ready for Triage" reverted to "Analysis" when navigating away. Root cause: `handleSetState` called `clearQueueCache()` (destroyed cache) and read wrong response shape (`data.updated` vs `data.results`). Fixed: parse `data.results`, check per-item success, persist to cache via `setCachedQueue`.
+
+**Files changed:** `EvaluatePage.jsx`, `EvaluatePage.css`, `QueuePage.jsx`, `QueuePage.css`
+
+**Enhancement & Error Reporting (FR-2040/FR-2041)**  
+Added a complete feedback system to both the Field Portal and Triage UI. Users can submit enhancement requests or error reports from a floating action button cluster (bottom-right of screen). Reports are persisted to Cosmos DB (`feedback-reports` container), screenshots captured via `html2canvas` and attachments uploaded to Azure Blob Storage (`feedback-attachments` container), and email notifications sent via Microsoft Graph API using the Managed Identity credential.
+
+**Key changes:**
+- **Backend** — `FeedbackService` with `submit_enhancement()` and `submit_error_report()`. `EmailService` using MI → Graph `sendMail`. `BlobStorageHelper` for base64 attachment upload. Feedback routes (2 new endpoints per app). KV secret `FEEDBACK-SENDER-UPN` for sender email resolution.
+- **Frontend** — `FeedbackCluster` floating action button with expand/collapse animation. `FeedbackModal` dual-mode (enhancement / error) with severity picker, screenshot capture, file attachments, and submission state. `useFeedback` custom hook. `feedbackApi` client. Wired into both `App.jsx` shells.
+- **Infrastructure** — 2 new Cosmos containers (`feedback-reports`, `feedback-attachments`). KV secret stored. MI granted Key Vault Secrets Officer at RG level.
+- **⚠️ Known issue** — `Mail.Send` Graph permission not yet granted (needs Entra admin). Email notifications silently fail; reports save successfully.
+
+**Stats:** 35 files, ~2,600 lines | **Branch:** `feature/FR-2040-2041-feedback` | **PR:** #4 | **Commits:** `55c2192`, `7754ce1`, `00d27d2`
+
+**Feature Branch Workflow + CODEOWNERS (ENG-012)**  
+Adopted a feature branch workflow with code review requirements. Created `.github/CODEOWNERS` assigning `@Price-Is-Right` as owner of all files. Configured branch protection on `main` requiring PRs before merge. First feature branch (`feature/FR-2040-2041-feedback`) created with PR #4 as the inaugural use of this workflow.
+
 ---
 
 ### Week of March 3, 2026
@@ -104,6 +131,71 @@ User-reported bug: correcting the AI classification and clicking "Reanalyze with
 ---
 
 ## Change Detail
+
+### B0010 / FR-2055 — Queue Page: Identity Crash + Fired-Only Rules + State Persistence
+
+**Date:** 2026-03-10  
+**Build ID:** `af01306`  
+**PR:** #7 (squash merged)  
+**Status:** Merged, deployment package built
+
+#### Problems
+
+1. **Identity object crash** — Expanding dry-run results on the Queue page crashed React with error #31 when `fieldsChanged` contained ADO identity fields (same root cause as B0009 on EvaluatePage). `{change.from ?? '—'}` rendered raw objects.
+2. **Rules clutter (FR-2055)** — All rule results (fired and unfired) displayed as chips, overwhelming the UI when there were 20+ rules.
+3. **State persistence** — Items set to "Triage" via "Ready for Triage" reverted to "Analysis" when navigating away and back. Three sub-causes:
+   - `handleSetState` called `clearQueueCache(activeQueryId)` which destroyed the cache entirely
+   - Frontend read `data.updated`/`data.failed` from the response, but the backend returns `data.results`/`data.count`/`data.errors`
+   - No per-item success checking — failures were silently ignored
+
+#### Changes
+
+| File | Layer | Change |
+|------|-------|--------|
+| `triage-ui/src/pages/QueuePage.jsx` | Frontend | Added inline `renderFieldValue` helper (extracts `displayName` from identity objects, truncates JSON to 200 chars). Added `showAllQueueRules` state — fired-only by default with toggle. Fixed `handleSetState`: parse `data.results`, check `result.success`, only update succeeded items, persist to cache via `setCachedQueue` instead of `clearQueueCache`. |
+| `triage-ui/src/pages/QueuePage.css` | Frontend | `table-layout: fixed` + `word-break` on `.queue-changes-table td`, first column 22% width, new `.queue-rules-header` flex styles for toggle |
+
+---
+
+### B0009b — Evaluate Page Table Overflow + Fired-Only Rules Toggle
+
+**Date:** 2026-03-10  
+**Build ID:** `58ff5b8`  
+**PR:** #6 (squash merged)  
+**Status:** Merged, deployed
+
+#### Problems
+
+1. **Table overflow** — Long field values (JSON-stringified identity objects) in the Field Changes table overflowed column boundaries.
+2. **Rules clutter** — All rules displayed as chips (fired ✓ and unfired ✗), making it hard to see which rules actually matched.
+
+#### Changes
+
+| File | Layer | Change |
+|------|-------|--------|
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Added `showAllRules` state. Rule results section now filters to fired-only by default with "Rules Fired (X of Y)" header and "Show all N" / "Show fired only" toggle link. `renderFieldValue()` updated to truncate JSON.stringify to 200 chars. |
+| `triage-ui/src/pages/EvaluatePage.css` | Frontend | `.evaluate-changes-table`: `table-layout: fixed`. `td`: `max-width: 0`, `overflow-wrap: break-word`, `word-break: break-word`. First column 22% width. New `.evaluate-toggle-rules` button styles. |
+
+---
+
+### B0009 — Evaluate Expand Crash on ADO Identity Object Fields
+
+**Date:** 2026-03-10  
+**Build ID:** `0de59b1`  
+**PR:** #5 (squash merged)  
+**Status:** Merged, deployed
+
+#### Problem
+
+Clicking the expand arrow (▶) on an evaluation result in `EvaluatePage.jsx` crashed with React error #31 ("Objects are not valid as a React child") when `fieldsChanged` contained ADO identity fields (e.g., `System.AssignedTo`). These fields return objects (`{displayName, url, _links, id, uniqueName, imageUrl, descriptor}`) not strings.
+
+#### Changes
+
+| File | Layer | Change |
+|------|-------|--------|
+| `triage-ui/src/pages/EvaluatePage.jsx` | Frontend | Added `renderFieldValue(v)` helper: returns `'—'` for null, extracts `displayName` for identity objects, falls back to `name`, then `JSON.stringify()`. Applied to `change.from` and `change.to` in the Field Changes table. |
+
+---
 
 ### PERF-001 — Background Prefetch + Cache for Graph User Data
 
