@@ -1279,11 +1279,16 @@ export default function EvaluatePage({ addToast }) {
                         <tbody>
                           {Object.entries(evalResult.fieldsChanged).map(([field, change]) => {
                             const c = (change && typeof change === 'object') ? change : {};
+                            const renderFieldValue = (v) => {
+                              if (v == null) return '—';
+                              if (typeof v === 'object') return v.displayName || v.name || JSON.stringify(v);
+                              return String(v);
+                            };
                             return (
                               <tr key={field}>
                                 <td><code className="field-ref">{field}</code></td>
-                                <td className="text-muted">{c.from ?? '—'}</td>
-                                <td><strong>{c.to ?? '—'}</strong></td>
+                                <td className="text-muted">{renderFieldValue(c.from)}</td>
+                                <td><strong>{renderFieldValue(c.to)}</strong></td>
                               </tr>
                             );
                           })}
