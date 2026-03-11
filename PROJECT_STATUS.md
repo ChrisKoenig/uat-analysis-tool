@@ -82,7 +82,7 @@ Step 8: UAT Selection
   └─ Template: select_related_uats.html (same page)
 
 Step 9: UAT Created (/create_uat)
-  └─ Creates work item in ADO (unifiedactiontrackertest org)
+  └─ Creates work item in ADO (unifiedactiontracker org — production, switched from test in B0011/FR-2056)
   └─ Fields: Title, Description, Impact, Category, Intent, Reasoning
   └─ Custom fields: AssigntoCorp=True, StatusUpdate=WizardAuto
   └─ Links selected TFT Features and related UATs
@@ -233,8 +233,8 @@ COSMOS_TENANT_ID=16b3c013-d300-468d-ac64-7eda0820b6d3
 ```
 These are injected automatically by `launcher.py` or must be set manually.
 
-### Containers (15 total, auto-created)
-`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`, `classification-config`, `feedback-reports`, `feedback-attachments`
+### Containers (16 total, auto-created)
+`rules`, `actions`, `triggers`, `routes`, `evaluations`, `analysis-results`, `field-schema`, `audit-log`, `corrections`, `training-signals`, `queue-cache`, `servicetree-catalog`, `classification-config`, `feedback-reports`, `feedback-attachments`, `apply-snapshots`
 
 **Shared containers:**
 - `evaluations` — Written by both triage (`source: "triage"`) and field portal (`source: "field-portal"`); partition key `/workItemId`
@@ -1483,7 +1483,7 @@ API docs: http://localhost:8010/docs  |  UI: http://localhost:3001
 
 ---
 
-**STATUS** (Mar 10, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB with 16 containers (added `apply-snapshots`), OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 14 pages, **65 API endpoints**. **Mar 10 session**: FR-2056/B0011 — Production apply target switch, ProductionConfirmDialog two-step confirmation, bulk Apply All (batch endpoint), pre-apply snapshots in Cosmos, revert capability, ROBTAMS auto-tag. PERF — Analysis batch query optimized (N serial queries → single ARRAY_CONTAINS), asyncio.to_thread() wrappers for non-blocking FastAPI, Graph user TTL cache. Total: 10 files changed (8 modified + 2 new). Next: merge and deploy.
+**STATUS** (Mar 10, 2026): System is fully operational locally, deployed to Azure Container Apps (dev), AND deployed to **Azure App Service (pre-prod)**. Pre-prod: 4 App Services in `rg-nonprod-aitriage` — **BOTH Triage and Field Portal deployed and healthy**. Cosmos DB with 16 containers (added `apply-snapshots`), OpenAI (`openai-aitriage-nonprod`), Key Vault (`kv-aitriage`). MSAL auth via App Registration `GCS-Triage-NonProd`. Triage UI has 14 pages, **65 API endpoints**. **Mar 10 session**: FR-2056/B0011 — Production apply target switch, ProductionConfirmDialog two-step confirmation, bulk Apply All (batch endpoint), pre-apply snapshots in Cosmos, revert capability, ROBTAMS auto-tag. PERF — Analysis batch query optimized (N serial queries → single ARRAY_CONTAINS), asyncio.to_thread() wrappers for non-blocking FastAPI, Graph user TTL cache. Total: 10 files changed (8 modified + 2 new). **Merged to main (`c5178ac`) and deployment packages built** (triage-api.zip 0.5 MB, triage-ui.zip 0.9 MB). Ready for Cloud Shell deploy to pre-prod.
 
 ---
 
