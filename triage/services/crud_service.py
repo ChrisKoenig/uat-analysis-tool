@@ -742,6 +742,130 @@ class CrudService:
             logger.warning("Failed to write audit entry: %s", e)
 
 
+    # =========================================================================
+    # BULK OPERATIONS
+    # =========================================================================
+
+    def bulk_update(
+        self,
+        entity_type: str,
+        entity_ids: List[str],
+        field_updates: Dict[str, Any],
+        actor: str = "system",
+    ) -> Dict[str, Any]:
+        """
+        Apply the same field updates to multiple entities.
+
+        Each entity is loaded, version-checked, updated individually so that
+        partition-key changes and audit trails work correctly.
+
+        Args:
+            entity_type:   Entity type key (rule, action, trigger, route)
+            entity_ids:    List of entity IDs to update
+            field_updates: Dict of field→value to set on every entity
+            actor:         User performing the operation
+
+        Returns:
+            Summary dict with updated/failed counts and per-item details.
+        """
+        self._get_registry(entity_type)  # validate entity_type
+
+        results: List[Dict[str, Any]] = []
+        updated = 0
+        failed = 0
+
+        for eid in entity_ids:
+            try:
+                existing = self.get(entity_type, eid)
+                if existing is None:
+                    results.append({"id": eid, "status": "error", "error": "Not found"})
+                    failed += 1
+                    continue
+
+                data = {**field_updates, "version": existing["version"]}
+                self.update(entity_type, eid, data, actor=actor)
+                updated += 1
+                results.append({"id": eid, "name": existing.get("name", ""), "status": "updated"})
+            except ConflictError as e:
+                results.append({"id": eid, "status": "error", "error": str(e)})
+                failed += 1
+            except Exception as e:
+                results.append({"id": eid, "status": "error", "error": str(e)})
+                failed += 1
+
+        logger.info(
+            "Bulk update %s: %d updated, %d failed (actor=%s, fields=%s)",
+            entity_type, updated, failed, actor, list(field_updates.keys()),
+        )
+        return {"updated": updated, "failed": failed, "results": results}
+
+    def bulk_delete(
+        self,
+        entity_type: str,
+        entity_ids: List[str],
+        actor: str = "system",
+        hard_delete: bool = False,
+        skip_reference_check: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Delete multiple entities.
+
+        Args:
+            entity_type:          Entity type key
+            entity_ids:           List of entity IDs to delete
+            actor:                User performing the operation
+            hard_delete:          True for permanent removal
+            skip_reference_check: If True, skip cross-ref validation
+                                  (caller has already verified)
+
+        Returns:
+            Summary dict with deleted/skipped/failed counts.
+        """
+        self._get_registry(entity_type)  # validate entity_type
+
+        results: List[Dict[str, Any]] = []
+        deleted = 0
+        skipped = 0
+        failed = 0
+
+        for eid in entity_ids:
+            try:
+                existing = self.get(entity_type, eid)
+                if existing is None:
+                    results.append({"id": eid, "status": "error", "error": "Not found"})
+                    failed += 1
+                    continue
+
+                if not skip_reference_check:
+                    refs = self.find_references(entity_type, eid)
+                    if refs:
+                        ref_summary = "; ".join(
+                            f"{rt}: {', '.join(ri)}" for rt, ri in refs.items()
+                        )
+                        results.append({
+                            "id": eid,
+                            "name": existing.get("name", ""),
+                            "status": "skipped",
+                            "error": f"Still referenced by: {ref_summary}",
+                        })
+                        skipped += 1
+                        continue
+
+                self.delete(entity_type, eid, actor=actor, hard_delete=hard_delete)
+                deleted += 1
+                results.append({"id": eid, "name": existing.get("name", ""), "status": "deleted"})
+            except Exception as e:
+                results.append({"id": eid, "status": "error", "error": str(e)})
+                failed += 1
+
+        method = "hard deleted" if hard_delete else "soft deleted"
+        logger.info(
+            "Bulk %s %s: %d deleted, %d skipped, %d failed (actor=%s)",
+            method, entity_type, deleted, skipped, failed, actor,
+        )
+        return {"deleted": deleted, "skipped": skipped, "failed": failed, "results": results}
+
+
 class ConflictError(Exception):
     """
     Raised when an optimistic locking conflict is detected.

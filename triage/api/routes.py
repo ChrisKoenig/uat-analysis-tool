@@ -37,6 +37,13 @@ from pydantic import BaseModel
 logger = logging.getLogger("triage.api")
 
 # ---------------------------------------------------------------------------
+# Centralized logging setup — ensures Azure SDK noise is suppressed
+# even when running via uvicorn (which doesn't go through triage_service.py)
+# ---------------------------------------------------------------------------
+from ..config.logging_config import setup_logging
+setup_logging()
+
+# ---------------------------------------------------------------------------
 # Application Insights telemetry (opt-in via APPLICATIONINSIGHTS_CONNECTION_STRING)
 # ---------------------------------------------------------------------------
 try:
@@ -72,8 +79,6 @@ from .schemas import (
     TriageQueueDetailsResponse, QueueItemSummary,
     SavedQueryResponse, SavedQueryItemSummary, QueryColumn,
     ApplyChangesRequest, ApplyChangesResponse,
-    BatchApplyRequest, BatchApplyResponse,
-    RevertRequest, RevertResponse,
     WebhookResponse, AdoConnectionStatus,
     AnalyzeRequest, ReanalyzeRequest, AnalysisStateRequest,
 )
@@ -189,7 +194,7 @@ def get_webhook() -> WebhookProcessor:
 # =============================================================================
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
-async def health_check():
+def health_check():
     """
     Service health check.
     
@@ -236,7 +241,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- LIST ---
     @app.get(f"/api/v1/{plural}", tags=[tag])
-    async def list_entities(
+    def list_entities(
         status: Optional[str] = Query(None, description="Filter by status"),
         triage_team_id: Optional[str] = Query(None, description="Filter by triage team ID (or 'all' for shared)"),
     ):
@@ -275,7 +280,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- GET ---
     @app.get(f"/api/v1/{plural}/{{entity_id}}", tags=[tag])
-    async def get_entity(entity_id: str):
+    def get_entity(entity_id: str):
         """Get a single entity by ID"""
         crud = get_crud()
         item = crud.get(entity_type, entity_id)
@@ -291,7 +296,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- CREATE ---
     @app.post(f"/api/v1/{plural}", status_code=201, tags=[tag])
-    async def create_entity(body: create_model):
+    def create_entity(body: create_model):
         """Create a new entity"""
         try:
             crud = get_crud()
@@ -308,7 +313,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- UPDATE ---
     @app.put(f"/api/v1/{plural}/{{entity_id}}", tags=[tag])
-    async def update_entity(entity_id: str, body: update_model):
+    def update_entity(entity_id: str, body: update_model):
         """Update an existing entity (requires version for optimistic locking)"""
         try:
             crud = get_crud()
@@ -327,7 +332,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- DELETE ---
     @app.delete(f"/api/v1/{plural}/{{entity_id}}", tags=[tag])
-    async def delete_entity(
+    def delete_entity(
         entity_id: str,
         hard: bool = Query(False, description="Permanently delete"),
         version: Optional[int] = Query(
@@ -356,7 +361,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- COPY ---
     @app.post(f"/api/v1/{plural}/{{entity_id}}/copy", status_code=201, tags=[tag])
-    async def copy_entity(entity_id: str, body: CopyRequest = CopyRequest()):
+    def copy_entity(entity_id: str, body: CopyRequest = CopyRequest()):
         """Clone an entity with a new ID"""
         try:
             crud = get_crud()
@@ -376,7 +381,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- STATUS ---
     @app.put(f"/api/v1/{plural}/{{entity_id}}/status", tags=[tag])
-    async def update_status(entity_id: str, body: StatusUpdate):
+    def update_status(entity_id: str, body: StatusUpdate):
         """Change entity status (active/disabled/staged).\n        Requires version for optimistic locking."""
         try:
             crud = get_crud()
@@ -397,7 +402,7 @@ def _create_crud_endpoints(entity_type: str, create_model, update_model):
     
     # --- REFERENCES ---
     @app.get(f"/api/v1/{plural}/{{entity_id}}/references", tags=[tag])
-    async def get_references(entity_id: str):
+    def get_references(entity_id: str):
         """Get cross-references (which entities use this one).
         Returns empty refs when Cosmos DB is unavailable.
         Includes referenceNames map for friendly display."""
@@ -452,7 +457,7 @@ _create_crud_endpoints("triage-team", TriageTeamCreate, TriageTeamUpdate)
 # =============================================================================
 
 @app.post("/api/v1/evaluate", tags=["Evaluation"])
-async def evaluate(body: EvaluateRequest):
+def evaluate(body: EvaluateRequest):
     """
     Evaluate one or more work items through the triage pipeline.
     
@@ -592,162 +597,17 @@ async def evaluate(body: EvaluateRequest):
 
 
 @app.post("/api/v1/evaluate/test", tags=["Evaluation"])
-async def evaluate_test(body: EvaluateRequest):
+def evaluate_test(body: EvaluateRequest):
     """
     Dry run evaluation - computes results without writing to ADO.
     Equivalent to evaluate with dryRun=True.
     """
     body.dryRun = True
-    return await evaluate(body)
-
-
-ROBTAMS_TAG = "ROBTAMS"
-
-
-def _ensure_robtams_tag(current_tags: str) -> str:
-    """Append ROBTAMS tag if not already present."""
-    tags = [t.strip() for t in (current_tags or "").split(";") if t.strip()]
-    if ROBTAMS_TAG not in tags:
-        tags.append(ROBTAMS_TAG)
-    return "; ".join(tags)
-
-
-def _save_snapshot(cosmos, work_item_id: int, evaluation_id: str,
-                   fields_changed: dict, current_fields: dict) -> str:
-    """Save pre-apply field snapshot to Cosmos for revert capability."""
-    container = cosmos.get_container("apply-snapshots")
-    now = datetime.now(timezone.utc)
-    snapshot_id = f"snap-{work_item_id}-{now.strftime('%Y%m%d%H%M%S')}"
-    original_values = {}
-    for field in fields_changed:
-        if field == "Discussion":
-            continue
-        original_values[field] = current_fields.get(field)
-    doc = {
-        "id": snapshot_id,
-        "workItemId": work_item_id,
-        "evaluationId": evaluation_id,
-        "originalValues": original_values,
-        "appliedAt": now.isoformat(),
-        "reverted": False,
-    }
-    container.create_item(body=doc)
-    return snapshot_id
-
-
-def _apply_single(ado, eval_service, cosmos, evaluation_id: str,
-                   work_item_id: int, revision=None):
-    """
-    Core apply logic shared by single + batch endpoints.
-
-    Returns ApplyChangesResponse (always — never raises).
-    """
-    # 1. Find evaluation in Cosmos
-    history = eval_service.get_evaluation_history(work_item_id, limit=50)
-    evaluation_data = None
-    for entry in history:
-        if entry.get("id") == evaluation_id:
-            evaluation_data = entry
-            break
-
-    if not evaluation_data:
-        return ApplyChangesResponse(
-            success=False, workItemId=work_item_id,
-            error=f"Evaluation '{evaluation_id}' not found",
-        )
-
-    if evaluation_data.get("isDryRun", False):
-        return ApplyChangesResponse(
-            success=False, workItemId=work_item_id,
-            error="Cannot apply dry-run evaluation",
-        )
-
-    fields_changed = evaluation_data.get("fieldsChanged", {})
-    if not fields_changed:
-        return ApplyChangesResponse(
-            success=True, workItemId=work_item_id,
-            fieldsUpdated=0, error="No field changes",
-        )
-
-    # 2. Fetch current field values from ADO (for snapshot + ROBTAMS tag)
-    wi_result = ado.get_work_item(work_item_id)
-    if not wi_result.get("success"):
-        return ApplyChangesResponse(
-            success=False, workItemId=work_item_id,
-            error=f"Could not read work item: {wi_result.get('error', 'unknown')}",
-        )
-    current_fields = wi_result.get("fields", {})
-
-    # 3. Save pre-apply snapshot for revert
-    try:
-        snapshot_id = _save_snapshot(
-            cosmos, work_item_id, evaluation_id,
-            fields_changed, current_fields,
-        )
-        logger.info("Saved apply snapshot %s for WI %d", snapshot_id, work_item_id)
-    except Exception as snap_err:
-        logger.warning("Snapshot save failed for WI %d: %s", work_item_id, snap_err)
-        # Non-fatal — continue with apply
-
-    # 4. Build field changes + ensure ROBTAMS tag
-    class _Change:
-        def __init__(self, field, new_value):
-            self.field = field
-            self.new_value = new_value
-
-    changes = [
-        _Change(field, change_data.get("to"))
-        for field, change_data in fields_changed.items()
-        if field != "Discussion"
-    ]
-
-    # Add ROBTAMS tag if not already in changes
-    tag_field = "System.Tags"
-    has_tag_change = any(c.field == tag_field for c in changes)
-    if has_tag_change:
-        # Update the existing tag change to include ROBTAMS
-        for c in changes:
-            if c.field == tag_field:
-                c.new_value = _ensure_robtams_tag(c.new_value)
-    else:
-        current_tags = current_fields.get(tag_field, "")
-        new_tags = _ensure_robtams_tag(current_tags)
-        if new_tags != current_tags:
-            changes.append(_Change(tag_field, new_tags))
-
-    # 5. Apply to ADO
-    update_result = ado.update_work_item(work_item_id, changes, revision=revision)
-
-    if not update_result["success"]:
-        return ApplyChangesResponse(
-            success=False, workItemId=work_item_id,
-            error=update_result.get("error", "ADO update failed"),
-            conflict=update_result.get("conflict", False),
-        )
-
-    # 6. Post comments
-    comment_posted = False
-    summary_html = evaluation_data.get("summaryHtml")
-    if summary_html:
-        comment_result = ado.add_comment(work_item_id, summary_html)
-        comment_posted = comment_result.get("success", False)
-
-    discussion_change = fields_changed.get("Discussion")
-    if discussion_change and discussion_change.get("to"):
-        ping_result = ado.add_comment(work_item_id, discussion_change["to"])
-        if ping_result.get("success"):
-            comment_posted = True
-
-    return ApplyChangesResponse(
-        success=True, workItemId=work_item_id,
-        fieldsUpdated=len(changes),
-        commentPosted=comment_posted,
-        newRevision=update_result.get("rev"),
-    )
+    return evaluate(body)
 
 
 @app.post("/api/v1/evaluate/apply", tags=["Evaluation"])
-async def apply_evaluation(body: ApplyChangesRequest):
+def apply_evaluation(body: ApplyChangesRequest):
     """
     Apply evaluation results to ADO.
     
@@ -755,196 +615,121 @@ async def apply_evaluation(body: ApplyChangesRequest):
     back to the ADO work item. This is the "commit" step after
     human review of evaluation results.
     
-    Before writing, snapshots original field values in Cosmos for
-    revert capability, and adds the ROBTAMS tag to every touched item.
+    Conflict handling:
+        If a revision number is provided and doesn't match the
+        current work item revision, returns 409 Conflict.
     """
     try:
         ado = get_ado()
         eval_service = get_eval()
-        cosmos = get_cosmos_config()
     except Exception as e:
         raise HTTPException(
             status_code=503,
             detail=f"Service initialization failed: {str(e)}"
         )
-
-    result = _apply_single(
-        ado, eval_service, cosmos,
-        body.evaluationId, body.workItemId, body.revision,
-    )
-
-    if not result.success:
-        if result.conflict:
-            raise HTTPException(status_code=409, detail=result.error)
-        if "not found" in (result.error or ""):
-            raise HTTPException(status_code=404, detail=result.error)
-        if "dry-run" in (result.error or "").lower():
-            raise HTTPException(status_code=400, detail=result.error)
-        # Allow "No field changes" through as a success
-        if result.fieldsUpdated == 0 and result.error:
-            return result
-        raise HTTPException(status_code=502, detail=result.error)
-
-    return result
-
-
-@app.post("/api/v1/evaluate/apply-batch", tags=["Evaluation"])
-async def apply_evaluation_batch(body: BatchApplyRequest):
-    """
-    Bulk-apply evaluation results to ADO.
-
-    Processes each item sequentially, collecting per-item results.
-    Non-fatal item failures are captured in the response rather than
-    aborting the entire batch.
-    """
+    
+    # Fetch the evaluation record from Cosmos DB
     try:
-        ado = get_ado()
-        eval_service = get_eval()
-        cosmos = get_cosmos_config()
-    except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Service initialization failed: {str(e)}"
+        history = eval_service.get_evaluation_history(
+            body.workItemId, limit=50
         )
-
-    results: list[ApplyChangesResponse] = []
-    succeeded = 0
-    failed = 0
-
-    for item in body.items:
-        try:
-            result = _apply_single(
-                ado, eval_service, cosmos,
-                item.evaluationId, item.workItemId,
+        evaluation_data = None
+        for entry in history:
+            if entry.get("id") == body.evaluationId:
+                evaluation_data = entry
+                break
+        
+        if not evaluation_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Evaluation '{body.evaluationId}' not found"
             )
-            results.append(result)
-            if result.success:
-                succeeded += 1
-            else:
-                failed += 1
-        except Exception as e:
-            logger.error("Batch apply error for WI %s: %s", item.workItemId, e)
-            results.append(ApplyChangesResponse(
-                success=False, workItemId=item.workItemId,
-                error=str(e),
-            ))
-            failed += 1
-
-    return BatchApplyResponse(
-        total=len(body.items),
-        succeeded=succeeded,
-        failed=failed,
-        results=results,
-    )
-
-
-@app.post("/api/v1/evaluate/revert", tags=["Evaluation"])
-async def revert_evaluation(body: RevertRequest):
-    """
-    Revert a previously applied evaluation using a stored snapshot.
-
-    Reads the pre-apply field values from the apply-snapshots container
-    and writes them back to the ADO work item, restoring the original state.
-    """
-    try:
-        ado = get_ado()
-        cosmos = get_cosmos_config()
+        
+        # Block applying dry-run evaluations to ADO.
+        # Dry runs are for testing only — promote to a live evaluation first.
+        if evaluation_data.get("isDryRun", False):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Evaluation '{body.evaluationId}' is a dry-run result "
+                    f"and cannot be applied to ADO. Run a live evaluation "
+                    f"to produce committable results."
+                )
+            )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
-            status_code=503,
-            detail=f"Service initialization failed: {str(e)}"
+            status_code=500,
+            detail=f"Error fetching evaluation: {str(e)}"
         )
-
-    container = cosmos.get_container("apply-snapshots")
-
-    # Fetch the snapshot
-    try:
-        snapshot = container.read_item(
-            item=body.snapshotId,
-            partition_key=body.workItemId,
+    
+    # Build field changes from the stored evaluation
+    fields_changed = evaluation_data.get("fieldsChanged", {})
+    if not fields_changed:
+        return ApplyChangesResponse(
+            success=True,
+            workItemId=body.workItemId,
+            fieldsUpdated=0,
+            error="No field changes in this evaluation",
         )
-    except Exception:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Snapshot '{body.snapshotId}' not found for WI {body.workItemId}",
-        )
-
-    if snapshot.get("reverted"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Snapshot '{body.snapshotId}' was already reverted",
-        )
-
-    original_values = snapshot.get("originalValues", {})
-    if not original_values:
-        raise HTTPException(
-            status_code=400,
-            detail="Snapshot has no original values to restore",
-        )
-
-    # Build field changes to restore originals
+    
+    # Create lightweight change objects for the ADO client
     class _Change:
         def __init__(self, field, new_value):
             self.field = field
             self.new_value = new_value
-
+    
     changes = [
-        _Change(field, value)
-        for field, value in original_values.items()
-        if value is not None
+        _Change(field, change_data.get("to"))
+        for field, change_data in fields_changed.items()
+        # Skip Discussion field — that's handled via add_comment
+        if field != "Discussion"
     ]
-
-    if not changes:
-        return RevertResponse(
-            success=True, workItemId=body.workItemId,
-            fieldsReverted=0, error="All original values were null — nothing to revert",
-        )
-
-    update_result = ado.update_work_item(body.workItemId, changes)
-
+    
+    # Apply field changes to ADO
+    update_result = ado.update_work_item(
+        body.workItemId, changes, revision=body.revision
+    )
+    
     if not update_result["success"]:
+        if update_result.get("conflict"):
+            raise HTTPException(
+                status_code=409,
+                detail=update_result.get("error", "Conflict")
+            )
         raise HTTPException(
             status_code=502,
-            detail=update_result.get("error", "ADO revert failed"),
+            detail=update_result.get("error", "ADO update failed")
         )
-
-    # Mark snapshot as reverted
-    try:
-        snapshot["reverted"] = True
-        snapshot["revertedAt"] = datetime.now(timezone.utc).isoformat()
-        container.replace_item(item=snapshot["id"], body=snapshot)
-    except Exception as e:
-        logger.warning("Failed to mark snapshot %s as reverted: %s", body.snapshotId, e)
-
-    return RevertResponse(
+    
+    # Post discussion comment if HTML summary exists
+    comment_posted = False
+    summary_html = evaluation_data.get("summaryHtml")
+    if summary_html:
+        comment_result = ado.add_comment(body.workItemId, summary_html)
+        comment_posted = comment_result.get("success", False)
+    
+    # If there's a Discussion field change (e.g., @ping comment), post that too
+    discussion_change = fields_changed.get("Discussion")
+    if discussion_change and discussion_change.get("to"):
+        ping_result = ado.add_comment(
+            body.workItemId, discussion_change["to"]
+        )
+        if ping_result.get("success"):
+            comment_posted = True
+    
+    return ApplyChangesResponse(
         success=True,
         workItemId=body.workItemId,
-        fieldsReverted=len(changes),
+        fieldsUpdated=len(changes),
+        commentPosted=comment_posted,
+        newRevision=update_result.get("rev"),
     )
 
 
-@app.get("/api/v1/evaluate/snapshots/{work_item_id}", tags=["Evaluation"])
-async def get_snapshots(work_item_id: int):
-    """Get apply snapshots for a work item (for revert UI)."""
-    try:
-        cosmos = get_cosmos_config()
-        container = cosmos.get_container("apply-snapshots")
-        query = (
-            "SELECT * FROM c WHERE c.workItemId = @wid "
-            "ORDER BY c.appliedAt DESC"
-        )
-        items = list(container.query_items(
-            query=query,
-            parameters=[{"name": "@wid", "value": work_item_id}],
-            partition_key=work_item_id,
-        ))
-        return {"workItemId": work_item_id, "snapshots": items}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/v1/evaluations/{work_item_id}", tags=["Evaluation"])
-async def get_evaluations(work_item_id: int, limit: int = 20):
+def get_evaluations(work_item_id: int, limit: int = 20):
     """Get evaluation history for a specific work item"""
     try:
         eval_service = get_eval()
@@ -961,7 +746,7 @@ async def get_evaluations(work_item_id: int, limit: int = 20):
 # =============================================================================
 
 @app.get("/api/v1/analysis/batch", tags=["Analysis"])
-async def get_analysis_batch(
+def get_analysis_batch(
     ids: str = Query(..., description="Comma-separated work item IDs"),
 ):
     """
@@ -970,9 +755,6 @@ async def get_analysis_batch(
     Returns a dict keyed by workItemId with summary fields
     (category, intent, confidence, timestamp) for items that have
     analysis results.  Items without analysis are omitted.
-
-    Uses a single cross-partition ARRAY_CONTAINS query instead of
-    N sequential partition queries for dramatically faster load times.
     """
     try:
         work_item_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
@@ -986,47 +768,43 @@ async def get_analysis_batch(
     container = cosmos.get_container("analysis-results")
     results: dict = {}
 
-    def _run_batch_query():
-        query = (
-            "SELECT c.id, c.workItemId, c.timestamp, c.category, "
-            "c.intent, c.confidence, c.source, c.businessImpact, "
-            "c.urgencyLevel "
-            "FROM c WHERE ARRAY_CONTAINS(@ids, c.workItemId)"
-        )
-        return list(container.query_items(
-            query=query,
-            parameters=[{"name": "@ids", "value": work_item_ids}],
-            enable_cross_partition_query=True,
-        ))
-
-    import asyncio
-    all_docs = await asyncio.to_thread(_run_batch_query)
-
-    # Group by workItemId, keep only the latest per item
-    from collections import defaultdict
-    by_wid: dict[int, list] = defaultdict(list)
-    for doc in all_docs:
-        by_wid[doc["workItemId"]].append(doc)
-
-    for wid, docs in by_wid.items():
-        doc = max(docs, key=lambda d: d.get("timestamp", ""))
-        results[str(wid)] = {
-            "id": doc.get("id", ""),
-            "workItemId": wid,
-            "category": doc.get("category", ""),
-            "intent": doc.get("intent", ""),
-            "confidence": doc.get("confidence", 0.0),
-            "source": doc.get("source", ""),
-            "businessImpact": doc.get("businessImpact", ""),
-            "urgencyLevel": doc.get("urgencyLevel", ""),
-            "timestamp": doc.get("timestamp", ""),
-        }
+    for wid in work_item_ids:
+        try:
+            # Query by partition key for efficiency
+            query = (
+                "SELECT c.id, c.workItemId, c.timestamp, c.category, "
+                "c.intent, c.confidence, c.source, c.businessImpact, "
+                "c.urgencyLevel "
+                "FROM c WHERE c.workItemId = @wid "
+                "ORDER BY c.timestamp DESC OFFSET 0 LIMIT 1"
+            )
+            items = list(container.query_items(
+                query=query,
+                parameters=[{"name": "@wid", "value": wid}],
+                partition_key=wid,
+            ))
+            if items:
+                doc = items[0]
+                results[str(wid)] = {
+                    "id": doc.get("id", ""),
+                    "workItemId": wid,
+                    "category": doc.get("category", ""),
+                    "intent": doc.get("intent", ""),
+                    "confidence": doc.get("confidence", 0.0),
+                    "source": doc.get("source", ""),
+                    "businessImpact": doc.get("businessImpact", ""),
+                    "urgencyLevel": doc.get("urgencyLevel", ""),
+                    "timestamp": doc.get("timestamp", ""),
+                }
+        except Exception:
+            # Skip items that fail (e.g., partition not found)
+            continue
 
     return {"results": results}
 
 
 @app.get("/api/v1/analysis/{work_item_id}", tags=["Analysis"])
-async def get_analysis_detail(work_item_id: int):
+def get_analysis_detail(work_item_id: int):
     """
     Get the full latest analysis result for a work item.
 
@@ -1072,7 +850,7 @@ class _RoutingPatch(BaseModel):
 
 
 @app.patch("/api/v1/analysis/{work_item_id}/routing", tags=["Analysis"])
-async def patch_analysis_routing(work_item_id: int, patch: _RoutingPatch):
+def patch_analysis_routing(work_item_id: int, patch: _RoutingPatch):
     """
     Update ServiceTree routing fields on the latest analysis record.
     Only non-null fields in the request body are applied.
@@ -1239,7 +1017,7 @@ def _map_hybrid_to_analysis_result(
 
 
 @app.get("/api/v1/analyze/status", tags=["Analysis"])
-async def get_analysis_engine_status():
+def get_analysis_engine_status():
     """Check whether the analysis engine and AI services are available."""
     try:
         analyzer = get_analyzer()
@@ -1260,7 +1038,7 @@ async def get_analysis_engine_status():
 # ── Graph User Lookup (FR-1998) ──────────────────────────────────────────
 
 @app.get("/api/v1/graph/user", tags=["Graph"])
-async def get_graph_user(email: str):
+def get_graph_user(email: str):
     """
     Look up user info from Microsoft Graph by email/UPN.
 
@@ -1269,7 +1047,6 @@ async def get_graph_user(email: str):
     identity string like "Display Name <user@domain.com>".
     """
     import re as _re
-    import asyncio
     from graph_user_lookup import get_user_info
 
     # Normalise ADO identity strings: "Display Name <email>" → email
@@ -1278,7 +1055,7 @@ async def get_graph_user(email: str):
     if m:
         clean = m.group(1)
 
-    info = await asyncio.to_thread(get_user_info, clean)
+    info = get_user_info(clean)
     if not info:
         raise HTTPException(status_code=404, detail=f"User not found: {clean}")
 
@@ -1305,8 +1082,21 @@ async def get_diagnostics():
     CHECK_TIMEOUT = 5          # seconds per subsystem
     AI_INIT_TIMEOUT = 15       # first-time analyzer init can be slow
 
+    # Environment info (non-secret)
+    try:
+        from config import get_app_config, APP_ENV
+        _cfg = get_app_config()
+        _env_info = {
+            "name": APP_ENV,
+            "region": getattr(_cfg, 'azure_location', None),
+            "resourceGroup": getattr(_cfg, 'resource_group', None),
+        }
+    except Exception:
+        _env_info = {"name": os.environ.get("APP_ENV", "unknown")}
+
     diag = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "environment": _env_info,
         "api": {"status": "healthy"},
         "cosmos": {},
         "ai": {},
@@ -1406,7 +1196,7 @@ def _mask_url(url: str) -> str:
 
 
 @app.post("/api/v1/analyze", tags=["Analysis"])
-async def run_analysis(body: AnalyzeRequest):
+def run_analysis(body: AnalyzeRequest):
     """
     Run the hybrid analysis engine on one or more work items.
 
@@ -1496,7 +1286,7 @@ async def run_analysis(body: AnalyzeRequest):
 
 
 @app.post("/api/v1/analyze/reanalyze", tags=["Analysis"])
-async def reanalyze_with_corrections(body: ReanalyzeRequest):
+def reanalyze_with_corrections(body: ReanalyzeRequest):
     """
     Re-analyze a single work item with user-supplied correction hints.
 
@@ -1562,7 +1352,7 @@ async def reanalyze_with_corrections(body: ReanalyzeRequest):
 
 
 @app.post("/api/v1/ado/analysis-state", tags=["ADO"])
-async def update_analysis_state(body: AnalysisStateRequest):
+def update_analysis_state(body: AnalysisStateRequest):
     """
     Update Custom.ROBAnalysisState on one or more ADO work items.
 
@@ -1608,7 +1398,7 @@ async def update_analysis_state(body: AnalysisStateRequest):
 # =============================================================================
 
 @app.get("/api/v1/ado/queue", tags=["ADO"])
-async def get_triage_queue(
+def get_triage_queue(
     state: Optional[str] = Query(None, description="Filter by ROBAnalysisState"),
     area_path: Optional[str] = Query(None, description="Filter by area path"),
     max_results: int = Query(100, ge=1, le=500),
@@ -1647,7 +1437,7 @@ async def get_triage_queue(
 
 
 @app.get("/api/v1/ado/queue/details", tags=["ADO"])
-async def get_triage_queue_details(
+def get_triage_queue_details(
     state: Optional[str] = Query(None, description="Filter by ROBAnalysisState"),
     area_path: Optional[str] = Query(None, description="Filter by area path"),
     max_results: int = Query(100, ge=1, le=500),
@@ -1725,7 +1515,7 @@ async def get_triage_queue_details(
 
 
 @app.get("/api/v1/ado/queue/saved", tags=["ADO"])
-async def get_saved_query_results(
+def get_saved_query_results(
     query_id: str = Query(
         "b0ad9398-4942-4d8f-829e-604a347d8ac8",
         description="GUID of the saved ADO query",
@@ -1746,8 +1536,7 @@ async def get_saved_query_results(
             detail=f"ADO connection failed: {str(e)}"
         )
 
-    import asyncio
-    result = await asyncio.to_thread(ado.run_saved_query, query_id, max_results)
+    result = ado.run_saved_query(query_id, max_results=max_results)
 
     if not result["success"]:
         raise HTTPException(
@@ -1782,7 +1571,7 @@ async def get_saved_query_results(
 
 
 @app.get("/api/v1/ado/workitem/{work_item_id}", tags=["ADO"])
-async def get_work_item(work_item_id: int):
+def get_work_item(work_item_id: int):
     """
     Fetch a single work item from ADO.
     
@@ -1813,7 +1602,7 @@ async def get_work_item(work_item_id: int):
 
 
 @app.get("/api/v1/ado/status", tags=["ADO"])
-async def ado_connection_status():
+def ado_connection_status():
     """
     Check ADO connection health.
     
@@ -1841,7 +1630,7 @@ async def ado_connection_status():
 
 
 @app.get("/api/v1/ado/fields", tags=["ADO"])
-async def get_field_definitions():
+def get_field_definitions():
     """
     Fetch field definitions from ADO for the Action work item type.
     
@@ -1876,7 +1665,7 @@ async def get_field_definitions():
 # =============================================================================
 
 @app.post("/api/v1/webhook/workitem", tags=["Webhook"])
-async def receive_webhook(payload: WebhookPayload):
+def receive_webhook(payload: WebhookPayload):
     """
     Receive ADO Service Hook webhook notifications.
     
@@ -1943,7 +1732,7 @@ async def receive_webhook(payload: WebhookPayload):
 
 
 @app.get("/api/v1/webhook/stats", tags=["Webhook"])
-async def webhook_stats():
+def webhook_stats():
     """Get webhook processing statistics"""
     processor = get_webhook()
     return processor.get_stats()
@@ -1954,7 +1743,7 @@ async def webhook_stats():
 # =============================================================================
 
 @app.get("/api/v1/audit", tags=["Audit"])
-async def list_audit(
+def list_audit(
     entity_type: Optional[str] = Query(None),
     action: Optional[str] = Query(None),
     actor: Optional[str] = Query(None),
@@ -1978,7 +1767,7 @@ async def list_audit(
 
 
 @app.get("/api/v1/audit/{entity_type}/{entity_id}", tags=["Audit"])
-async def get_entity_audit(entity_type: str, entity_id: str, limit: int = 50):
+def get_entity_audit(entity_type: str, entity_id: str, limit: int = 50):
     """Get audit history for a specific entity.
     Returns empty results when Cosmos DB is unavailable."""
     try:
@@ -1996,7 +1785,7 @@ async def get_entity_audit(entity_type: str, entity_id: str, limit: int = 50):
 # =============================================================================
 
 @app.get("/api/v1/validation/warnings", tags=["Validation"])
-async def get_validation_warnings():
+def get_validation_warnings():
     """
     Get all validation warnings across the system.
     
@@ -2133,7 +1922,7 @@ async def get_validation_warnings():
     "/api/v1/validation/references/{entity_type}/{entity_id}",
     tags=["Validation"]
 )
-async def get_references(entity_type: str, entity_id: str):
+def get_references(entity_type: str, entity_id: str):
     """Get all entities that reference the given entity"""
     crud = get_crud()
     refs = crud.find_references(entity_type, entity_id)
@@ -2149,7 +1938,7 @@ async def get_references(entity_type: str, entity_id: str):
 # =============================================================================
 
 @app.get("/api/v1/fields", tags=["Fields"])
-async def list_fields(
+def list_fields(
     source: Optional[str] = Query(None, description="Filter by source (ado, analysis, system)"),
     can_evaluate: Optional[bool] = Query(None, description="Filter to evaluable fields"),
     can_set: Optional[bool] = Query(None, description="Filter to settable fields"),
@@ -2257,45 +2046,11 @@ async def list_fields(
             af["canSet"] = False  # Analysis fields are read-only
         items.extend(analysis_fields)
 
-        # ── Add ServiceTree routing fields ────────────────────
-        # These resolve via Analysis.get_analysis_field() in the rules engine.
-        servicetree_fields = [
-            {"id": "Analysis.ServiceTreeMatch",    "displayName": "Service Tree Match",    "type": "string", "description": "Matched ServiceTree service name"},
-            {"id": "Analysis.ServiceTreeOffering",  "displayName": "Service Tree Offering",  "type": "string", "description": "Parent offering from ServiceTree"},
-            {"id": "Analysis.SolutionArea",         "displayName": "Solution Area",          "type": "string", "description": "Solution area (AI Business Process, Cloud and AI Platform, Security, etc.)"},
-            {"id": "Analysis.CsuDri",              "displayName": "CSU DRI",               "type": "string", "description": "CSU DRI alias from ServiceTree"},
-            {"id": "Analysis.AreaPathAdo",          "displayName": "ADO Area Path",          "type": "string", "description": "ADO area path from ServiceTree (Security, Data and AI, etc.)"},
-            {"id": "Analysis.ReleaseManager",       "displayName": "Release Manager",        "type": "string", "description": "Release manager alias(es) from ServiceTree"},
-            {"id": "Analysis.DevContact",           "displayName": "Dev Contact",            "type": "string", "description": "Dev team alias from ServiceTree"},
-        ]
-        for sf in servicetree_fields:
-            sf["source"] = "servicetree"
-            sf["group"] = "ServiceTree"
-            sf["canEvaluate"] = True
-            sf["canSet"] = False
-        items.extend(servicetree_fields)
-
-        # ── Add Graph / Identity fields ───────────────────────
-        # These resolve via Graph.* prefix in the rules engine.
-        graph_fields = [
-            {"id": "Graph.DisplayName", "displayName": "Requestor Name",       "type": "string", "description": "Requestor display name from Microsoft Graph"},
-            {"id": "Graph.JobTitle",    "displayName": "Requestor Job Title",  "type": "string", "description": "Requestor job title from Microsoft Graph"},
-            {"id": "Graph.Department",  "displayName": "Requestor Department", "type": "string", "description": "Requestor department from Microsoft Graph"},
-            {"id": "Graph.Email",       "displayName": "Requestor Email",      "type": "string", "description": "Requestor email address from Microsoft Graph"},
-            {"id": "Graph.Alias",       "displayName": "Requestor Alias",      "type": "string", "description": "Requestor alias (mailNickname) from Microsoft Graph"},
-        ]
-        for gf in graph_fields:
-            gf["source"] = "graph"
-            gf["group"] = "Graph"
-            gf["canEvaluate"] = True
-            gf["canSet"] = False
-        items.extend(graph_fields)
-
-        # Sort: Analysis → ServiceTree → Graph → ADO groups alphabetically
+        # Sort: Analysis group first, then ADO groups alphabetically
         def sort_key(x):
             g = x["group"]
-            order = {"Analysis": 0, "ServiceTree": 1, "Graph": 2}
-            return (order.get(g, 3), g, x["displayName"])
+            # Analysis fields sort before everything else
+            return (0 if g == "Analysis" else 1, g, x["displayName"])
         items.sort(key=sort_key)
 
         return {

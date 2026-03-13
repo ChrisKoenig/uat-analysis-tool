@@ -405,26 +405,6 @@ export function applyEvaluation(evaluationId, workItemId, revision = null) {
   return post('/evaluate/apply', { evaluationId, workItemId, revision });
 }
 
-/**
- * Bulk-apply evaluation results to ADO.
- * @param {Array<{evaluationId: string, workItemId: number}>} items
- */
-export function applyEvaluationBatch(items) {
-  return post('/evaluate/apply-batch', { items });
-}
-
-/**
- * Revert a previously applied evaluation using a stored snapshot.
- */
-export function revertEvaluation(snapshotId, workItemId) {
-  return post('/evaluate/revert', { snapshotId, workItemId });
-}
-
-/** Get apply snapshots for a work item (for revert). */
-export function getSnapshots(workItemId) {
-  return get(`/evaluate/snapshots/${workItemId}`);
-}
-
 /** Get evaluation history for a work item */
 export function getEvaluationHistory(workItemId, limit = 20) {
   return get(`/evaluations/${workItemId}?limit=${limit}`);
@@ -830,6 +810,28 @@ export function listBackups(limit = 20) {
  */
 export function getBackup(auditId) {
   return get(`/data-management/backups/${encodeURIComponent(auditId)}`);
+}
+
+/**
+ * Bulk-update the same fields on multiple entities.
+ * @param {string} entityType - "rule" | "action" | "trigger" | "route"
+ * @param {string[]} entityIds - IDs to update
+ * @param {Object} fieldUpdates - Fields/values to set on each entity
+ * @returns {Promise<Object>} { updated, failed, results }
+ */
+export function bulkEdit(entityType, entityIds, fieldUpdates) {
+  return post('/data-management/bulk-edit', { entityType, entityIds, fieldUpdates });
+}
+
+/**
+ * Bulk-delete multiple entities (soft or hard).
+ * @param {string} entityType - "rule" | "action" | "trigger" | "route"
+ * @param {string[]} entityIds - IDs to delete
+ * @param {boolean} [hardDelete=false] - Permanent removal if true
+ * @returns {Promise<Object>} { deleted, skipped, failed, results }
+ */
+export function bulkDelete(entityType, entityIds, hardDelete = false) {
+  return post('/data-management/bulk-delete', { entityType, entityIds, hardDelete });
 }
 
 
